@@ -1,44 +1,5 @@
 [
   {
-    "id": 1,
-    "date": "2026-01-14",
-    "title": "US Strike on IRGC Proxy Depot",
-    "location": "Al-Bukamal, Syria",
-    "lat": 34.46,
-    "lng": 40.98,
-    "type": "strike",
-    "target_type": "weapons",
-    "actor": "US",
-    "casualties": { "confirmed": 4, "estimated": 12 },
-    "description": "B-2 strike targeting IRGC-affiliated weapons depot near Iraqi border crossing. Multiple secondary explosions reported."
-  },
-  {
-    "id": 2,
-    "date": "2026-01-19",
-    "title": "IDF Airstrike — Hezbollah Cache",
-    "location": "Baalbek, Lebanon",
-    "lat": 34.00,
-    "lng": 36.21,
-    "type": "strike",
-    "target_type": "weapons",
-    "actor": "Israel",
-    "casualties": { "confirmed": 2, "estimated": 8 },
-    "description": "Precision strike on underground munitions storage linked to Hezbollah rocket program."
-  },
-  {
-    "id": 3,
-    "date": "2026-01-27",
-    "title": "Iranian Ballistic Missile Launch",
-    "location": "Isfahan Province, Iran",
-    "lat": 32.65,
-    "lng": 51.67,
-    "type": "missile",
-    "target_type": "military",
-    "actor": "Iran",
-    "casualties": { "confirmed": 0, "estimated": 0 },
-    "description": "IRGC test-fires medium-range ballistic missile. Assessed as signaling response to US carrier deployment."
-  },
-  {
     "id": 4,
     "date": "2026-02-03",
     "title": "Drone Swarm — Red Sea Shipping",
