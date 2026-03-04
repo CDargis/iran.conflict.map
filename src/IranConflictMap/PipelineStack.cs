@@ -38,7 +38,6 @@ public class PipelineStack : Stack
                 Commands = new[]
                 {
                     "npm install -g aws-cdk",
-                    "cd src/IranConflictMap",
                     "dotnet restore",
                     "cdk synth"
                 },
