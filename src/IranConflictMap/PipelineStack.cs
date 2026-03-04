@@ -38,7 +38,7 @@ public class PipelineStack : Stack
                 Commands = new[]
                 {
                     "npm install -g aws-cdk",
-                    "dotnet restore",
+                    "dotnet restore src/IranConflictMap/IranConflictMap.csproj",
                     "cdk synth"
                 },
                 PrimaryOutputDirectory = "cdk.out"
