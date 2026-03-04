@@ -7,6 +7,7 @@
     "lat": 34.46,
     "lng": 40.98,
     "type": "strike",
+    "target_type": "weapons",
     "actor": "US",
     "casualties": { "confirmed": 4, "estimated": 12 },
     "description": "B-2 strike targeting IRGC-affiliated weapons depot near Iraqi border crossing. Multiple secondary explosions reported."
@@ -19,6 +20,7 @@
     "lat": 34.00,
     "lng": 36.21,
     "type": "strike",
+    "target_type": "weapons",
     "actor": "Israel",
     "casualties": { "confirmed": 2, "estimated": 8 },
     "description": "Precision strike on underground munitions storage linked to Hezbollah rocket program."
@@ -31,6 +33,7 @@
     "lat": 32.65,
     "lng": 51.67,
     "type": "missile",
+    "target_type": "military",
     "actor": "Iran",
     "casualties": { "confirmed": 0, "estimated": 0 },
     "description": "IRGC test-fires medium-range ballistic missile. Assessed as signaling response to US carrier deployment."
@@ -43,6 +46,7 @@
     "lat": 17.20,
     "lng": 42.50,
     "type": "drone",
+    "target_type": "maritime",
     "actor": "Houthi/Iran",
     "casualties": { "confirmed": 0, "estimated": 0 },
     "description": "Houthi drone attack on commercial container vessel. USS Gravely intercepts 6 of 8 drones. Partial hull damage."
@@ -55,6 +59,7 @@
     "lat": 26.50,
     "lng": 56.30,
     "type": "naval",
+    "target_type": "maritime",
     "actor": "US",
     "casualties": { "confirmed": 0, "estimated": 0 },
     "description": "USS Abraham Lincoln strike group intercepts IRGC fast-attack vessels harassing commercial traffic. No shots fired."
@@ -67,6 +72,7 @@
     "lat": 33.72,
     "lng": 51.72,
     "type": "strike",
+    "target_type": "nuclear",
     "actor": "Israel",
     "casualties": { "confirmed": 1, "estimated": 5 },
     "description": "Reported Israeli strike on SAM battery adjacent to Natanz enrichment complex. Iran denies damage to nuclear facilities."
@@ -79,6 +85,7 @@
     "lat": 36.19,
     "lng": 44.01,
     "type": "drone",
+    "target_type": "military",
     "actor": "Iran",
     "casualties": { "confirmed": 3, "estimated": 10 },
     "description": "IRGC-linked group launches drone barrage at US facilities. Two intercepted; one impacts logistics building."
@@ -91,6 +98,7 @@
     "lat": 35.33,
     "lng": 40.14,
     "type": "strike",
+    "target_type": "command",
     "actor": "US",
     "casualties": { "confirmed": 7, "estimated": 20 },
     "description": "Multi-aircraft strike package targeting Iranian-backed militia command nodes. Four separate aim-points engaged."

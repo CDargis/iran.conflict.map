@@ -277,10 +277,15 @@
       background: var(--c, transparent);
       opacity: 0; transition: opacity .15s;
     }
-    .strike-item.type-strike  { --c: var(--accent); }
-    .strike-item.type-missile { --c: var(--amber); }
-    .strike-item.type-drone   { --c: var(--blue); }
-    .strike-item.type-naval   { --c: #8e44ad; }
+    .strike-item.target-nuclear   { --c: #f1c40f; }
+    .strike-item.target-military  { --c: #c8392b; }
+    .strike-item.target-weapons   { --c: #e67e22; }
+    .strike-item.target-maritime  { --c: #4a9eda; }
+    .strike-item.target-energy    { --c: #ff6b35; }
+    .strike-item.target-command   { --c: #8e44ad; }
+    .strike-item.target-logistics { --c: #2ecc71; }
+    .strike-item.target-transport { --c: #1abc9c; }
+    .strike-item.target-civilian  { --c: #95a5a6; }
     .strike-item:active { background: rgba(255,255,255,.02); }
     .strike-item.active::before { opacity: 1; }
     .strike-item.active .strike-title { color: #fff; }
@@ -524,20 +529,31 @@
 /* ── DATA ── */
 const STRIKES_URL = 'strikes.json';
 const FALLBACK = [
-  {id:1,date:"2026-01-14",title:"US Strike on IRGC Proxy Depot",location:"Al-Bukamal, Syria",lat:34.46,lng:40.98,type:"strike",actor:"US",casualties:{confirmed:4,estimated:12},description:"B-2 strike targeting IRGC-affiliated weapons depot near Iraqi border crossing. Multiple secondary explosions reported."},
-  {id:2,date:"2026-01-19",title:"IDF Airstrike — Hezbollah Cache",location:"Baalbek, Lebanon",lat:34.00,lng:36.21,type:"strike",actor:"Israel",casualties:{confirmed:2,estimated:8},description:"Precision strike on underground munitions storage linked to Hezbollah rocket program."},
-  {id:3,date:"2026-01-27",title:"Iranian Ballistic Missile Launch",location:"Isfahan Province, Iran",lat:32.65,lng:51.67,type:"missile",actor:"Iran",casualties:{confirmed:0,estimated:0},description:"IRGC test-fires medium-range ballistic missile. Assessed as signaling response to US carrier deployment."},
-  {id:4,date:"2026-02-03",title:"Drone Swarm — Red Sea Shipping",location:"Red Sea (17°N)",lat:17.2,lng:42.5,type:"drone",actor:"Houthi/Iran",casualties:{confirmed:0,estimated:0},description:"Houthi drone attack on commercial container vessel. USS Gravely intercepts 6 of 8 drones. Partial hull damage."},
-  {id:5,date:"2026-02-09",title:"US Navy Intercept — Strait of Hormuz",location:"Strait of Hormuz",lat:26.5,lng:56.3,type:"naval",actor:"US",casualties:{confirmed:0,estimated:0},description:"USS Abraham Lincoln strike group intercepts IRGC fast-attack vessels harassing commercial traffic."},
-  {id:6,date:"2026-02-17",title:"IDF Strike — Natanz Adjacent Site",location:"Natanz Region, Iran",lat:33.72,lng:51.72,type:"strike",actor:"Israel",casualties:{confirmed:1,estimated:5},description:"Reported Israeli strike on SAM battery adjacent to Natanz enrichment complex."},
-  {id:7,date:"2026-02-24",title:"IRGC Drone Attack — Erbil Airbase",location:"Erbil, Iraq",lat:36.19,lng:44.01,type:"drone",actor:"Iran",casualties:{confirmed:3,estimated:10},description:"IRGC-linked group launches drone barrage at US facilities. Two intercepted; one impacts logistics building."},
-  {id:8,date:"2026-03-01",title:"US CENTCOM Strike Package",location:"Deir ez-Zor, Syria",lat:35.33,lng:40.14,type:"strike",actor:"US",casualties:{confirmed:7,estimated:20},description:"Multi-aircraft strike package targeting Iranian-backed militia command nodes. Four aim-points engaged."},
+  {id:1,date:"2026-01-14",title:"US Strike on IRGC Proxy Depot",location:"Al-Bukamal, Syria",lat:34.46,lng:40.98,type:"strike",target_type:"weapons",actor:"US",casualties:{confirmed:4,estimated:12},description:"B-2 strike targeting IRGC-affiliated weapons depot near Iraqi border crossing. Multiple secondary explosions reported."},
+  {id:2,date:"2026-01-19",title:"IDF Airstrike — Hezbollah Cache",location:"Baalbek, Lebanon",lat:34.00,lng:36.21,type:"strike",target_type:"weapons",actor:"Israel",casualties:{confirmed:2,estimated:8},description:"Precision strike on underground munitions storage linked to Hezbollah rocket program."},
+  {id:3,date:"2026-01-27",title:"Iranian Ballistic Missile Launch",location:"Isfahan Province, Iran",lat:32.65,lng:51.67,type:"missile",target_type:"military",actor:"Iran",casualties:{confirmed:0,estimated:0},description:"IRGC test-fires medium-range ballistic missile. Assessed as signaling response to US carrier deployment."},
+  {id:4,date:"2026-02-03",title:"Drone Swarm — Red Sea Shipping",location:"Red Sea (17°N)",lat:17.2,lng:42.5,type:"drone",target_type:"maritime",actor:"Houthi/Iran",casualties:{confirmed:0,estimated:0},description:"Houthi drone attack on commercial container vessel. USS Gravely intercepts 6 of 8 drones. Partial hull damage."},
+  {id:5,date:"2026-02-09",title:"US Navy Intercept — Strait of Hormuz",location:"Strait of Hormuz",lat:26.5,lng:56.3,type:"naval",target_type:"maritime",actor:"US",casualties:{confirmed:0,estimated:0},description:"USS Abraham Lincoln strike group intercepts IRGC fast-attack vessels harassing commercial traffic."},
+  {id:6,date:"2026-02-17",title:"IDF Strike — Natanz Adjacent Site",location:"Natanz Region, Iran",lat:33.72,lng:51.72,type:"strike",target_type:"nuclear",actor:"Israel",casualties:{confirmed:1,estimated:5},description:"Reported Israeli strike on SAM battery adjacent to Natanz enrichment complex."},
+  {id:7,date:"2026-02-24",title:"IRGC Drone Attack — Erbil Airbase",location:"Erbil, Iraq",lat:36.19,lng:44.01,type:"drone",target_type:"military",actor:"Iran",casualties:{confirmed:3,estimated:10},description:"IRGC-linked group launches drone barrage at US facilities. Two intercepted; one impacts logistics building."},
+  {id:8,date:"2026-03-01",title:"US CENTCOM Strike Package",location:"Deir ez-Zor, Syria",lat:35.33,lng:40.14,type:"strike",target_type:"command",actor:"US",casualties:{confirmed:7,estimated:20},description:"Multi-aircraft strike package targeting Iranian-backed militia command nodes. Four aim-points engaged."},
 ];
 const TYPE_CFG = {
-  strike: {color:'#c8392b',label:'Airstrike'},
-  missile:{color:'#e8a020',label:'Missile Launch'},
-  drone:  {color:'#4a9eda',label:'Drone Attack'},
-  naval:  {color:'#8e44ad',label:'Naval Incident'},
+  strike: {label:'Airstrike'},
+  missile:{label:'Missile Launch'},
+  drone:  {label:'Drone Attack'},
+  naval:  {label:'Naval Incident'},
+};
+const TARGET_CFG = {
+  nuclear:   {color:'#f1c40f', label:'Nuclear Facility'},
+  military:  {color:'#c8392b', label:'Military / Base'},
+  weapons:   {color:'#e67e22', label:'Weapons / Munitions'},
+  maritime:  {color:'#4a9eda', label:'Shipping / Maritime'},
+  energy:    {color:'#ff6b35', label:'Energy Infrastructure'},
+  command:   {color:'#8e44ad', label:'Command & Control'},
+  logistics: {color:'#2ecc71', label:'Logistics'},
+  transport: {color:'#1abc9c', label:'Transportation'},
+  civilian:  {color:'#95a5a6', label:'Civilian'},
 };
 const TICKERS = [
   "US CENTCOM maintains elevated readiness across AOR",
@@ -567,7 +583,7 @@ setInterval(tick,1000);tick();
 /* ── MARKERS ── */
 let markers={},activeId=null;
 function makeIcon(type,hi=false){
-  const c=TYPE_CFG[type]?.color||'#c8392b';
+  const c=TARGET_CFG[type]?.color||'#c8392b';
   const size=hi?26:20, dot=hi?10:7;
   return L.divIcon({className:'',iconSize:[size,size],iconAnchor:[size/2,size/2],
     html:`<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
@@ -577,22 +593,25 @@ function makeIcon(type,hi=false){
     </svg>`});
 }
 function popupHTML(s){
-  const c=TYPE_CFG[s.type]?.color||'#c8392b',lbl=TYPE_CFG[s.type]?.label||s.type;
-  return `<div class="popup-type" style="color:${c}">${lbl} — ${s.actor}</div>
+  const tc=TARGET_CFG[s.target_type]?.color||'#c8392b';
+  const tlbl=TARGET_CFG[s.target_type]?.label||s.target_type;
+  const albl=TYPE_CFG[s.type]?.label||s.type;
+  return `<div class="popup-type" style="color:${tc}">${tlbl} — ${s.actor}</div>
     <div class="popup-title">${s.title}</div>
     <div class="popup-date">${s.date} · ${s.location}</div>
     <div class="popup-desc">${s.description}</div>
+    <div style="margin-top:6px;font-size:9px;color:var(--dim)">METHOD: ${albl}</div>
     ${s.casualties?.confirmed>0||s.casualties?.estimated>0
       ?`<div class="popup-cas">KIA CONFIRMED: <span>${s.casualties.confirmed}</span> · EST: <span>${s.casualties.estimated}</span></div>`:''}`;
 }
 function focusStrike(id){
   if(activeId&&markers[activeId]){
-    markers[activeId].m.setIcon(makeIcon(markers[activeId].s.type,false));
+    markers[activeId].m.setIcon(makeIcon(markers[activeId].s.target_type,false));
     document.querySelectorAll(`.strike-item[data-id="${activeId}"]`).forEach(el=>el.classList.remove('active'));
   }
   activeId=id;
   const e=markers[id];if(!e)return;
-  e.m.setIcon(makeIcon(e.s.type,true));
+  e.m.setIcon(makeIcon(e.s.target_type,true));
   map.flyTo([e.s.lat,e.s.lng],7,{duration:1.1});
   setTimeout(()=>e.m.openPopup(),850);
   document.querySelectorAll(`.strike-item[data-id="${id}"]`).forEach(el=>{
@@ -605,11 +624,11 @@ function focusStrike(id){
 /* ── RENDER ── */
 function feedHTML(data){
   return [...data].sort((a,b)=>b.date.localeCompare(a.date)).map(s=>`
-    <div class="strike-item type-${s.type}" data-id="${s.id}" onclick="focusStrike(${s.id})">
+    <div class="strike-item target-${s.target_type}" data-id="${s.id}" onclick="focusStrike(${s.id})">
       <div class="strike-date">${s.date}</div>
       <div class="strike-title">${s.title}</div>
       <div class="strike-loc">${s.location}</div>
-      <span class="strike-tag">${TYPE_CFG[s.type]?.label||s.type}</span>
+      <span class="strike-tag">${TARGET_CFG[s.target_type]?.label||s.target_type}</span>
     </div>`).join('');
 }
 function statsHTML(data){
@@ -621,7 +640,7 @@ function statsHTML(data){
     <div class="stat-box"><div class="stat-num green">${data.length}</div><div class="stat-label">Total Events</div></div>`;
 }
 function legendHTML(){
-  return Object.entries(TYPE_CFG).map(([,v])=>
+  return Object.entries(TARGET_CFG).map(([,v])=>
     `<div class="legend-item"><div class="legend-dot" style="color:${v.color}"></div><span>${v.label}</span></div>`
   ).join('');
 }
@@ -640,7 +659,7 @@ function render(data){
   document.getElementById('ticker-text').innerHTML =
     TICKERS.map(t=>`◆ ${t}`).join(' <span style="margin:0 16px;color:var(--accent)">|</span> ');
   data.forEach(s=>{
-    const m=L.marker([s.lat,s.lng],{icon:makeIcon(s.type)}).addTo(map)
+    const m=L.marker([s.lat,s.lng],{icon:makeIcon(s.target_type)}).addTo(map)
       .bindPopup(popupHTML(s),{maxWidth:300});
     m.on('click',()=>focusStrike(s.id));
     markers[s.id]={m,s};
