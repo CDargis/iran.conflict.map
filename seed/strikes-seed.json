@@ -3,17 +3,68 @@
     {
       "PutRequest": {
         "Item": {
+          "id":          { "S": "1" },
+          "date":        { "S": "2026-02-28" },
+          "title":       { "S": "Operation Roaring Lion / Epic Fury Launch" },
+          "location":    { "S": "Tehran, Iran" },
+          "lat":         { "N": "35.6892" },
+          "lng":         { "N": "51.3890" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "Israel" },
+          "description": { "S": "The Israeli Air Force launched an unprecedented wave of decapitation strikes against Tehran at approximately 06:45 UTC. Supreme Leader Ali Khamenei and several senior officials were killed when their compound was destroyed. Over 1,200 bombs were used in the first 24 hours of operations." },
+          "casualties":  { "M": { "confirmed": { "N": "48" }, "estimated": { "N": "200" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "2" },
+          "date":        { "S": "2026-02-28" },
+          "title":       { "S": "CENTCOM Strikes Command-and-Control Infrastructure" },
+          "location":    { "S": "Tehran, Iran" },
+          "lat":         { "N": "35.7219" },
+          "lng":         { "N": "51.3347" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "US" },
+          "description": { "S": "CENTCOM announced airstrikes beginning at 06:35 UTC targeting command-and-control infrastructure, missile sites, UAV facilities, and radar installations across Iran. B-2 stealth bombers, B-1 Lancers, and B-52s were deployed to attack hardened ballistic missile facilities with 2,000-pound bombs. USN F/A-18s and F-35s were also employed alongside Tomahawk cruise missiles." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "50" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "3" },
+          "date":        { "S": "2026-02-28" },
+          "title":       { "S": "Isfahan Nuclear & Missile Facilities Strike" },
+          "location":    { "S": "Isfahan, Iran" },
+          "lat":         { "N": "32.6539" },
+          "lng":         { "N": "51.6660" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "nuclear" },
+          "actor":       { "S": "US" },
+          "description": { "S": "US and Israeli forces struck military and nuclear-linked facilities in and around Isfahan, a key hub for Iran's ballistic missile programme. Production plants and research facilities in the area were targeted. Isfahan had previously been hit during the June 2025 conflict." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "20" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
           "id":          { "S": "4" },
-          "date":        { "S": "2026-02-03" },
-          "title":       { "S": "Drone Swarm — Red Sea Shipping" },
-          "location":    { "S": "Red Sea (17°N)" },
-          "lat":         { "N": "17.20" },
-          "lng":         { "N": "42.50" },
-          "type":        { "S": "drone" },
-          "target_type": { "S": "maritime" },
-          "actor":       { "S": "Houthi/Iran" },
-          "description": { "S": "Houthi drone attack on commercial container vessel. USS Gravely intercepts 6 of 8 drones. Partial hull damage." },
-          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } }
+          "date":        { "S": "2026-02-28" },
+          "title":       { "S": "Minab Girls' School Struck" },
+          "location":    { "S": "Minab, Hormozgan Province, Iran" },
+          "lat":         { "N": "27.0978" },
+          "lng":         { "N": "57.0820" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Israel" },
+          "description": { "S": "The Shajareh Tayyebeh girls' elementary school in Minab was struck by a missile at approximately 07:15 UTC. Iranian media reported 180 killed in the incident. The strike was among the most deadly single incidents affecting civilians in the opening day of the conflict." },
+          "casualties":  { "M": { "confirmed": { "N": "180" }, "estimated": { "N": "180" } } }
         }
       }
     },
@@ -21,16 +72,16 @@
       "PutRequest": {
         "Item": {
           "id":          { "S": "5" },
-          "date":        { "S": "2026-02-09" },
-          "title":       { "S": "US Navy Intercept — Strait of Hormuz" },
-          "location":    { "S": "Strait of Hormuz" },
-          "lat":         { "N": "26.50" },
-          "lng":         { "N": "56.30" },
-          "type":        { "S": "naval" },
-          "target_type": { "S": "maritime" },
-          "actor":       { "S": "US" },
-          "description": { "S": "USS Abraham Lincoln strike group intercepts IRGC fast-attack vessels harassing commercial traffic. No shots fired." },
-          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } }
+          "date":        { "S": "2026-02-28" },
+          "title":       { "S": "Iran Retaliatory Ballistic Missile Salvo" },
+          "location":    { "S": "Persian Gulf / Israel" },
+          "lat":         { "N": "27.0000" },
+          "lng":         { "N": "52.0000" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Iran" },
+          "description": { "S": "In retaliation for the US-Israeli strikes, Iran launched approximately 170 ballistic missiles toward Israel and several Gulf states beginning at 09:05 UTC. Targets included US military bases in Jordan, Kuwait, Bahrain, Qatar, Iraq, Saudi Arabia, and the UAE. The IDF estimated 170 ballistic missiles were launched in the initial salvo." },
+          "casualties":  { "M": { "confirmed": { "N": "3" }, "estimated": { "N": "20" } } }
         }
       }
     },
@@ -38,16 +89,16 @@
       "PutRequest": {
         "Item": {
           "id":          { "S": "6" },
-          "date":        { "S": "2026-02-17" },
-          "title":       { "S": "IDF Strike — Natanz Adjacent Site" },
-          "location":    { "S": "Natanz Region, Iran" },
-          "lat":         { "N": "33.72" },
-          "lng":         { "N": "51.72" },
-          "type":        { "S": "strike" },
-          "target_type": { "S": "nuclear" },
-          "actor":       { "S": "Israel" },
-          "description": { "S": "Reported Israeli strike on SAM battery adjacent to Natanz enrichment complex. Iran denies damage to nuclear facilities." },
-          "casualties":  { "M": { "confirmed": { "N": "1" }, "estimated": { "N": "5" } } }
+          "date":        { "S": "2026-02-28" },
+          "title":       { "S": "USS Fifth Fleet Service Center Strike, Bahrain" },
+          "location":    { "S": "Manama, Bahrain" },
+          "lat":         { "N": "26.2285" },
+          "lng":         { "N": "50.5860" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Iran" },
+          "description": { "S": "An Iranian missile struck the US Navy Fifth Fleet service center in Bahrain at approximately 09:26 UTC. The strike was part of Iran's initial retaliatory wave against US assets in the Gulf. Bahrain later reported intercepting 74 missiles and 92 drones since the conflict began on February 28." },
+          "casualties":  { "M": { "confirmed": { "N": "2" }, "estimated": { "N": "10" } } }
         }
       }
     },
@@ -55,16 +106,16 @@
       "PutRequest": {
         "Item": {
           "id":          { "S": "7" },
-          "date":        { "S": "2026-02-24" },
-          "title":       { "S": "IRGC Drone Attack — Erbil Airbase" },
-          "location":    { "S": "Erbil, Iraq" },
-          "lat":         { "N": "36.19" },
-          "lng":         { "N": "44.01" },
-          "type":        { "S": "drone" },
+          "date":        { "S": "2026-02-28" },
+          "title":       { "S": "Iranian Strikes on UAE — Al Dhafra Air Base" },
+          "location":    { "S": "Al Dhafra Air Base, Abu Dhabi, UAE" },
+          "lat":         { "N": "24.2483" },
+          "lng":         { "N": "54.5477" },
+          "type":        { "S": "missile" },
           "target_type": { "S": "military" },
           "actor":       { "S": "Iran" },
-          "description": { "S": "IRGC-linked group launches drone barrage at US facilities. Two intercepted; one impacts logistics building." },
-          "casualties":  { "M": { "confirmed": { "N": "3" }, "estimated": { "N": "10" } } }
+          "description": { "S": "Iran launched ballistic missiles and drones toward US bases in Abu Dhabi, including Al Dhafra Air Base. UAE air defenses intercepted most projectiles, but debris fell in a residential area near Zayed International Airport, killing one civilian and injuring seven others. Iran launched a total of 174 ballistic missiles at the UAE during the conflict, with 161 intercepted." },
+          "casualties":  { "M": { "confirmed": { "N": "1" }, "estimated": { "N": "5" } } }
         }
       }
     },
@@ -72,16 +123,305 @@
       "PutRequest": {
         "Item": {
           "id":          { "S": "8" },
+          "date":        { "S": "2026-02-28" },
+          "title":       { "S": "Drone Strike on Palm Jumeirah, Dubai" },
+          "location":    { "S": "Palm Jumeirah, Dubai, UAE" },
+          "lat":         { "N": "25.1124" },
+          "lng":         { "N": "55.1390" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Iran" },
+          "description": { "S": "A Shahed-type drone struck near the Fairmont The Palm Hotel on Palm Jumeirah, causing a large explosion and fire. Four individuals were injured from debris and blast effects. Windows shattered in nearby buildings and the attack caused significant disruption to the surrounding area." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "4" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "9" },
+          "date":        { "S": "2026-02-28" },
+          "title":       { "S": "Lamerd Sports Hall Strike" },
+          "location":    { "S": "Lamerd, Fars Province, Iran" },
+          "lat":         { "N": "27.3722" },
+          "lng":         { "N": "53.3886" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Israel" },
+          "description": { "S": "A sports hall in Lamerd was bombed while a girls' practice session was in progress, killing at least 18 civilians. The strike was among several incidents on the opening day of the conflict that affected non-military targets." },
+          "casualties":  { "M": { "confirmed": { "N": "18" }, "estimated": { "N": "18" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "10" },
+          "date":        { "S": "2026-02-28" },
+          "title":       { "S": "Qom, Kermanshah, Karaj, Tabriz Strikes" },
+          "location":    { "S": "Qom, Iran" },
+          "lat":         { "N": "34.6416" },
+          "lng":         { "N": "50.8746" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US" },
+          "description": { "S": "US and Israeli forces expanded strikes beyond Tehran to other major Iranian cities including Qom, Kermanshah, Karaj, Tabriz, Ilam, Lorestan province, Zanjan, Urmia, Bushehr, Damavand, and Shiraz. These strikes targeted missile facilities, IRGC bases, and command infrastructure across the country." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "100" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "11" },
+          "date":        { "S": "2026-02-28" },
+          "title":       { "S": "French Naval Base Camp de la Paix Strike, Abu Dhabi" },
+          "location":    { "S": "Camp de la Paix, Abu Dhabi, UAE" },
+          "lat":         { "N": "24.4670" },
+          "lng":         { "N": "54.3670" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Iran" },
+          "description": { "S": "Iran struck the French naval air base Camp de la Paix near Zayed Port in Abu Dhabi using drones. The attack on a NATO ally's base raised immediate concerns about the conflict's potential to draw in Western powers. France did not immediately announce casualties from the strike." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "3" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "12" },
+          "date":        { "S": "2026-02-28" },
+          "title":       { "S": "Tanker MKD VYOM Struck Off Oman Coast" },
+          "location":    { "S": "Strait of Hormuz, off Khasab, Oman" },
+          "lat":         { "N": "26.1929" },
+          "lng":         { "N": "56.2461" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "maritime" },
+          "actor":       { "S": "Iran" },
+          "description": { "S": "The Marshall Islands-flagged tanker MKD VYOM was damaged after being struck off the coast of Oman, killing one crew member. Oman's Maritime Security Centre also confirmed that the Palau-flagged tanker Skylight was targeted 5 nautical miles north of Khasab, causing four injuries. The attacks contributed to 150 freight ships stalling behind the strait." },
+          "casualties":  { "M": { "confirmed": { "N": "1" }, "estimated": { "N": "5" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "13" },
           "date":        { "S": "2026-03-01" },
-          "title":       { "S": "US CENTCOM Strike Package" },
-          "location":    { "S": "Deir ez-Zor, Syria" },
-          "lat":         { "N": "35.33" },
-          "lng":         { "N": "40.14" },
+          "title":       { "S": "Niloofar Square Double-Tap Strike, Tehran" },
+          "location":    { "S": "Niloofar Square, Tehran, Iran" },
+          "lat":         { "N": "35.7572" },
+          "lng":         { "N": "51.3737" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Israel" },
+          "description": { "S": "A double-tap strike on Tehran's Niloofar Square killed more than 20 civilians. The strike pattern, designed to hit first responders, drew widespread international condemnation. Communications across Tehran were severely disrupted and a near-total internet blackout was reported by Netblocks." },
+          "casualties":  { "M": { "confirmed": { "N": "20" }, "estimated": { "N": "35" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "14" },
+          "date":        { "S": "2026-03-01" },
+          "title":       { "S": "IRIB Broadcasting HQ Strike, Tehran" },
+          "location":    { "S": "IRIB Headquarters, Evin, Tehran, Iran" },
+          "lat":         { "N": "35.7775" },
+          "lng":         { "N": "51.3780" },
           "type":        { "S": "strike" },
           "target_type": { "S": "command" },
+          "actor":       { "S": "Israel" },
+          "description": { "S": "The Islamic Republic of Iran Broadcasting headquarters in Evin, Tehran, was struck by Israeli forces. IRIB subsequently switched to Telewebion IP internet streaming to continue broadcasting. The facility was struck again the following day as part of ongoing efforts to degrade Iranian state communications." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "5" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "15" },
+          "date":        { "S": "2026-03-01" },
+          "title":       { "S": "Crowne Plaza Manama Drone Strike" },
+          "location":    { "S": "Crowne Plaza Hotel, Manama, Bahrain" },
+          "lat":         { "N": "26.2154" },
+          "lng":         { "N": "50.5832" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Iran" },
+          "description": { "S": "An Iranian drone struck the Crowne Plaza Hotel in Manama, Bahrain, causing a fire. Iranian attacks in Kuwait during this period killed one person and injured 32. Bahrain's Crown Prince issued a warning against further Iranian incursions with US backing." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "8" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "16" },
+          "date":        { "S": "2026-03-01" },
+          "title":       { "S": "RAF Akrotiri Targeted by Drone Strike, Cyprus" },
+          "location":    { "S": "RAF Akrotiri, Cyprus" },
+          "lat":         { "N": "34.5774" },
+          "lng":         { "N": "32.9879" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Iran" },
+          "description": { "S": "The Royal Air Force station at Akrotiri, Cyprus, was targeted by a suspected drone strike around midnight local time, setting off air raid sirens across Akrotiri and Dhekelia. UK Defence Secretary John Healey said Iran had fired two missiles toward British bases in Cyprus but did not believe they constituted a direct attack. Cyprus's Defence Minister denied missiles had been launched at Cyprus." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "17" },
+          "date":        { "S": "2026-03-01" },
+          "title":       { "S": "Hezbollah Rocket Attack on Haifa" },
+          "location":    { "S": "Haifa, Israel" },
+          "lat":         { "N": "32.7940" },
+          "lng":         { "N": "34.9896" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Houthi/Iran" },
+          "description": { "S": "Hezbollah confirmed responsibility for a rocket attack on an IDF base in Haifa in retaliation for Khamenei's killing. The IDF spokesperson issued an emergency statement declaring it 'an official declaration of war by Hezbollah' and vowed to neutralize the threat. Israel responded with sustained strikes on Dahieh in southern Beirut and the Beqaa Valley." },
+          "casualties":  { "M": { "confirmed": { "N": "2" }, "estimated": { "N": "10" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "18" },
+          "date":        { "S": "2026-03-01" },
+          "title":       { "S": "Dubai International Airport Strike" },
+          "location":    { "S": "Dubai International Airport, Dubai, UAE" },
+          "lat":         { "N": "25.2532" },
+          "lng":         { "N": "55.3657" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Iran" },
+          "description": { "S": "Dubai International Airport was struck by a suspected airstrike, leading to four staff being injured and an evacuation of Terminal 3. The airport sustained minor damage and emergency teams were deployed. A fire also broke out at the Jebel Ali Port, attributed by Dubai's government to debris from aerial interception of an Iranian attack." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "4" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "19" },
+          "date":        { "S": "2026-03-02" },
+          "title":       { "S": "Natanz Nuclear Facility Strike" },
+          "location":    { "S": "Natanz, Isfahan Province, Iran" },
+          "lat":         { "N": "33.7230" },
+          "lng":         { "N": "51.7260" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "nuclear" },
           "actor":       { "S": "US" },
-          "description": { "S": "Multi-aircraft strike package targeting Iranian-backed militia command nodes. Four separate aim-points engaged." },
-          "casualties":  { "M": { "confirmed": { "N": "7" }, "estimated": { "N": "20" } } }
+          "description": { "S": "Two airstrikes were carried out against the Natanz Nuclear Facility on March 2, the first confirmed attack on an Iranian nuclear site since the campaign began. Satellite imagery showed at least three buildings severely damaged, including two pedestrian entrances and one concealing a vehicle entrance to the underground facility. The IAEA confirmed entrance buildings were damaged but said no radiological consequences were expected." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "10" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "20" },
+          "date":        { "S": "2026-03-02" },
+          "title":       { "S": "Beit Shemesh Synagogue Missile Strike" },
+          "location":    { "S": "Beit Shemesh, Israel" },
+          "lat":         { "N": "31.7458" },
+          "lng":         { "N": "34.9898" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Iran" },
+          "description": { "S": "An Iranian missile breached Israeli air defenses and struck a synagogue in Beit Shemesh, killing nine people, leaving 11 missing, and injuring 51 others. The strike was one of the deadliest single Iranian attacks on Israeli territory since the conflict began. Israeli air defense systems were overwhelmed by the volume of incoming projectiles." },
+          "casualties":  { "M": { "confirmed": { "N": "9" }, "estimated": { "N": "20" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "21" },
+          "date":        { "S": "2026-03-02" },
+          "title":       { "S": "IDF Strikes 10 Intelligence Ministry Command Centers, Tehran" },
+          "location":    { "S": "Tehran, Iran" },
+          "lat":         { "N": "35.6892" },
+          "lng":         { "N": "51.3890" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "Israel" },
+          "description": { "S": "The IDF announced it struck 10 Intelligence Ministry command centers and an IRGC Quds Force facility in Tehran. The combined force also targeted Law Enforcement Command sites and Basij bases across Iran. By this point, more than 2,500 munitions had been used and 600 Iranian regime infrastructure targets had been struck since operations began." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "30" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "22" },
+          "date":        { "S": "2026-03-02" },
+          "title":       { "S": "Islamic Resistance in Iraq Drone Strikes on Erbil" },
+          "location":    { "S": "Erbil, Kurdistan Region, Iraq" },
+          "lat":         { "N": "36.1901" },
+          "lng":         { "N": "44.0090" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Houthi/Iran" },
+          "description": { "S": "The Islamic Resistance in Iraq claimed responsibility for over 23 drone strikes on US assets in Erbil. The pro-Iran Guardians of the Blood Brigade also claimed attacks on the US Victory Base near Baghdad International Airport. Iran-backed militia groups in Iraq announced they had carried out 39 attacks using dozens of UAVs against American bases in Iraq and the broader region." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "5" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "23" },
+          "date":        { "S": "2026-03-03" },
+          "title":       { "S": "IDF Strikes Iranian Leadership Compound, Tehran" },
+          "location":    { "S": "Leadership Compound, Tehran, Iran" },
+          "lat":         { "N": "35.7448" },
+          "lng":         { "N": "51.5158" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "Israel" },
+          "description": { "S": "The IDF struck the Iranian leadership compound in Tehran — the regime's most important central headquarters — with 100 aircraft and 250 munitions dropped in a single operation. The Iranian Broadcasting Authority was also attacked for a second consecutive day. Strikes were additionally reported in Isfahan, Parchin, Kerman, and against the Iranian Navy base in Bushehr." },
+          "casualties":  { "M": { "confirmed": { "N": "5" }, "estimated": { "N": "50" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "24" },
+          "date":        { "S": "2026-03-03" },
+          "title":       { "S": "US Navy Destroys 11 Iranian Naval Vessels" },
+          "location":    { "S": "Persian Gulf / Strait of Hormuz" },
+          "lat":         { "N": "26.5000" },
+          "lng":         { "N": "56.0000" },
+          "type":        { "S": "naval" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US" },
+          "description": { "S": "The US military destroyed 11 Iranian naval vessels in the Persian Gulf and Strait of Hormuz as part of ongoing operations to counter Iran's closure of the strait. Iran had announced the closure of the Strait of Hormuz, disrupting global oil and gas shipments and causing 150 freight ships to be stalled. US officials indicated they would escort oil tankers through the strait if necessary." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "50" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "25" },
+          "date":        { "S": "2026-03-03" },
+          "title":       { "S": "IDF Strikes Hezbollah Intelligence Chief, Beirut" },
+          "location":    { "S": "Dahieh, Beirut, Lebanon" },
+          "lat":         { "N": "33.8479" },
+          "lng":         { "N": "35.4955" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "Israel" },
+          "description": { "S": "The IDF eliminated Hussein Makled, head of Hezbollah's Intelligence Directorate, in strikes on Dahieh in southern Beirut. Israel also struck Hezbollah's Al-Manar TV network building, Al-Nour radio station, and 18 branches of the Al-Qard al-Hasan financial institution across Lebanon. Four US soldiers had been killed in total since operations began." },
+          "casualties":  { "M": { "confirmed": { "N": "1" }, "estimated": { "N": "5" } } }
         }
       }
     }
