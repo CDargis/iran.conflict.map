@@ -49,7 +49,7 @@ public class PipelineStack : Stack
             {
                 BuildEnvironment = new BuildEnvironment
                 {
-                    BuildImage  = LinuxBuildImage.AMAZON_LINUX_2_5,  // ships with .NET 8
+                    BuildImage  = LinuxBuildImage.STANDARD_7_0,  // ships with .NET 8
                     ComputeType = ComputeType.SMALL
                 }
             }
