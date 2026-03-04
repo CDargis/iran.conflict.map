@@ -84,3 +84,6 @@ yarn-error.log*
 *.swp
 *.swo
 *~
+
+*.exe
+*.dll

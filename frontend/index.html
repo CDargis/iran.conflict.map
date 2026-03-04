@@ -171,56 +171,82 @@
     #sheet {
       position: fixed; left: 0; right: 0; bottom: 0;
       z-index: 700;
-      background: var(--panel);
-      border-top: 1px solid var(--border);
-      border-radius: 12px 12px 0 0;
-      box-shadow: 0 -8px 40px rgba(0,0,0,.7);
+      background: var(--bg);
+      /* Sharp top edge — no rounded corners, more tactical */
+      border-top: 2px solid var(--accent);
+      box-shadow: 0 -4px 32px rgba(0,0,0,.85), inset 0 1px 0 rgba(200,57,43,.15);
       display: flex; flex-direction: column;
       touch-action: none; will-change: transform;
       height: calc(100vh - var(--header-h));
       transform: translateY(calc(100% - var(--peek)));
-      transition: transform .32s cubic-bezier(.4,0,.2,1);
+      transition: transform .3s cubic-bezier(.4,0,.2,1);
     }
     #sheet.snap-closed { transform: translateY(calc(100% - var(--peek))); }
     #sheet.snap-mid    { transform: translateY(calc(100% - 52vh)); }
     #sheet.snap-open   { transform: translateY(0); }
     #sheet.dragging    { transition: none; }
 
+    /* Handle zone — full-width drag target with label instead of a pill */
     #sheet-handle {
-      flex-shrink: 0; padding: 12px 0 6px;
-      display: flex; flex-direction: column; align-items: center; gap: 6px;
-      cursor: grab; user-select: none;
-    }
-    #sheet-handle:active { cursor: grabbing; }
-    .handle-bar {
-      width: 36px; height: 3px; background: var(--border); border-radius: 2px;
-      transition: background .2s;
-    }
-    #sheet-handle:hover .handle-bar { background: var(--dim); }
-
-    #sheet-header {
       flex-shrink: 0;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 14px 10px;
+      padding: 0 14px;
+      height: var(--peek);
+      cursor: grab; user-select: none;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+    #sheet-handle:active { cursor: grabbing; }
+    #sheet-handle:active { background: color-mix(in srgb, var(--accent) 4%, var(--panel)); }
+    .handle-label {
+      font-family: var(--sans); font-weight: 700;
+      font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: #fff;
+    }
+    .handle-meta { display: flex; align-items: center; gap: 10px; }
+    .handle-count {
+      font-size: 9px; color: var(--dim);
+      border: 1px solid var(--border); padding: 2px 8px; letter-spacing: .07em;
+    }
+    .handle-chevron {
+      font-size: 10px; color: var(--dim);
+      transition: transform .3s ease;
+    }
+    #sheet.snap-open  .handle-chevron { transform: rotate(180deg); }
+    #sheet.snap-mid   .handle-chevron { transform: rotate(90deg); }
+
+    /* No separate header — handle IS the header */
+    #sheet-header { display: none; }
+
+    /* Tabs — horizontal pill-style selector, not underline */
+    #sheet-tabs {
+      flex-shrink: 0;
+      display: flex;
+      padding: 8px 12px;
+      gap: 6px;
+      background: var(--panel);
       border-bottom: 1px solid var(--border);
     }
-    .sheet-title { font-family: var(--sans); font-weight: 600; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: #fff; }
-    #event-badge { font-size: 9px; color: var(--dim); border: 1px solid var(--border); padding: 2px 8px; letter-spacing: .07em; }
-
-    #sheet-tabs { flex-shrink: 0; display: flex; border-bottom: 1px solid var(--border); }
     .tab {
-      flex: 1; padding: 10px 0; font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+      flex: 1; padding: 6px 0;
+      font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
       color: var(--dim); text-align: center; cursor: pointer;
-      border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
+      border: 1px solid var(--border);
+      transition: color .15s, background .15s, border-color .15s;
     }
-    .tab.active { color: #fff; border-color: var(--accent); }
+    .tab:hover { color: var(--text); border-color: var(--dim); }
+    .tab.active {
+      color: #fff;
+      background: color-mix(in srgb, var(--accent) 15%, transparent);
+      border-color: var(--accent);
+    }
 
     #sheet-body {
       flex: 1; overflow-y: auto; overflow-x: hidden;
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
+      background: var(--bg);
     }
-    #sheet-body::-webkit-scrollbar { width: 3px; }
+    #sheet-body::-webkit-scrollbar { width: 2px; }
     #sheet-body::-webkit-scrollbar-thumb { background: var(--border); }
 
     .tab-panel { display: none; padding: 10px 12px 40px; }
@@ -228,31 +254,45 @@
 
     /* ── SHARED COMPONENTS ── */
     .section-label {
-      font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
-      color: var(--dim); border-bottom: 1px solid var(--border);
-      padding-bottom: 6px; margin: 14px 0 8px;
+      font-size: 8px; letter-spacing: .18em; text-transform: uppercase;
+      color: var(--accent); opacity: .7;
+      padding: 12px 0 5px;
+      display: flex; align-items: center; gap: 8px;
     }
-    .section-label:first-child { margin-top: 4px; }
+    .section-label::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+    .section-label:first-child { padding-top: 4px; }
 
     .strike-item {
-      border-left: 2px solid var(--border);
-      padding: 9px 10px; margin-bottom: 6px;
-      cursor: pointer; transition: border-color .15s, background .15s;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background .12s;
+      position: relative;
+    }
+    .strike-item::before {
+      content: '';
+      position: absolute; left: -12px; top: 0; bottom: 0; width: 2px;
+      background: var(--c, transparent);
+      opacity: 0; transition: opacity .15s;
     }
     .strike-item.type-strike  { --c: var(--accent); }
     .strike-item.type-missile { --c: var(--amber); }
     .strike-item.type-drone   { --c: var(--blue); }
     .strike-item.type-naval   { --c: #8e44ad; }
-    .strike-item:active { background: rgba(255,255,255,.03); }
-    .strike-item.active { border-color: var(--c); background: color-mix(in srgb, var(--c) 8%, transparent); }
-    .strike-date  { font-size: 9px; color: var(--dim); }
-    .strike-title { font-size: 12px; color: #dde4ea; margin: 3px 0 2px; line-height: 1.3; }
-    .strike-loc   { font-size: 10px; color: var(--dim); }
+    .strike-item:active { background: rgba(255,255,255,.02); }
+    .strike-item.active::before { opacity: 1; }
+    .strike-item.active .strike-title { color: #fff; }
+    .strike-date  { font-size: 9px; color: var(--dim); letter-spacing: .04em; }
+    .strike-title { font-size: 11px; color: #c8d4dc; margin: 3px 0 3px; line-height: 1.35; transition: color .15s; }
+    .strike-loc   { font-size: 9px; color: var(--dim); }
     .strike-tag {
       display: inline-block; margin-top: 5px;
-      font-size: 8px; letter-spacing: .1em; padding: 1px 6px;
-      border: 1px solid var(--c, var(--border)); color: var(--c, var(--dim));
-      text-transform: uppercase;
+      font-size: 7px; letter-spacing: .12em; padding: 1px 5px;
+      border: 1px solid color-mix(in srgb, var(--c, var(--border)) 50%, transparent);
+      color: var(--c, var(--dim));
+      text-transform: uppercase; opacity: .85;
     }
 
     .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -279,18 +319,8 @@
        DESKTOP ≥ 900px — 3-col grid
     ════════════════════════════════════ */
     @media (min-width: 900px) {
-      /* Hide mobile sheet on desktop */
       #sheet { display: none; }
 
-      /*
-        FIX: The map needs to fill the center column.
-        Previously it was position:fixed behind the desktop shell,
-        but the desktop shell had z-index:10 which sat on top of it —
-        and the map div inside the grid had no real size, so the map
-        was invisible under the panels. Fix: keep map fixed, but cut
-        out the center column by making the side panels opaque and
-        letting the fixed map show through the transparent center.
-      */
       #map {
         position: fixed;
         top: var(--header-h); left: 260px; right: 260px; bottom: var(--bar-h);
@@ -309,35 +339,71 @@
         display: flex !important;
         position: fixed;
         top: var(--header-h); left: 0; right: 0; bottom: var(--bar-h);
-        pointer-events: none; /* let clicks through to map in center */
+        pointer-events: none;
         z-index: 10;
       }
 
       #desktop-left, #desktop-right {
         width: 260px;
         flex-shrink: 0;
-        background: var(--panel);
-        border-right: 1px solid var(--border);
+        background: var(--bg);
         overflow-y: auto;
-        padding: 12px;
         display: flex;
         flex-direction: column;
-        pointer-events: all; /* re-enable for side panels */
-      }
-      #desktop-right {
-        border-right: none;
-        border-left: 1px solid var(--border);
-        margin-left: auto;
-      }
-      #desktop-center {
-        flex: 1;
-        /* transparent — map shows through */
+        pointer-events: all;
+        /* Inner shadow toward the map — frames it cleanly */
+        position: relative;
       }
 
-      #desktop-left::-webkit-scrollbar,
-      #desktop-right::-webkit-scrollbar { width: 3px; }
-      #desktop-left::-webkit-scrollbar-thumb,
-      #desktop-right::-webkit-scrollbar-thumb { background: var(--border); }
+      /* Left panel — accent line on right edge */
+      #desktop-left {
+        border-right: 1px solid var(--border);
+        box-shadow: 4px 0 24px rgba(0,0,0,.6);
+      }
+      /* Right panel — accent line on left edge */
+      #desktop-right {
+        border-left: 1px solid var(--border);
+        box-shadow: -4px 0 24px rgba(0,0,0,.6);
+        margin-left: auto;
+      }
+
+      /* Panel header strips — colored top bar per panel */
+      #desktop-left::before,
+      #desktop-right::before {
+        content: '';
+        display: block;
+        height: 2px;
+        background: linear-gradient(90deg, var(--accent), transparent);
+        flex-shrink: 0;
+      }
+      #desktop-right::before {
+        background: linear-gradient(90deg, transparent, var(--accent));
+      }
+
+      /* Panel title rows */
+      .desktop-panel-title {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 10px 14px 8px;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+        flex-shrink: 0;
+      }
+      .desktop-panel-title span {
+        font-family: var(--sans); font-weight: 700;
+        font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: #fff;
+      }
+      .desktop-panel-title small {
+        font-size: 8px; color: var(--dim); letter-spacing: .07em;
+      }
+
+      /* Scrollable content area inside each panel */
+      .desktop-panel-body {
+        flex: 1; overflow-y: auto; overflow-x: hidden; padding: 10px 12px 20px;
+      }
+      .desktop-panel-body::-webkit-scrollbar { width: 2px; }
+      .desktop-panel-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+      #desktop-center { flex: 1; }
 
       #statusbar {
         display: flex !important;
@@ -378,22 +444,33 @@
 <!-- desktop layout shell -->
 <div id="desktop-shell">
   <aside id="desktop-left">
-    <div class="section-label">Strike Feed</div>
-    <div id="desktop-feed"></div>
+    <div class="desktop-panel-title">
+      <span>Strike Feed</span>
+      <small id="desktop-count">— events</small>
+    </div>
+    <div class="desktop-panel-body">
+      <div id="desktop-feed"></div>
+    </div>
   </aside>
   <div id="desktop-center"></div>
   <aside id="desktop-right">
-    <div class="section-label">Summary</div>
-    <div class="stat-grid" id="desktop-stats" style="margin-bottom:12px;"></div>
-    <div class="section-label">Legend</div>
-    <div id="desktop-legend"></div>
-    <div class="section-label">Current Alert</div>
-    <div class="alert-box" style="margin-bottom:12px;">
-      <strong>⚠ ESCALATION WATCH</strong>
-      Elevated strike tempo observed across IRGC-linked sites. US carrier groups maintain readiness in Arabian Sea.
+    <div class="desktop-panel-title">
+      <span>Intelligence</span>
+      <small id="sync-desktop">—</small>
     </div>
-    <div class="section-label">Data Notes</div>
-    <div class="data-note">All data from open reporting. Coordinates ±5km. Last sync: <span id="sync-desktop">—</span></div>
+    <div class="desktop-panel-body">
+      <div class="section-label">Summary</div>
+      <div class="stat-grid" id="desktop-stats" style="margin-bottom:4px;"></div>
+      <div class="section-label">Legend</div>
+      <div id="desktop-legend"></div>
+      <div class="section-label">Alert</div>
+      <div class="alert-box" style="margin-bottom:12px;">
+        <strong>⚠ ESCALATION WATCH</strong>
+        Elevated strike tempo observed across IRGC-linked sites. US carrier groups maintain readiness in Arabian Sea.
+      </div>
+      <div class="section-label">Data Notes</div>
+      <div class="data-note">Open-source reporting only. Coordinates ±5km. Strike counts may lag 24–72h.</div>
+    </div>
   </aside>
 </div>
 
@@ -405,11 +482,14 @@
 
 <!-- bottom sheet (mobile) -->
 <div id="sheet" class="snap-closed">
-  <div id="sheet-handle"><div class="handle-bar"></div></div>
-  <div id="sheet-header">
-    <div class="sheet-title">Intelligence Feed</div>
-    <div id="event-badge">— events</div>
+  <div id="sheet-handle">
+    <div class="handle-label">Intel Feed</div>
+    <div class="handle-meta">
+      <div class="handle-count" id="event-badge">— events</div>
+      <div class="handle-chevron">▲</div>
+    </div>
   </div>
+  <div id="sheet-header"></div>
   <div id="sheet-tabs">
     <div class="tab active" data-tab="feed">Feed</div>
     <div class="tab" data-tab="stats">Stats</div>
@@ -425,7 +505,7 @@
       <div id="mobile-legend"></div>
     </div>
     <div class="tab-panel" id="tab-info">
-      <div class="section-label">Current Alert</div>
+      <div class="section-label">Alert</div>
       <div class="alert-box">
         <strong>⚠ ESCALATION WATCH</strong>
         Elevated strike tempo observed across IRGC-linked sites. US carrier groups maintain readiness in Arabian Sea. Israeli northern border tensions persist.
