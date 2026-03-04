@@ -90,7 +90,7 @@
       — dark enough to match the UI, but roads, borders and labels are legible.
     */
     .leaflet-tile {
-      filter: brightness(.78) saturate(.5) hue-rotate(190deg);
+      filter: brightness(1.05) contrast(1.1);
     }
 
     /* Zoom controls — larger tap targets for mobile */
@@ -551,8 +551,9 @@ const TICKERS = [
 
 /* ── MAP ── */
 const map = L.map('map',{center:[28,48],zoom:5,zoomControl:true});
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-  attribution:'© OpenStreetMap contributors',maxZoom:18
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+  subdomains:'abcd', maxZoom:19
 }).addTo(map);
 map.on('mousemove',e=>{
   document.getElementById('coords').textContent =
