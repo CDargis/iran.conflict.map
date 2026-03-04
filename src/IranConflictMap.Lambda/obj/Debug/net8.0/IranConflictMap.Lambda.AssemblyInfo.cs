@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("IranConflictMap.Lambda")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9947f8f8da7ee6224c6b019c354d8b7b44afb51f")]
 [assembly: System.Reflection.AssemblyProductAttribute("IranConflictMap.Lambda")]
 [assembly: System.Reflection.AssemblyTitleAttribute("IranConflictMap.Lambda")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

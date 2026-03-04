@@ -38,3 +38,4 @@ C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap\obj\Debug\net8.0\ref
 C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap\obj\Debug\net8.0\IranConflictMap.pdb
 C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap\obj\Debug\net8.0\IranConflictMap.genruntimeconfig.cache
 C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap\obj\Debug\net8.0\ref\IranConflictMap.dll
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap\obj\Debug\net8.0\IranConflictMap.sourcelink.json
