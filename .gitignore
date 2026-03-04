@@ -1,0 +1,86 @@
+# ──────────────────────────────────────
+#  .NET  (src/)
+# ──────────────────────────────────────
+src/**/bin/
+src/**/obj/
+src/**/*.user
+src/**/*.suo
+src/**/*.userosscache
+src/**/*.sln.docstates
+
+# Publish output
+src/**/publish/
+src/**/.vs/
+
+# NuGet
+src/**/packages/
+src/**/*.nupkg
+src/**/*.snupkg
+src/**/project.lock.json
+src/**/project.fragment.lock.json
+src/**/artifacts/
+
+# Secrets & config overrides
+src/**/appsettings.Local.json
+src/**/appsettings.Development.json
+src/**/*.pfx
+src/**/*.p12
+
+# Rider / VS / VSCode
+.idea/
+.vs/
+*.DotSettings.user
+
+# ──────────────────────────────────────
+#  Node / Frontend  (frontend/)
+# ──────────────────────────────────────
+frontend/node_modules/
+frontend/.pnp
+frontend/.pnp.js
+frontend/.yarn/cache
+frontend/.yarn/unplugged
+frontend/.yarn/install-state.gz
+
+# Build output
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/out/
+frontend/.nuxt/
+frontend/.output/
+
+# Cache
+frontend/.cache/
+frontend/.parcel-cache/
+frontend/.turbo/
+frontend/.eslintcache
+frontend/.stylelintcache
+
+# Env files
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# ──────────────────────────────────────
+#  General
+# ──────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editors
+*.swp
+*.swo
+*~
