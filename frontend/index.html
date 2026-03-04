@@ -24,6 +24,7 @@
       --mono:     'Share Tech Mono', monospace;
       --sans:     'Barlow Condensed', sans-serif;
       --header-h: 44px;
+      --filter-h: 34px;
       --bar-h:    28px;
       --peek:     120px;
     }
@@ -75,10 +76,39 @@
       50%      { opacity:.6; box-shadow: 0 0 0 4px rgba(200,57,43,0); }
     }
 
+    /* ── ACTOR FILTER BAR ── */
+    #filterbar {
+      position: fixed;
+      top: var(--header-h); left: 0; right: 0;
+      height: var(--filter-h);
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      padding: 0 12px; gap: 6px; z-index: 800;
+    }
+    .actor-filter-label {
+      font-size: 8px; letter-spacing: .14em; color: var(--dim);
+      text-transform: uppercase; margin-right: 4px; white-space: nowrap;
+    }
+    .actor-btn {
+      font-family: var(--mono); font-size: 9px; letter-spacing: .1em;
+      text-transform: uppercase; padding: 3px 10px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--dim); cursor: pointer;
+      transition: color .15s, border-color .15s, background .15s;
+      white-space: nowrap;
+    }
+    .actor-btn.active {
+      color: #fff;
+      border-color: var(--actor-color, var(--accent));
+      background: color-mix(in srgb, var(--actor-color, var(--accent)) 15%, transparent);
+    }
+    .actor-btn:hover:not(.active) { color: var(--text); border-color: var(--dim); }
+
     /* ── MAP ── */
     #map {
       position: fixed;
-      top: var(--header-h); left: 0; right: 0; bottom: 0;
+      top: calc(var(--header-h) + var(--filter-h)); left: 0; right: 0; bottom: 0;
       z-index: 1;
     }
     .leaflet-container { background: #111820; font-family: var(--mono); }
@@ -177,7 +207,7 @@
       box-shadow: 0 -4px 32px rgba(0,0,0,.85), inset 0 1px 0 rgba(200,57,43,.15);
       display: flex; flex-direction: column;
       touch-action: none; will-change: transform;
-      height: calc(100vh - var(--header-h));
+      height: calc(100vh - var(--header-h) - var(--filter-h));
       transform: translateY(calc(100% - var(--peek)));
       transition: transform .3s cubic-bezier(.4,0,.2,1);
     }
@@ -328,7 +358,7 @@
 
       #map {
         position: fixed;
-        top: var(--header-h); left: 260px; right: 260px; bottom: var(--bar-h);
+        top: calc(var(--header-h) + var(--filter-h)); left: 260px; right: 260px; bottom: var(--bar-h);
         z-index: 5;
       }
 
@@ -343,7 +373,7 @@
       #desktop-shell {
         display: flex !important;
         position: fixed;
-        top: var(--header-h); left: 0; right: 0; bottom: var(--bar-h);
+        top: calc(var(--header-h) + var(--filter-h)); left: 0; right: 0; bottom: var(--bar-h);
         pointer-events: none;
         z-index: 10;
       }
@@ -441,6 +471,14 @@
     <div class="status-pill"><div class="pulse"></div>LIVE</div>
   </div>
 </header>
+
+<div id="filterbar">
+  <span class="actor-filter-label">Actor</span>
+  <button class="actor-btn active" data-actor="US"         style="--actor-color:#4a9eda">US</button>
+  <button class="actor-btn active" data-actor="Israel"     style="--actor-color:#a8d8ea">ISRAEL</button>
+  <button class="actor-btn active" data-actor="Iran"       style="--actor-color:#2ecc71">IRAN</button>
+  <button class="actor-btn active" data-actor="Houthi/Iran" style="--actor-color:#e8a020">HOUTHI</button>
+</div>
 
 <div id="map"></div>
 <div id="coords">LAT — / LNG —</div>
@@ -617,6 +655,37 @@ function focusStrike(id){
   });
   if(window.innerWidth<900) snapSheet('closed');
 }
+
+/* ── ACTOR FILTERS ── */
+let activeActors = new Set(['US','Israel','Iran','Houthi/Iran']);
+
+function applyFilters(){
+  Object.values(markers).forEach(({m,s})=>{
+    if(activeActors.has(s.actor)) m.addTo(map);
+    else m.remove();
+  });
+  document.querySelectorAll('.strike-item').forEach(el=>{
+    const id = parseInt(el.dataset.id);
+    const s = markers[id]?.s;
+    el.style.display = s && activeActors.has(s.actor) ? '' : 'none';
+  });
+}
+
+document.querySelectorAll('.actor-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const actor = btn.dataset.actor;
+    if(activeActors.has(actor)){
+      // don't allow deselecting all
+      if(activeActors.size === 1) return;
+      activeActors.delete(actor);
+      btn.classList.remove('active');
+    } else {
+      activeActors.add(actor);
+      btn.classList.add('active');
+    }
+    applyFilters();
+  });
+});
 
 /* ── RENDER ── */
 function feedHTML(data){
