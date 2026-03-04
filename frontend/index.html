@@ -220,11 +220,12 @@
     #sheet-handle {
       flex-shrink: 0;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 14px;
+      padding: 16px 14px 0;
       height: var(--peek);
       cursor: grab; user-select: none;
       border-bottom: 1px solid var(--border);
       background: var(--panel);
+      position: relative;
     }
     #sheet-handle:active { cursor: grabbing; }
     #sheet-handle:active { background: color-mix(in srgb, var(--accent) 4%, var(--panel)); }
@@ -239,10 +240,55 @@
     }
     .handle-chevron {
       font-size: 10px; color: var(--dim);
-      transition: transform .3s ease;
+      transition: transform .3s ease, color .3s ease;
     }
     #sheet.snap-open  .handle-chevron { transform: rotate(180deg); }
     #sheet.snap-mid   .handle-chevron { transform: rotate(90deg); }
+    #sheet.snap-closed .handle-chevron {
+      color: var(--accent);
+      animation: chevron-bounce 2s ease-in-out infinite;
+    }
+    @keyframes chevron-bounce {
+      0%, 100% { transform: translateY(0); }
+      40%       { transform: translateY(-5px); }
+      60%       { transform: translateY(-3px); }
+    }
+
+    /* Drag pill at top of handle */
+    #sheet-handle::before {
+      content: '';
+      position: absolute;
+      top: 6px; left: 50%; transform: translateX(-50%);
+      width: 36px; height: 3px;
+      background: var(--dim);
+      border-radius: 2px;
+      transition: background .3s ease, width .3s ease;
+    }
+    #sheet.snap-closed #sheet-handle::before {
+      background: var(--accent);
+      width: 48px;
+      animation: pill-pulse 2s ease-in-out infinite;
+    }
+    @keyframes pill-pulse {
+      0%, 100% { opacity: .5; }
+      50%       { opacity: 1; }
+    }
+
+    /* Swipe hint text */
+    .handle-hint {
+      font-size: 8px; letter-spacing: .16em; text-transform: uppercase;
+      color: var(--accent); opacity: 0;
+      transition: opacity .3s ease;
+      pointer-events: none;
+    }
+    #sheet.snap-closed .handle-hint {
+      opacity: .7;
+      animation: hint-fade 2s ease-in-out infinite;
+    }
+    @keyframes hint-fade {
+      0%, 100% { opacity: .4; }
+      50%       { opacity: .9; }
+    }
 
     /* No separate header — handle IS the header */
     #sheet-header { display: none; }
@@ -526,7 +572,10 @@
 <!-- bottom sheet (mobile) -->
 <div id="sheet" class="snap-closed">
   <div id="sheet-handle">
-    <div class="handle-label">Intel Feed</div>
+    <div>
+      <div class="handle-label">Intel Feed</div>
+      <div class="handle-hint">Swipe up to expand</div>
+    </div>
     <div class="handle-meta">
       <div class="handle-count" id="event-badge">— events</div>
       <div class="handle-chevron">▲</div>
