@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="IranConflictMap.Lambda/IranConflictMap.Lambda.csproj" />
+  <Project Path="IranConflictMap/IranConflictMap.csproj" />
+</Solution>

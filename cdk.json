@@ -1,0 +1,6 @@
+{
+  "app": "dotnet run --project src/IranConflictMap/IranConflictMap.csproj",
+  "watch": {
+    "include": ["**"]
+  }
+}

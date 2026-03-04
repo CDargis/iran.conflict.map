@@ -1,0 +1,17 @@
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap.Lambda\bin\Debug\net10.0\IranConflictMap.Lambda.deps.json
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap.Lambda\bin\Debug\net10.0\IranConflictMap.Lambda.runtimeconfig.json
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap.Lambda\bin\Debug\net10.0\IranConflictMap.Lambda.dll
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap.Lambda\bin\Debug\net10.0\IranConflictMap.Lambda.pdb
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap.Lambda\bin\Debug\net10.0\Amazon.Lambda.Core.dll
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap.Lambda\bin\Debug\net10.0\Amazon.Lambda.Serialization.SystemTextJson.dll
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap.Lambda\obj\Debug\net10.0\IranConflictMap.Lambda.csproj.AssemblyReference.cache
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap.Lambda\obj\Debug\net10.0\IranConflictMap.Lambda.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap.Lambda\obj\Debug\net10.0\IranConflictMap.Lambda.AssemblyInfoInputs.cache
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap.Lambda\obj\Debug\net10.0\IranConflictMap.Lambda.AssemblyInfo.cs
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap.Lambda\obj\Debug\net10.0\IranConflictMap.Lambda.csproj.CoreCompileInputs.cache
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap.Lambda\obj\Debug\net10.0\IranConf.67ABBE4B.Up2Date
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap.Lambda\obj\Debug\net10.0\IranConflictMap.Lambda.dll
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap.Lambda\obj\Debug\net10.0\refint\IranConflictMap.Lambda.dll
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap.Lambda\obj\Debug\net10.0\IranConflictMap.Lambda.pdb
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap.Lambda\obj\Debug\net10.0\IranConflictMap.Lambda.genruntimeconfig.cache
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap.Lambda\obj\Debug\net10.0\ref\IranConflictMap.Lambda.dll
