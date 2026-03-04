@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("IranConflictMap")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+43b7badf53751b03f8443a28c3afa8ba1f9e3425")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+700da8487af8d3e58642053543a3aa5047c87d8e")]
 [assembly: System.Reflection.AssemblyProductAttribute("IranConflictMap")]
 [assembly: System.Reflection.AssemblyTitleAttribute("IranConflictMap")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
