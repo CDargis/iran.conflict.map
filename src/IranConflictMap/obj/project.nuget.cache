@@ -1,11 +1,13 @@
 {
   "version": 2,
-  "dgSpecHash": "FvFnR6L6KCA=",
+  "dgSpecHash": "2zcJ0tl1fA4=",
   "success": true,
   "projectFilePath": "C:\\Users\\ccdwi\\source\\iran.conflict.map\\src\\IranConflictMap\\IranConflictMap.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\ccdwi\\.nuget\\packages\\amazon.cdk.asset.awscliv1\\2.2.263\\amazon.cdk.asset.awscliv1.2.2.263.nupkg.sha512",
     "C:\\Users\\ccdwi\\.nuget\\packages\\amazon.cdk.asset.nodeproxyagentv6\\2.1.1\\amazon.cdk.asset.nodeproxyagentv6.2.1.1.nupkg.sha512",
+    "C:\\Users\\ccdwi\\.nuget\\packages\\amazon.cdk.aws.apigatewayv2.alpha\\2.114.1-alpha.0\\amazon.cdk.aws.apigatewayv2.alpha.2.114.1-alpha.0.nupkg.sha512",
+    "C:\\Users\\ccdwi\\.nuget\\packages\\amazon.cdk.aws.apigatewayv2.integrations.alpha\\2.114.1-alpha.0\\amazon.cdk.aws.apigatewayv2.integrations.alpha.2.114.1-alpha.0.nupkg.sha512",
     "C:\\Users\\ccdwi\\.nuget\\packages\\amazon.cdk.cloudassembly.schema\\52.1.0\\amazon.cdk.cloudassembly.schema.52.1.0.nupkg.sha512",
     "C:\\Users\\ccdwi\\.nuget\\packages\\amazon.cdk.lib\\2.241.0\\amazon.cdk.lib.2.241.0.nupkg.sha512",
     "C:\\Users\\ccdwi\\.nuget\\packages\\amazon.jsii.runtime\\1.127.0\\amazon.jsii.runtime.1.127.0.nupkg.sha512",

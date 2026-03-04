@@ -1,12 +1,17 @@
 using Amazon.CDK;
+using Amazon.CDK.AWS.Apigatewayv2.Alpha;
+using Amazon.CDK.AWS.Apigatewayv2.Integrations.Alpha;
 using Amazon.CDK.AWS.CertificateManager;
 using Amazon.CDK.AWS.CloudFront;
 using Amazon.CDK.AWS.CloudFront.Origins;
+using Amazon.CDK.AWS.DynamoDB;
 using Amazon.CDK.AWS.Route53;
 using Amazon.CDK.AWS.Route53.Targets;
 using Amazon.CDK.AWS.S3;
 using Amazon.CDK.AWS.S3.Deployment;
 using Constructs;
+using LambdaFunction = Amazon.CDK.AWS.Lambda.Function;
+using LambdaFunctionProps = Amazon.CDK.AWS.Lambda.FunctionProps;
 
 namespace IranConflictMap;
 
@@ -25,18 +30,67 @@ public class IranConflictMapStack : Stack
         });
 
         // ── ACM Certificate (must be us-east-1 for CloudFront) ─────────────
-        // Stack is already in us-east-1 per Program.cs so this is fine.
         var certificate = new Certificate(this, "Certificate", new CertificateProps
         {
             DomainName = domainName,
             Validation  = CertificateValidation.FromDns(hostedZone)
         });
 
+        // ── DynamoDB Table ─────────────────────────────────────────────────
+        var strikesTable = new Table(this, "StrikesTable", new TableProps
+        {
+            TableName      = "strikes",
+            PartitionKey   = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "id", Type = AttributeType.STRING },
+            BillingMode    = BillingMode.PAY_PER_REQUEST,
+            RemovalPolicy  = RemovalPolicy.RETAIN
+        });
+
+        // ── API Lambda ─────────────────────────────────────────────────────
+        var apiLambda = new LambdaFunction(this, "ApiFunction", new LambdaFunctionProps
+        {
+            FunctionName = "iran-conflict-map-api",
+            Runtime      = Amazon.CDK.AWS.Lambda.Runtime.DOTNET_8,
+            Handler      = "IranConflictMap.Api",
+            Code         = Amazon.CDK.AWS.Lambda.Code.FromAsset("src/IranConflictMap.Api", new Amazon.CDK.AWS.S3.Assets.AssetOptions
+            {
+                Bundling = new BundlingOptions
+                {
+                    Image   = Amazon.CDK.AWS.Lambda.Runtime.DOTNET_8.BundlingImage,
+                    Command = new[]
+                    {
+                        "bash", "-c",
+                        "dotnet publish -c Release -o /asset-output"
+                    }
+                }
+            }),
+            Environment = new Dictionary<string, string>
+            {
+                ["STRIKES_TABLE"] = strikesTable.TableName
+            },
+            Timeout    = Duration.Seconds(15),
+            MemorySize = 256
+        });
+
+        strikesTable.GrantReadData(apiLambda);
+
+        // ── HTTP API Gateway ───────────────────────────────────────────────
+        var httpApi = new HttpApi(this, "HttpApi", new HttpApiProps
+        {
+            ApiName = "iran-conflict-map-api"
+        });
+
+        httpApi.AddRoutes(new AddRoutesOptions
+        {
+            Path        = "/api/strikes",
+            Methods     = new[] { Amazon.CDK.AWS.Apigatewayv2.Alpha.HttpMethod.GET },
+            Integration = new HttpLambdaIntegration("StrikesIntegration", apiLambda)
+        });
+
         // ── S3 Bucket ──────────────────────────────────────────────────────
         var bucket = new Bucket(this, "SiteBucket", new BucketProps
         {
             BucketName          = domainName,
-            BlockPublicAccess   = BlockPublicAccess.BLOCK_ALL,  // CloudFront OAC handles access
+            BlockPublicAccess   = BlockPublicAccess.BLOCK_ALL,
             RemovalPolicy       = RemovalPolicy.RETAIN,
             AutoDeleteObjects   = false
         });
@@ -54,6 +108,8 @@ public class IranConflictMapStack : Stack
         });
 
         // ── CloudFront Distribution ────────────────────────────────────────
+        var apiOrigin = new HttpOrigin($"{httpApi.HttpApiId}.execute-api.{this.Region}.amazonaws.com");
+
         var distribution = new Distribution(this, "Distribution", new DistributionProps
         {
             DefaultBehavior = new BehaviorOptions
@@ -63,12 +119,21 @@ public class IranConflictMapStack : Stack
                 CachePolicy          = CachePolicy.CACHING_OPTIMIZED,
                 AllowedMethods       = AllowedMethods.ALLOW_GET_HEAD,
             },
+            AdditionalBehaviors = new Dictionary<string, IBehaviorOptions>
+            {
+                ["/api/*"] = new BehaviorOptions
+                {
+                    Origin               = apiOrigin,
+                    ViewerProtocolPolicy = ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                    CachePolicy          = CachePolicy.CACHING_DISABLED,
+                    AllowedMethods       = AllowedMethods.ALLOW_GET_HEAD,
+                }
+            },
             DefaultRootObject  = "index.html",
             DomainNames        = new[] { domainName },
             Certificate        = certificate,
             ErrorResponses     = new[]
             {
-                // SPA fallback — also handles hard refresh on any path
                 new ErrorResponse
                 {
                     HttpStatus            = 403,
@@ -84,7 +149,7 @@ public class IranConflictMapStack : Stack
                     Ttl                   = Duration.Seconds(0)
                 }
             },
-            PriceClass = PriceClass.PRICE_CLASS_100  // US/EU/Israel edge nodes
+            PriceClass = PriceClass.PRICE_CLASS_100
         });
 
         // Attach OAC to the distribution's S3 origin (L1 escape hatch)
@@ -136,10 +201,10 @@ public class IranConflictMapStack : Stack
 
         new BucketDeployment(this, "DeployFrontend", new BucketDeploymentProps
         {
-            Sources = new[] { Source.Asset(frontendPath) },
+            Sources             = new[] { Source.Asset(frontendPath) },
             DestinationBucket   = bucket,
             Distribution        = distribution,
-            DistributionPaths   = new[] { "/*" }  // invalidate CloudFront on deploy
+            DistributionPaths   = new[] { "/*" }
         });
 
         // ── Outputs ────────────────────────────────────────────────────────
@@ -151,12 +216,22 @@ public class IranConflictMapStack : Stack
         new CfnOutput(this, "DistributionId", new CfnOutputProps
         {
             Value       = distribution.DistributionId,
-            Description = "CloudFront distribution ID — use for manual cache invalidations"
+            Description = "CloudFront distribution ID"
         });
         new CfnOutput(this, "BucketName", new CfnOutputProps
         {
             Value       = bucket.BucketName,
-            Description = "S3 bucket — upload strikes.json here to update data"
+            Description = "S3 bucket name"
+        });
+        new CfnOutput(this, "ApiEndpoint", new CfnOutputProps
+        {
+            Value       = httpApi.ApiEndpoint,
+            Description = "API Gateway endpoint (use via CloudFront /api/*)"
+        });
+        new CfnOutput(this, "StrikesTableName", new CfnOutputProps
+        {
+            Value       = strikesTable.TableName,
+            Description = "DynamoDB strikes table"
         });
     }
 }

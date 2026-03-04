@@ -39,3 +39,5 @@ C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap\obj\Debug\net8.0\Ira
 C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap\obj\Debug\net8.0\IranConflictMap.genruntimeconfig.cache
 C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap\obj\Debug\net8.0\ref\IranConflictMap.dll
 C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap\obj\Debug\net8.0\IranConflictMap.sourcelink.json
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap\bin\Debug\net8.0\Amazon.CDK.AWS.APIGatewayv2.Alpha.dll
+C:\Users\ccdwi\source\iran.conflict.map\src\IranConflictMap\bin\Debug\net8.0\Amazon.CDK.AWS.APIGatewayv2.Integrations.Alpha.dll

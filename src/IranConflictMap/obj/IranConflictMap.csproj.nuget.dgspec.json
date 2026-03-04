@@ -44,6 +44,14 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "dependencies": {
+            "Amazon.CDK.AWS.Apigatewayv2.Alpha": {
+              "target": "Package",
+              "version": "[2.*-alpha.*, )"
+            },
+            "Amazon.CDK.AWS.Apigatewayv2.Integrations.Alpha": {
+              "target": "Package",
+              "version": "[2.*-alpha.*, )"
+            },
             "Amazon.CDK.Lib": {
               "target": "Package",
               "version": "[2.*, )"

@@ -1,0 +1,89 @@
+{
+  "strikes": [
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "4" },
+          "date":        { "S": "2026-02-03" },
+          "title":       { "S": "Drone Swarm — Red Sea Shipping" },
+          "location":    { "S": "Red Sea (17°N)" },
+          "lat":         { "N": "17.20" },
+          "lng":         { "N": "42.50" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "maritime" },
+          "actor":       { "S": "Houthi/Iran" },
+          "description": { "S": "Houthi drone attack on commercial container vessel. USS Gravely intercepts 6 of 8 drones. Partial hull damage." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "5" },
+          "date":        { "S": "2026-02-09" },
+          "title":       { "S": "US Navy Intercept — Strait of Hormuz" },
+          "location":    { "S": "Strait of Hormuz" },
+          "lat":         { "N": "26.50" },
+          "lng":         { "N": "56.30" },
+          "type":        { "S": "naval" },
+          "target_type": { "S": "maritime" },
+          "actor":       { "S": "US" },
+          "description": { "S": "USS Abraham Lincoln strike group intercepts IRGC fast-attack vessels harassing commercial traffic. No shots fired." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "6" },
+          "date":        { "S": "2026-02-17" },
+          "title":       { "S": "IDF Strike — Natanz Adjacent Site" },
+          "location":    { "S": "Natanz Region, Iran" },
+          "lat":         { "N": "33.72" },
+          "lng":         { "N": "51.72" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "nuclear" },
+          "actor":       { "S": "Israel" },
+          "description": { "S": "Reported Israeli strike on SAM battery adjacent to Natanz enrichment complex. Iran denies damage to nuclear facilities." },
+          "casualties":  { "M": { "confirmed": { "N": "1" }, "estimated": { "N": "5" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "7" },
+          "date":        { "S": "2026-02-24" },
+          "title":       { "S": "IRGC Drone Attack — Erbil Airbase" },
+          "location":    { "S": "Erbil, Iraq" },
+          "lat":         { "N": "36.19" },
+          "lng":         { "N": "44.01" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Iran" },
+          "description": { "S": "IRGC-linked group launches drone barrage at US facilities. Two intercepted; one impacts logistics building." },
+          "casualties":  { "M": { "confirmed": { "N": "3" }, "estimated": { "N": "10" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "8" },
+          "date":        { "S": "2026-03-01" },
+          "title":       { "S": "US CENTCOM Strike Package" },
+          "location":    { "S": "Deir ez-Zor, Syria" },
+          "lat":         { "N": "35.33" },
+          "lng":         { "N": "40.14" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "US" },
+          "description": { "S": "Multi-aircraft strike package targeting Iranian-backed militia command nodes. Four separate aim-points engaged." },
+          "casualties":  { "M": { "confirmed": { "N": "7" }, "estimated": { "N": "20" } } }
+        }
+      }
+    }
+  ]
+}

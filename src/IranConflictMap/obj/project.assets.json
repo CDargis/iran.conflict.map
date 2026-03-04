@@ -34,6 +34,43 @@
           }
         }
       },
+      "Amazon.CDK.AWS.APIGatewayv2.Alpha/2.114.1-alpha.0": {
+        "type": "package",
+        "dependencies": {
+          "Amazon.CDK.Lib": "2.114.1",
+          "Amazon.JSII.Runtime": "[1.92.0, 2.0.0)",
+          "Constructs": "[10.0.0, 11.0.0)"
+        },
+        "compile": {
+          "lib/netcoreapp3.1/Amazon.CDK.AWS.APIGatewayv2.Alpha.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netcoreapp3.1/Amazon.CDK.AWS.APIGatewayv2.Alpha.dll": {
+            "related": ".xml"
+          }
+        }
+      },
+      "Amazon.CDK.AWS.APIGatewayv2.Integrations.Alpha/2.114.1-alpha.0": {
+        "type": "package",
+        "dependencies": {
+          "Amazon.CDK.AWS.APIGatewayv2.Alpha": "2.114.1-alpha.0",
+          "Amazon.CDK.Lib": "2.114.1",
+          "Amazon.JSII.Runtime": "[1.92.0, 2.0.0)",
+          "Constructs": "[10.0.0, 11.0.0)"
+        },
+        "compile": {
+          "lib/netcoreapp3.1/Amazon.CDK.AWS.APIGatewayv2.Integrations.Alpha.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/netcoreapp3.1/Amazon.CDK.AWS.APIGatewayv2.Integrations.Alpha.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "Amazon.CDK.CloudAssembly.Schema/52.1.0": {
         "type": "package",
         "dependencies": {
@@ -465,6 +502,34 @@
         "amazon.cdk.asset.nodeproxyagentv6.nuspec",
         "lib/net6.0/Amazon.CDK.Asset.NodeProxyAgentV6.dll",
         "lib/net6.0/Amazon.CDK.Asset.NodeProxyAgentV6.xml"
+      ]
+    },
+    "Amazon.CDK.AWS.APIGatewayv2.Alpha/2.114.1-alpha.0": {
+      "sha512": "HHYIwLraUmSmBa3i1qWpnmSLSPIzoAOT6pDCbY8PCK8XU5WOv5JRbUkMLK7ngrE9QqcPjmZSo0Ix4BuJKRmZQQ==",
+      "type": "package",
+      "path": "amazon.cdk.aws.apigatewayv2.alpha/2.114.1-alpha.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "amazon.cdk.aws.apigatewayv2.alpha.2.114.1-alpha.0.nupkg.sha512",
+        "amazon.cdk.aws.apigatewayv2.alpha.nuspec",
+        "lib/netcoreapp3.1/Amazon.CDK.AWS.APIGatewayv2.Alpha.dll",
+        "lib/netcoreapp3.1/Amazon.CDK.AWS.APIGatewayv2.Alpha.xml",
+        "resources/default-256-dark.png"
+      ]
+    },
+    "Amazon.CDK.AWS.APIGatewayv2.Integrations.Alpha/2.114.1-alpha.0": {
+      "sha512": "k1/0k6453UmGZSS0p4+6XmYDkQaUud5E/Layx/FDz14o0SwC63rX47u8yNqlJm4h+lDZQcWPMthPeKxLB56nyg==",
+      "type": "package",
+      "path": "amazon.cdk.aws.apigatewayv2.integrations.alpha/2.114.1-alpha.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "amazon.cdk.aws.apigatewayv2.integrations.alpha.2.114.1-alpha.0.nupkg.sha512",
+        "amazon.cdk.aws.apigatewayv2.integrations.alpha.nuspec",
+        "lib/netcoreapp3.1/Amazon.CDK.AWS.APIGatewayv2.Integrations.Alpha.dll",
+        "lib/netcoreapp3.1/Amazon.CDK.AWS.APIGatewayv2.Integrations.Alpha.xml",
+        "resources/default-256-dark.png"
       ]
     },
     "Amazon.CDK.CloudAssembly.Schema/52.1.0": {
@@ -1129,6 +1194,8 @@
   },
   "projectFileDependencyGroups": {
     "net8.0": [
+      "Amazon.CDK.AWS.Apigatewayv2.Alpha >= 2.*-alpha.*",
+      "Amazon.CDK.AWS.Apigatewayv2.Integrations.Alpha >= 2.*-alpha.*",
       "Amazon.CDK.Lib >= 2.*",
       "Constructs >= 10.*"
     ]
@@ -1176,6 +1243,14 @@
       "net8.0": {
         "targetAlias": "net8.0",
         "dependencies": {
+          "Amazon.CDK.AWS.Apigatewayv2.Alpha": {
+            "target": "Package",
+            "version": "[2.*-alpha.*, )"
+          },
+          "Amazon.CDK.AWS.Apigatewayv2.Integrations.Alpha": {
+            "target": "Package",
+            "version": "[2.*-alpha.*, )"
+          },
           "Amazon.CDK.Lib": {
             "target": "Package",
             "version": "[2.*, )"

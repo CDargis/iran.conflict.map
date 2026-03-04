@@ -8,6 +8,8 @@
     ".NETCoreApp,Version=v8.0": {
       "IranConflictMap/1.0.0": {
         "dependencies": {
+          "Amazon.CDK.AWS.APIGatewayv2.Alpha": "2.114.1-alpha.0",
+          "Amazon.CDK.AWS.APIGatewayv2.Integrations.Alpha": "2.114.1-alpha.0",
           "Amazon.CDK.Lib": "2.241.0",
           "Constructs": "10.5.1"
         },
@@ -32,6 +34,33 @@
         },
         "runtime": {
           "lib/net6.0/Amazon.CDK.Asset.NodeProxyAgentV6.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "Amazon.CDK.AWS.APIGatewayv2.Alpha/2.114.1-alpha.0": {
+        "dependencies": {
+          "Amazon.CDK.Lib": "2.241.0",
+          "Amazon.JSII.Runtime": "1.127.0",
+          "Constructs": "10.5.1"
+        },
+        "runtime": {
+          "lib/netcoreapp3.1/Amazon.CDK.AWS.APIGatewayv2.Alpha.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "Amazon.CDK.AWS.APIGatewayv2.Integrations.Alpha/2.114.1-alpha.0": {
+        "dependencies": {
+          "Amazon.CDK.AWS.APIGatewayv2.Alpha": "2.114.1-alpha.0",
+          "Amazon.CDK.Lib": "2.241.0",
+          "Amazon.JSII.Runtime": "1.127.0",
+          "Constructs": "10.5.1"
+        },
+        "runtime": {
+          "lib/netcoreapp3.1/Amazon.CDK.AWS.APIGatewayv2.Integrations.Alpha.dll": {
             "assemblyVersion": "1.0.0.0",
             "fileVersion": "1.0.0.0"
           }
@@ -308,6 +337,20 @@
       "sha512": "sha512-ChVhSwQ4b6pM/JNcMZAkgbuO6EE+zjP7gS99qfG50WkyVkD7+pVAB1CEispctF52qiA9B47il0xmnenAuI1/Rw==",
       "path": "amazon.cdk.asset.nodeproxyagentv6/2.1.1",
       "hashPath": "amazon.cdk.asset.nodeproxyagentv6.2.1.1.nupkg.sha512"
+    },
+    "Amazon.CDK.AWS.APIGatewayv2.Alpha/2.114.1-alpha.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-HHYIwLraUmSmBa3i1qWpnmSLSPIzoAOT6pDCbY8PCK8XU5WOv5JRbUkMLK7ngrE9QqcPjmZSo0Ix4BuJKRmZQQ==",
+      "path": "amazon.cdk.aws.apigatewayv2.alpha/2.114.1-alpha.0",
+      "hashPath": "amazon.cdk.aws.apigatewayv2.alpha.2.114.1-alpha.0.nupkg.sha512"
+    },
+    "Amazon.CDK.AWS.APIGatewayv2.Integrations.Alpha/2.114.1-alpha.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-k1/0k6453UmGZSS0p4+6XmYDkQaUud5E/Layx/FDz14o0SwC63rX47u8yNqlJm4h+lDZQcWPMthPeKxLB56nyg==",
+      "path": "amazon.cdk.aws.apigatewayv2.integrations.alpha/2.114.1-alpha.0",
+      "hashPath": "amazon.cdk.aws.apigatewayv2.integrations.alpha.2.114.1-alpha.0.nupkg.sha512"
     },
     "Amazon.CDK.CloudAssembly.Schema/52.1.0": {
       "type": "package",
