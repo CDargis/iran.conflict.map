@@ -24,6 +24,7 @@ app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo) =>
         type         = item["type"].S,
         target_type  = item["target_type"].S,
         actor        = item["actor"].S,
+        severity     = item.ContainsKey("severity") ? item["severity"].S : "low",
         description  = item["description"].S,
         casualties   = new
         {
