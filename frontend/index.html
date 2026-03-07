@@ -640,10 +640,6 @@
 
 <div id="filterbar">
   <span class="actor-filter-label">Actor</span>
-  <button class="actor-btn active" data-actor="US"         style="--actor-color:#4a9eda">US</button>
-  <button class="actor-btn active" data-actor="Israel"     style="--actor-color:#a8d8ea">ISRAEL</button>
-  <button class="actor-btn active" data-actor="Iran"       style="--actor-color:#2ecc71">IRAN</button>
-  <button class="actor-btn active" data-actor="Houthi/Iran" style="--actor-color:#e8a020">HOUTHI</button>
 </div>
 
 <div id="timebar">
@@ -893,7 +889,47 @@ function initTimeSlider(data){
 }
 
 /* ── ACTOR FILTERS ── */
-let activeActors = new Set(['US','Israel','Iran','Houthi/Iran']);
+const ACTOR_COLORS={
+  'US':          '#4a9eda',
+  'Israel':      '#a8d8ea',
+  'Iran':        '#2ecc71',
+  'Houthi/Iran': '#e8a020',
+};
+const FALLBACK_PALETTE=['#c0392b','#8e44ad','#16a085','#d35400','#2980b9','#f39c12','#27ae60'];
+let activeActors=new Set();
+
+function actorLabel(actor){
+  const map={'Houthi/Iran':'HOUTHI'};
+  return (map[actor]||actor).toUpperCase();
+}
+
+function initActorFilters(data){
+  const actors=[...new Set(data.map(s=>s.actor))].sort();
+  const bar=document.getElementById('filterbar');
+  bar.querySelectorAll('.actor-btn').forEach(b=>b.remove());
+  activeActors=new Set(actors);
+  let fallbackIdx=0;
+  actors.forEach(actor=>{
+    const color=ACTOR_COLORS[actor]||(FALLBACK_PALETTE[fallbackIdx++%FALLBACK_PALETTE.length]);
+    const btn=document.createElement('button');
+    btn.className='actor-btn active';
+    btn.dataset.actor=actor;
+    btn.style.setProperty('--actor-color',color);
+    btn.textContent=actorLabel(actor);
+    btn.addEventListener('click',()=>{
+      if(activeActors.has(actor)){
+        if(activeActors.size===1) return;
+        activeActors.delete(actor);
+        btn.classList.remove('active');
+      } else {
+        activeActors.add(actor);
+        btn.classList.add('active');
+      }
+      applyFilters();
+    });
+    bar.appendChild(btn);
+  });
+}
 
 function applyFilters(){
   const [fromDate,toDate]=getDateRange();
@@ -919,22 +955,6 @@ function applyFilters(){
   document.getElementById('event-badge').textContent=`${visible} events`;
   document.getElementById('desktop-count').textContent=`${visible} events`;
 }
-
-document.querySelectorAll('.actor-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    const actor = btn.dataset.actor;
-    if(activeActors.has(actor)){
-      // don't allow deselecting all
-      if(activeActors.size === 1) return;
-      activeActors.delete(actor);
-      btn.classList.remove('active');
-    } else {
-      activeActors.add(actor);
-      btn.classList.add('active');
-    }
-    applyFilters();
-  });
-});
 
 /* ── RENDER ── */
 function feedHTML(data){
@@ -972,6 +992,7 @@ function render(data){
   document.getElementById('ticker-text').innerHTML =
     TICKERS.map(t=>`◆ ${t}`).join(' <span style="margin:0 16px;color:var(--accent)">|</span> ');
   allStrikes=data;
+  initActorFilters(data);
   data.forEach(s=>{
     const m=L.marker([s.lat,s.lng],{icon:makeIcon(s.target_type)})
       .bindPopup(popupHTML(s),{maxWidth:300});
