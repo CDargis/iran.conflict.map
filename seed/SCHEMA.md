@@ -19,6 +19,7 @@
 | `target_type` | S (String)    | `"command"`                | What was targeted — see allowed values below |
 | `actor`       | S (String)    | `"US"`                     | Attacking party — see allowed values below |
 | `description` | S (String)    | `"Multi-aircraft strike…"` | 1–3 sentence summary                       |
+| `severity`    | S (String)    | `"high"`                       | Event severity — see allowed values below |
 | `casualties`  | M (Map)       | `{ confirmed: N, estimated: N }` | Both sub-fields are Numbers          |
 
 ## Allowed enum values
@@ -35,6 +36,12 @@
 - `nuclear` — nuclear facility or adjacent site
 - `command` — command-and-control node
 - `civilian` — civilian infrastructure
+
+### `severity`
+- `low` — minor incident, no/minimal casualties, warning shots, contested intercepts
+- `medium` — limited engagement, 1–10 casualties, localized damage
+- `high` — significant strike, 10–50 casualties, major infrastructure or military target
+- `critical` — mass casualty event (50+), nuclear facility, decapitation strike, or strategic escalation
 
 ### `actor`
 - `US`

@@ -739,11 +739,11 @@
 /* ── DATA ── */
 const STRIKES_URL = '/api/strikes';
 const FALLBACK = [
-  {id:4,date:"2026-02-03",title:"Drone Swarm — Red Sea Shipping",location:"Red Sea (17°N)",lat:17.2,lng:42.5,type:"drone",target_type:"maritime",actor:"Houthi/Iran",casualties:{confirmed:0,estimated:0},description:"Houthi drone attack on commercial container vessel. USS Gravely intercepts 6 of 8 drones. Partial hull damage."},
-  {id:5,date:"2026-02-09",title:"US Navy Intercept — Strait of Hormuz",location:"Strait of Hormuz",lat:26.5,lng:56.3,type:"naval",target_type:"maritime",actor:"US",casualties:{confirmed:0,estimated:0},description:"USS Abraham Lincoln strike group intercepts IRGC fast-attack vessels harassing commercial traffic."},
-  {id:6,date:"2026-02-17",title:"IDF Strike — Natanz Adjacent Site",location:"Natanz Region, Iran",lat:33.72,lng:51.72,type:"strike",target_type:"nuclear",actor:"Israel",casualties:{confirmed:1,estimated:5},description:"Reported Israeli strike on SAM battery adjacent to Natanz enrichment complex."},
-  {id:7,date:"2026-02-24",title:"IRGC Drone Attack — Erbil Airbase",location:"Erbil, Iraq",lat:36.19,lng:44.01,type:"drone",target_type:"military",actor:"Iran",casualties:{confirmed:3,estimated:10},description:"IRGC-linked group launches drone barrage at US facilities. Two intercepted; one impacts logistics building."},
-  {id:8,date:"2026-03-01",title:"US CENTCOM Strike Package",location:"Deir ez-Zor, Syria",lat:35.33,lng:40.14,type:"strike",target_type:"command",actor:"US",casualties:{confirmed:7,estimated:20},description:"Multi-aircraft strike package targeting Iranian-backed militia command nodes. Four aim-points engaged."},
+  {id:4,date:"2026-02-03",title:"Drone Swarm — Red Sea Shipping",location:"Red Sea (17°N)",lat:17.2,lng:42.5,type:"drone",target_type:"maritime",actor:"Houthi/Iran",severity:"medium",casualties:{confirmed:0,estimated:0},description:"Houthi drone attack on commercial container vessel. USS Gravely intercepts 6 of 8 drones. Partial hull damage."},
+  {id:5,date:"2026-02-09",title:"US Navy Intercept — Strait of Hormuz",location:"Strait of Hormuz",lat:26.5,lng:56.3,type:"naval",target_type:"maritime",actor:"US",severity:"low",casualties:{confirmed:0,estimated:0},description:"USS Abraham Lincoln strike group intercepts IRGC fast-attack vessels harassing commercial traffic."},
+  {id:6,date:"2026-02-17",title:"IDF Strike — Natanz Adjacent Site",location:"Natanz Region, Iran",lat:33.72,lng:51.72,type:"strike",target_type:"nuclear",actor:"Israel",severity:"high",casualties:{confirmed:1,estimated:5},description:"Reported Israeli strike on SAM battery adjacent to Natanz enrichment complex."},
+  {id:7,date:"2026-02-24",title:"IRGC Drone Attack — Erbil Airbase",location:"Erbil, Iraq",lat:36.19,lng:44.01,type:"drone",target_type:"military",actor:"Iran",severity:"medium",casualties:{confirmed:3,estimated:10},description:"IRGC-linked group launches drone barrage at US facilities. Two intercepted; one impacts logistics building."},
+  {id:8,date:"2026-03-01",title:"US CENTCOM Strike Package",location:"Deir ez-Zor, Syria",lat:35.33,lng:40.14,type:"strike",target_type:"command",actor:"US",severity:"high",casualties:{confirmed:7,estimated:20},description:"Multi-aircraft strike package targeting Iranian-backed militia command nodes. Four aim-points engaged."},
 ];
 const TYPE_CFG = {
   strike: {label:'Airstrike'},
@@ -789,14 +789,19 @@ setInterval(tick,1000);tick();
 
 /* ── MARKERS ── */
 let markers={},activeId=null,allStrikes=[],minDate=null,maxDate=null;
-function makeIcon(type,hi=false){
+const SEVERITY_SIZE={low:14,medium:18,high:22,critical:28};
+function makeIcon(type,severity='low',hi=false){
   const c=TARGET_CFG[type]?.color||'#c8392b';
-  const size=hi?26:20, dot=hi?10:7;
+  const base=SEVERITY_SIZE[severity]||14;
+  const size=hi?base+6:base;
+  const dot=Math.round(size*0.32);
+  const pulse=hi||(severity==='critical')||(severity==='high');
+  const dur=severity==='critical'?'1.1s':'1.6s';
   return L.divIcon({className:'',iconSize:[size,size],iconAnchor:[size/2,size/2],
     html:`<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="${size/2}" cy="${size/2}" r="${size/2-1.5}" fill="none" stroke="${c}" stroke-width="${hi?2:1.5}" opacity="${hi?1:.6}"/>
+      <circle cx="${size/2}" cy="${size/2}" r="${size/2-1.5}" fill="none" stroke="${c}" stroke-width="${hi?2:1.5}" opacity="${hi?1:.7}"/>
       <circle cx="${size/2}" cy="${size/2}" r="${dot/2}" fill="${c}" opacity="${hi?1:.9}"/>
-      ${hi?`<circle cx="${size/2}" cy="${size/2}" r="${size/2-1}" fill="none" stroke="${c}" stroke-width="1" opacity=".25"><animate attributeName="r" from="${size/2-1}" to="${size/2+5}" dur="1.4s" repeatCount="indefinite"/><animate attributeName="opacity" from=".25" to="0" dur="1.4s" repeatCount="indefinite"/></circle>`:''}
+      ${pulse?`<circle cx="${size/2}" cy="${size/2}" r="${size/2-1}" fill="none" stroke="${c}" stroke-width="1" opacity=".3"><animate attributeName="r" from="${size/2-1}" to="${size/2+6}" dur="${dur}" repeatCount="indefinite"/><animate attributeName="opacity" from=".3" to="0" dur="${dur}" repeatCount="indefinite"/></circle>`:''}
     </svg>`});
 }
 function popupHTML(s){
@@ -807,18 +812,18 @@ function popupHTML(s){
     <div class="popup-title">${s.title}</div>
     <div class="popup-date">${s.date} · ${s.location}</div>
     <div class="popup-desc">${s.description}</div>
-    <div style="margin-top:6px;font-size:9px;color:var(--dim)">METHOD: ${albl}</div>
+    <div style="margin-top:6px;font-size:9px;color:var(--dim)">METHOD: ${albl} &nbsp;·&nbsp; SEVERITY: <span style="color:${{low:'var(--dim)',medium:'var(--amber)',high:'var(--accent)',critical:'#ff4444'}[s.severity]||'var(--dim)'}">${(s.severity||'—').toUpperCase()}</span></div>
     ${s.casualties?.confirmed>0||s.casualties?.estimated>0
       ?`<div class="popup-cas">KIA CONFIRMED: <span>${s.casualties.confirmed}</span> · EST: <span>${s.casualties.estimated}</span></div>`:''}`;
 }
 function focusStrike(id){
   if(activeId&&markers[activeId]){
-    markers[activeId].m.setIcon(makeIcon(markers[activeId].s.target_type,false));
+    markers[activeId].m.setIcon(makeIcon(markers[activeId].s.target_type,markers[activeId].s.severity,false));
     document.querySelectorAll(`.strike-item[data-id="${activeId}"]`).forEach(el=>el.classList.remove('active'));
   }
   activeId=id;
   const e=markers[id];if(!e)return;
-  e.m.setIcon(makeIcon(e.s.target_type,true));
+  e.m.setIcon(makeIcon(e.s.target_type,e.s.severity,true));
   map.flyTo([e.s.lat,e.s.lng],7,{duration:1.1});
   setTimeout(()=>e.m.openPopup(),850);
   document.querySelectorAll(`.strike-item[data-id="${id}"]`).forEach(el=>{
@@ -984,7 +989,7 @@ function render(data){
   allStrikes=data;
   initActorFilters(data);
   data.forEach(s=>{
-    const m=L.marker([s.lat,s.lng],{icon:makeIcon(s.target_type)})
+    const m=L.marker([s.lat,s.lng],{icon:makeIcon(s.target_type,s.severity)})
       .bindPopup(popupHTML(s),{maxWidth:300});
     m.on('click',()=>focusStrike(s.id));
     markers[s.id]={m,s};

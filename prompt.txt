@@ -1,0 +1,40 @@
+  I'm building an Iran/Middle East conflict map. I need you to generate DynamoDB seed data for the strikes table.
+
+  Schema:
+  - id (String) — unique numeric string, increment from the last ID I give you
+  - date (String) — ISO 8601, YYYY-MM-DD
+  - title (String) — short event title
+  - location (String) — human-readable place name
+  - lat / lng (Number) — decimal degrees
+  - type (String) — one of: strike, drone, naval, missile
+  - target_type (String) — one of: military, maritime, nuclear, command, civilian
+  - actor (String) — one of: US, Israel, Iran, Houthi/Iran
+  - description (String) — 1–3 sentence factual summary
+  - casualties (Map) — { confirmed: N, estimated: N }
+
+  Output format (DynamoDB batch-write-item JSON):
+  {
+    "strikes": [
+      {
+        "PutRequest": {
+          "Item": {
+            "id":          { "S": "..." },
+            "date":        { "S": "YYYY-MM-DD" },
+            "title":       { "S": "..." },
+            "location":    { "S": "..." },
+            "lat":         { "N": "..." },
+            "lng":         { "N": "..." },
+            "type":        { "S": "..." },
+            "target_type": { "S": "..." },
+            "actor":       { "S": "..." },
+            "description": { "S": "..." },
+            "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } }
+          }
+        }
+      }
+    ]
+  }
+
+  The last used ID is [X]. Please generate [N] new events starting from ID [X+1].
+
+  
