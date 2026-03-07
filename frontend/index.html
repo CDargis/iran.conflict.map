@@ -25,6 +25,7 @@
       --sans:     'Barlow Condensed', sans-serif;
       --header-h: 44px;
       --filter-h: 34px;
+      --time-h:   38px;
       --bar-h:    28px;
       --peek:     120px;
     }
@@ -108,7 +109,7 @@
     /* ── MAP ── */
     #map {
       position: fixed;
-      top: calc(var(--header-h) + var(--filter-h)); left: 0; right: 0; bottom: 0;
+      top: calc(var(--header-h) + var(--filter-h) + var(--time-h)); left: 0; right: 0; bottom: 0;
       z-index: 1;
     }
     .leaflet-container { background: #111820; font-family: var(--mono); }
@@ -404,7 +405,7 @@
 
       #map {
         position: fixed;
-        top: calc(var(--header-h) + var(--filter-h)); left: 260px; right: 260px; bottom: var(--bar-h);
+        top: calc(var(--header-h) + var(--filter-h) + var(--time-h)); left: 260px; right: 260px; bottom: var(--bar-h);
         z-index: 5;
       }
 
@@ -419,7 +420,7 @@
       #desktop-shell {
         display: flex !important;
         position: fixed;
-        top: calc(var(--header-h) + var(--filter-h)); left: 0; right: 0; bottom: var(--bar-h);
+        top: calc(var(--header-h) + var(--filter-h) + var(--time-h)); left: 0; right: 0; bottom: var(--bar-h);
         pointer-events: none;
         z-index: 10;
       }
@@ -500,6 +501,74 @@
     #desktop-shell { display: none; }
     #statusbar     { display: none; }
 
+    /* ── TIME SLIDER ── */
+    #timebar {
+      position: fixed;
+      top: calc(var(--header-h) + var(--filter-h));
+      left: 0; right: 0;
+      height: var(--time-h);
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      padding: 0 14px; gap: 10px; z-index: 800;
+    }
+    .timebar-label {
+      font-size: 8px; letter-spacing: .14em; color: var(--dim);
+      text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
+    }
+    .time-slider-wrap { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .time-date-row {
+      display: flex; justify-content: space-between;
+      font-size: 9px; color: var(--accent); letter-spacing: .08em; padding: 0 1px;
+    }
+    .time-track-wrap { position: relative; height: 18px; display: flex; align-items: center; }
+    .time-track-bg {
+      position: absolute; left: 0; right: 0; height: 2px;
+      background: var(--border); border-radius: 1px;
+    }
+    .time-track-fill {
+      position: absolute; height: 2px;
+      background: var(--accent); opacity: .5; border-radius: 1px;
+      pointer-events: none;
+    }
+    .time-track-wrap input[type=range] {
+      position: absolute; width: 100%;
+      -webkit-appearance: none; appearance: none;
+      background: transparent; pointer-events: none;
+      height: 18px; margin: 0; padding: 0;
+    }
+    .time-track-wrap input[type=range]:focus { outline: none; }
+    .time-track-wrap input[type=range]::-webkit-slider-runnable-track { background: transparent; }
+    .time-track-wrap input[type=range]::-moz-range-track { background: transparent; border: none; }
+    .time-track-wrap input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      pointer-events: all;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid var(--bg);
+      cursor: grab;
+      animation: thumb-glow 1.8s ease-in-out 4;
+    }
+    .time-track-wrap input[type=range]::-webkit-slider-thumb:active { cursor: grabbing; }
+    .time-track-wrap input[type=range]::-moz-range-thumb {
+      pointer-events: all;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid var(--bg);
+      cursor: grab;
+    }
+    @keyframes thumb-glow {
+      0%,100% { box-shadow: 0 0 4px rgba(200,57,43,.4); }
+      50%      { box-shadow: 0 0 12px rgba(200,57,43,.95), 0 0 22px rgba(200,57,43,.3); }
+    }
+    .timebar-hint {
+      font-size: 8px; letter-spacing: .14em; color: var(--accent);
+      white-space: nowrap; flex-shrink: 0;
+      animation: hint-fade 2s ease-in-out infinite;
+      transition: opacity .4s ease;
+    }
+    .timebar-hint.used { opacity: 0; pointer-events: none; }
+
     /* ── LOADING OVERLAY ── */
     #loader {
       position: fixed; inset: 0;
@@ -575,6 +644,23 @@
   <button class="actor-btn active" data-actor="Israel"     style="--actor-color:#a8d8ea">ISRAEL</button>
   <button class="actor-btn active" data-actor="Iran"       style="--actor-color:#2ecc71">IRAN</button>
   <button class="actor-btn active" data-actor="Houthi/Iran" style="--actor-color:#e8a020">HOUTHI</button>
+</div>
+
+<div id="timebar">
+  <span class="timebar-label">DATE<br>RANGE</span>
+  <div class="time-slider-wrap">
+    <div class="time-date-row">
+      <span id="lbl-from">—</span>
+      <span id="lbl-to">—</span>
+    </div>
+    <div class="time-track-wrap">
+      <div class="time-track-bg"></div>
+      <div class="time-track-fill" id="time-fill"></div>
+      <input type="range" id="range-start" min="0" max="100" value="0">
+      <input type="range" id="range-end" min="0" max="100" value="100">
+    </div>
+  </div>
+  <span class="timebar-hint" id="timebar-hint">◀ DRAG ▶</span>
 </div>
 
 <div id="map"></div>
@@ -716,7 +802,7 @@ function tick(){document.getElementById('clock').textContent=new Date().toUTCStr
 setInterval(tick,1000);tick();
 
 /* ── MARKERS ── */
-let markers={},activeId=null;
+let markers={},activeId=null,allStrikes=[],minDate=null,maxDate=null;
 function makeIcon(type,hi=false){
   const c=TARGET_CFG[type]?.color||'#c8392b';
   const size=hi?26:20, dot=hi?10:7;
@@ -756,19 +842,82 @@ function focusStrike(id){
   if(window.innerWidth<900) snapSheet('closed');
 }
 
+/* ── TIME SLIDER ── */
+const MONTH_ABB=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+function fmtDate(d){return `${MONTH_ABB[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2,'0')}`;}
+function getDateRange(){
+  if(!minDate) return [null,null];
+  const rs=document.getElementById('range-start');
+  const re=document.getElementById('range-end');
+  const from=new Date(minDate.getTime()+rs.value*86400000);
+  const to=new Date(minDate.getTime()+re.value*86400000);
+  to.setUTCHours(23,59,59,999);
+  return [from,to];
+}
+function updateTimeLabels(){
+  const [from,to]=getDateRange();
+  if(from) document.getElementById('lbl-from').textContent=fmtDate(from);
+  if(to)   document.getElementById('lbl-to').textContent=fmtDate(to);
+}
+function updateTimeFill(){
+  const rs=document.getElementById('range-start');
+  const re=document.getElementById('range-end');
+  const fill=document.getElementById('time-fill');
+  const total=+rs.max-+rs.min||1;
+  const l=(+rs.value-+rs.min)/total*100;
+  const r=(+re.value-+rs.min)/total*100;
+  fill.style.left=l+'%';
+  fill.style.width=(r-l)+'%';
+}
+function initTimeSlider(data){
+  const sorted=[...data].sort((a,b)=>a.date.localeCompare(b.date));
+  minDate=new Date(sorted[0].date+'T00:00:00Z');
+  maxDate=new Date(sorted[sorted.length-1].date+'T00:00:00Z');
+  const totalDays=Math.round((maxDate-minDate)/86400000);
+  const rs=document.getElementById('range-start');
+  const re=document.getElementById('range-end');
+  rs.min=0; rs.max=totalDays; rs.value=0;
+  re.min=0; re.max=totalDays; re.value=totalDays;
+  updateTimeLabels();
+  updateTimeFill();
+  [rs,re].forEach(input=>{
+    input.addEventListener('input',function(){
+      if(input===rs && +rs.value>+re.value) rs.value=re.value;
+      if(input===re && +re.value<+rs.value) re.value=rs.value;
+      updateTimeLabels();
+      updateTimeFill();
+      applyFilters();
+      document.getElementById('timebar-hint').classList.add('used');
+    });
+  });
+}
+
 /* ── ACTOR FILTERS ── */
 let activeActors = new Set(['US','Israel','Iran','Houthi/Iran']);
 
 function applyFilters(){
+  const [fromDate,toDate]=getDateRange();
+  let visible=0;
   Object.values(markers).forEach(({m,s})=>{
-    if(activeActors.has(s.actor)) m.addTo(map);
+    const d=new Date(s.date+'T00:00:00Z');
+    const show=activeActors.has(s.actor)
+      &&(!fromDate||d>=fromDate)
+      &&(!toDate  ||d<=toDate);
+    if(show){m.addTo(map);visible++;}
     else m.remove();
   });
   document.querySelectorAll('.strike-item').forEach(el=>{
-    const id = parseInt(el.dataset.id);
-    const s = markers[id]?.s;
-    el.style.display = s && activeActors.has(s.actor) ? '' : 'none';
+    const id=parseInt(el.dataset.id);
+    const s=markers[id]?.s;
+    if(!s){el.style.display='none';return;}
+    const d=new Date(s.date+'T00:00:00Z');
+    const show=activeActors.has(s.actor)
+      &&(!fromDate||d>=fromDate)
+      &&(!toDate  ||d<=toDate);
+    el.style.display=show?'':'none';
   });
+  document.getElementById('event-badge').textContent=`${visible} events`;
+  document.getElementById('desktop-count').textContent=`${visible} events`;
 }
 
 document.querySelectorAll('.actor-btn').forEach(btn=>{
@@ -815,21 +964,22 @@ function render(data){
   document.getElementById('mobile-feed').innerHTML   = feedHTML(data);
   document.getElementById('mobile-stats').innerHTML  = statsHTML(data);
   document.getElementById('mobile-legend').innerHTML = legendHTML();
-  document.getElementById('event-badge').textContent = `${data.length} events`;
   document.getElementById('sync-mobile').textContent = sync;
   document.getElementById('desktop-feed').innerHTML   = feedHTML(data);
   document.getElementById('desktop-stats').innerHTML  = statsHTML(data);
   document.getElementById('desktop-legend').innerHTML = legendHTML();
-  document.getElementById('desktop-count').textContent= `${data.length} events`;
   document.getElementById('sync-desktop').textContent = sync;
   document.getElementById('ticker-text').innerHTML =
     TICKERS.map(t=>`◆ ${t}`).join(' <span style="margin:0 16px;color:var(--accent)">|</span> ');
+  allStrikes=data;
   data.forEach(s=>{
-    const m=L.marker([s.lat,s.lng],{icon:makeIcon(s.target_type)}).addTo(map)
+    const m=L.marker([s.lat,s.lng],{icon:makeIcon(s.target_type)})
       .bindPopup(popupHTML(s),{maxWidth:300});
     m.on('click',()=>focusStrike(s.id));
     markers[s.id]={m,s};
   });
+  initTimeSlider(data);
+  applyFilters();
 }
 
 /* ── BOTTOM SHEET (mobile) ── */
