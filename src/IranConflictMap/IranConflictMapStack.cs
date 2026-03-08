@@ -215,7 +215,7 @@ public class IranConflictMapStack : Stack
                     Origin               = apiOrigin,
                     ViewerProtocolPolicy = ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                     CachePolicy          = CachePolicy.CACHING_DISABLED,
-                    AllowedMethods       = AllowedMethods.ALLOW_GET_HEAD,
+                    AllowedMethods       = AllowedMethods.ALLOW_ALL,
                 }
             },
             DefaultRootObject  = "index.html",
