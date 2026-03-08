@@ -634,25 +634,6 @@
   {
     "id": "36",
     "date": "2026-03-07",
-    "disputed": true,
-    "title": "Over 6,668 Civilian Sites Targeted — Iranian Red Crescent Report",
-    "location": "Iran",
-    "lat": 32.4279,
-    "lng": 53.688,
-    "type": "strike",
-    "target_type": "civilian",
-    "actor": "US",
-    "severity": "critical",
-    "description": "The Iranian Red Crescent Society reported that over 6,668 civilian units had been targeted by US-Israeli strikes since 28 February, including residential buildings, schools, and hospitals. The figure could not be independently verified due to restricted media access inside Iran.",
-    "casualties": {
-      "confirmed": 2100,
-      "estimated": 6000
-    },
-    "entity": "strike"
-  },
-  {
-    "id": "37",
-    "date": "2026-03-07",
     "title": "Iran Fires New Missile Wave at Israel and Gulf States",
     "location": "Israel and Gulf Region",
     "lat": 31.0461,
@@ -669,7 +650,7 @@
     "entity": "strike"
   },
   {
-    "id": "38",
+    "id": "37",
     "date": "2026-03-06",
     "title": "Hezbollah-Israel Clashes Escalate — Lebanon Front",
     "location": "Southern Lebanon",

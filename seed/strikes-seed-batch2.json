@@ -532,61 +532,6 @@
           "date": {
             "S": "2026-03-07"
           },
-          "disputed": {
-            "BOOL": true
-          },
-          "title": {
-            "S": "Over 6,668 Civilian Sites Targeted — Iranian Red Crescent Report"
-          },
-          "location": {
-            "S": "Iran"
-          },
-          "lat": {
-            "N": "32.4279"
-          },
-          "lng": {
-            "N": "53.6880"
-          },
-          "type": {
-            "S": "strike"
-          },
-          "target_type": {
-            "S": "civilian"
-          },
-          "actor": {
-            "S": "US"
-          },
-          "severity": {
-            "S": "critical"
-          },
-          "description": {
-            "S": "The Iranian Red Crescent Society reported that over 6,668 civilian units had been targeted by US-Israeli strikes since 28 February, including residential buildings, schools, and hospitals. The figure could not be independently verified due to restricted media access inside Iran."
-          },
-          "casualties": {
-            "M": {
-              "confirmed": {
-                "N": "2100"
-              },
-              "estimated": {
-                "N": "6000"
-              }
-            }
-          },
-          "entity": {
-            "S": "strike"
-          }
-        }
-      }
-    },
-    {
-      "PutRequest": {
-        "Item": {
-          "id": {
-            "S": "37"
-          },
-          "date": {
-            "S": "2026-03-07"
-          },
           "title": {
             "S": "Iran Fires New Missile Wave at Israel and Gulf States"
           },
@@ -634,7 +579,7 @@
       "PutRequest": {
         "Item": {
           "id": {
-            "S": "38"
+            "S": "37"
           },
           "date": {
             "S": "2026-03-06"
