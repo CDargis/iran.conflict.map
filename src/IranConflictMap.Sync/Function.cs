@@ -176,10 +176,13 @@ public class Function
 
     private async Task<string> GetPageContent(ILambdaContext ctx)
     {
-        var url     = $"https://en.wikipedia.org/api/rest_v1/page/plain/{WikiPageTitle}";
-        var content = await Http.GetStringAsync(url);
+        var url  = $"https://en.wikipedia.org/w/api.php?action=query&titles={WikiPageTitle}&prop=extracts&explaintext=true&format=json";
+        var json = await Http.GetStringAsync(url);
+        var doc  = JsonDocument.Parse(json);
+        var content = "";
+        foreach (var page in doc.RootElement.GetProperty("query").GetProperty("pages").EnumerateObject())
+            content = page.Value.TryGetProperty("extract", out var ex) ? ex.GetString() ?? "" : "";
         ctx.Logger.LogLine($"[sync] page content length: {content.Length}");
-        // Truncate to avoid hitting context limits (~80k chars is safe for Haiku)
         return content.Length > 80_000 ? content[..80_000] : content;
     }
 
