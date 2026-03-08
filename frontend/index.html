@@ -746,13 +746,6 @@
 <script>
 /* ── DATA ── */
 const STRIKES_URL = '/api/strikes';
-const FALLBACK = [
-  {id:4,date:"2026-02-03",title:"Drone Swarm — Red Sea Shipping",location:"Red Sea (17°N)",lat:17.2,lng:42.5,type:"drone",target_type:"maritime",actor:"Houthi/Iran",severity:"medium",casualties:{confirmed:0,estimated:0},description:"Houthi drone attack on commercial container vessel. USS Gravely intercepts 6 of 8 drones. Partial hull damage."},
-  {id:5,date:"2026-02-09",title:"US Navy Intercept — Strait of Hormuz",location:"Strait of Hormuz",lat:26.5,lng:56.3,type:"naval",target_type:"maritime",actor:"US",severity:"low",casualties:{confirmed:0,estimated:0},description:"USS Abraham Lincoln strike group intercepts IRGC fast-attack vessels harassing commercial traffic."},
-  {id:6,date:"2026-02-17",title:"IDF Strike — Natanz Adjacent Site",location:"Natanz Region, Iran",lat:33.72,lng:51.72,type:"strike",target_type:"nuclear",actor:"Israel",severity:"high",casualties:{confirmed:1,estimated:5},description:"Reported Israeli strike on SAM battery adjacent to Natanz enrichment complex."},
-  {id:7,date:"2026-02-24",title:"IRGC Drone Attack — Erbil Airbase",location:"Erbil, Iraq",lat:36.19,lng:44.01,type:"drone",target_type:"military",actor:"Iran",severity:"medium",casualties:{confirmed:3,estimated:10},description:"IRGC-linked group launches drone barrage at US facilities. Two intercepted; one impacts logistics building."},
-  {id:8,date:"2026-03-01",title:"US CENTCOM Strike Package",location:"Deir ez-Zor, Syria",lat:35.33,lng:40.14,type:"strike",target_type:"command",actor:"US",severity:"high",casualties:{confirmed:7,estimated:20},description:"Multi-aircraft strike package targeting Iranian-backed militia command nodes. Four aim-points engaged."},
-];
 const TYPE_CFG = {
   strike: {label:'Airstrike'},
   missile:{label:'Missile Launch'},
@@ -1071,7 +1064,7 @@ function hideLoader(){
 fetch(STRIKES_URL)
   .then(r=>{if(!r.ok)throw new Error();return r.json();})
   .then(data=>{render(data);hideLoader();})
-  .catch(()=>{console.info('Using fallback data');render(FALLBACK);hideLoader();});
+  .catch(()=>{console.warn('Failed to load strike data');render([]);hideLoader();});
 </script>
 </body>
 </html>
