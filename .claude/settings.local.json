@@ -3,7 +3,9 @@
     "allow": [
       "Bash(powershell.exe:*)",
       "Bash(dotnet sln:*)",
-      "Bash(dotnet:*)"
+      "Bash(dotnet:*)",
+      "Bash(xargs grep:*)",
+      "Bash(node:*)"
     ]
   }
 }
