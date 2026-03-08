@@ -124,9 +124,9 @@ public class IranConflictMapStack : Stack
 
         httpApi.AddRoutes(new AddRoutesOptions
         {
-            Path        = "/api/strikes",
-            Methods     = new[] { Amazon.CDK.AWS.Apigatewayv2.Alpha.HttpMethod.GET },
-            Integration = new HttpLambdaIntegration("StrikesIntegration", apiLambda)
+            Path        = "/{proxy+}",
+            Methods     = new[] { Amazon.CDK.AWS.Apigatewayv2.Alpha.HttpMethod.ANY },
+            Integration = new HttpLambdaIntegration("ApiIntegration", apiLambda)
         });
 
         // ── Sync Lambda ────────────────────────────────────────────────────────
