@@ -148,7 +148,7 @@ public class IranConflictMapStack : Stack
                 ["STRIKES_TABLE"]  = strikesTable.TableName,
                 ["SYNCS_TABLE"]    = syncsTable.TableName,
                 ["SSM_PREFIX"]     = "/iran-conflict-map",
-                ["WIKIPEDIA_PAGE"] = "https://en.wikipedia.org/wiki/List_of_attacks_during_the_2026_Iran_war"
+                ["WIKIPEDIA_PAGE"] = "List_of_attacks_during_the_2026_Iran_war"
             },
             Timeout    = Duration.Minutes(5),
             MemorySize = 512
