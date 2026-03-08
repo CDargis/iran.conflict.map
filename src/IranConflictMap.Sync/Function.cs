@@ -229,15 +229,15 @@ public class Function
     private async Task<List<Dictionary<string, AttributeValue>>> CallClaude(
         string pageContent, string lastSynced, int nextId, string apiKey, ILambdaContext ctx)
     {
-        var prompt = $$"""
+        var prompt = """
             You maintain a conflict map database of military events in the Iran/Middle East conflict.
 
             Here is a Wikipedia article about the conflict:
 
-            {{pageContent}}
+            WIKI_CONTENT
 
-            Extract all military events that occurred STRICTLY AFTER {{lastSynced}}.
-            Start IDs from {{nextId}} and increment by 1 for each event.
+            Extract all military events that occurred STRICTLY AFTER LAST_SYNCED.
+            Start IDs from NEXT_ID and increment by 1 for each event.
 
             Rules:
             - entity is always "strike"
@@ -246,13 +246,13 @@ public class Function
             - target_type must be one of: military, maritime, nuclear, command, civilian
             - severity: low (minor/0 cas), medium (1-10 cas), high (10-50 cas), critical (50+ cas or nuclear/decapitation)
             - Only include "disputed": {"BOOL": true} if the event is genuinely contested or denied
-            - If no new events exist after {{lastSynced}}, output an empty array: []
+            - If no new events exist after LAST_SYNCED, output an empty array: []
 
             Output ONLY a valid JSON array of DynamoDB Item objects. No explanation, no markdown.
 
             Example item:
             {
-              "id":          {"S": "{{nextId}}"},
+              "id":          {"S": "NEXT_ID"},
               "entity":      {"S": "strike"},
               "date":        {"S": "YYYY-MM-DD"},
               "title":       {"S": "Short event title"},
@@ -266,7 +266,10 @@ public class Function
               "description": {"S": "1-3 sentence factual summary."},
               "casualties":  {"M": {"confirmed": {"N": "0"}, "estimated": {"N": "0"}}}
             }
-            """;
+            """
+            .Replace("WIKI_CONTENT", pageContent)
+            .Replace("LAST_SYNCED",  lastSynced)
+            .Replace("NEXT_ID",      nextId.ToString());
 
         var body = JsonSerializer.Serialize(new
         {
