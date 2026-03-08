@@ -19,7 +19,7 @@ public class Function
     private static HttpClient CreateHttpClient()
     {
         var client = new HttpClient();
-        client.DefaultRequestHeaders.Add("User-Agent", "IranConflictMap/1.0 (https://conflictmap.chrisdargis.com)");
+        client.DefaultRequestHeaders.Add("User-Agent", "IranConflictMap/1.0 (https://conflictmap.chrisdargis.com; bot@conflictmap.chrisdargis.com)");
         return client;
     }
 
