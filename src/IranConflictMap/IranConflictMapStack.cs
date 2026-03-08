@@ -45,6 +45,14 @@ public class IranConflictMapStack : Stack
             RemovalPolicy  = RemovalPolicy.RETAIN
         });
 
+        strikesTable.AddGlobalSecondaryIndex(new GlobalSecondaryIndexProps
+        {
+            IndexName      = "entity-date-index",
+            PartitionKey   = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "entity", Type = AttributeType.STRING },
+            SortKey        = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "date",   Type = AttributeType.STRING },
+            ProjectionType = ProjectionType.ALL
+        });
+
         // ── API Lambda ─────────────────────────────────────────────────────
         var apiLambda = new LambdaFunction(this, "ApiFunction", new LambdaFunctionProps
         {
@@ -65,7 +73,8 @@ public class IranConflictMapStack : Stack
             }),
             Environment = new Dictionary<string, string>
             {
-                ["STRIKES_TABLE"] = strikesTable.TableName
+                ["STRIKES_TABLE"] = strikesTable.TableName,
+                ["STRIKES_GSI"]   = "entity-date-index"
             },
             Timeout    = Duration.Seconds(15),
             MemorySize = 256

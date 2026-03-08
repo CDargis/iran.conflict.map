@@ -10,6 +10,7 @@
 | Field         | DynamoDB type | Example value              | Notes                                      |
 |---------------|---------------|----------------------------|--------------------------------------------|
 | `id`          | S (String)    | `"8"`                      | Partition key, unique per event            |
+| `entity`      | S (String)    | `"strike"`                 | Always `"strike"` — GSI partition key      |
 | `date`        | S (String)    | `"2026-03-01"`             | ISO 8601 date (YYYY-MM-DD)                 |
 | `title`       | S (String)    | `"US CENTCOM Strike Package"` | Short display title                     |
 | `location`    | S (String)    | `"Deir ez-Zor, Syria"`     | Human-readable place name                  |
@@ -58,6 +59,7 @@
       "PutRequest": {
         "Item": {
           "id":          { "S": "9" },
+          "entity":      { "S": "strike" },
           "date":        { "S": "2026-03-04" },
           "title":       { "S": "Example Event Title" },
           "location":    { "S": "City, Country" },
@@ -94,6 +96,7 @@ I'm building an Iran/Middle East conflict map. I need you to generate DynamoDB s
 
 **Schema:**
 - `id` (String) — unique numeric string, increment from the last ID I give you
+- `entity` (String) — always `"strike"` (used as GSI partition key)
 - `date` (String) — ISO 8601, YYYY-MM-DD
 - `title` (String) — short event title
 - `location` (String) — human-readable place name
@@ -113,6 +116,7 @@ I'm building an Iran/Middle East conflict map. I need you to generate DynamoDB s
       "PutRequest": {
         "Item": {
           "id":          { "S": "..." },
+          "entity":      { "S": "strike" },
           "date":        { "S": "YYYY-MM-DD" },
           "title":       { "S": "..." },
           "location":    { "S": "..." },

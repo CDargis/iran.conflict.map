@@ -5,13 +5,17 @@
     "title": "Operation Roaring Lion / Epic Fury — Opening Strikes on Tehran",
     "location": "Tehran, Iran",
     "lat": 35.6892,
-    "lng": 51.3890,
+    "lng": 51.389,
     "type": "strike",
     "target_type": "command",
     "actor": "Israel",
     "severity": "critical",
     "description": "Israel and the US launched coordinated airstrikes on Tehran targeting Supreme Leader Khamenei's compound, the presidential palace, and the National Security Council. Khamenei was killed in the strike on his compound. Approximately 200 Israeli fighter jets participated in the largest combat sortie in Israeli history.",
-    "casualties": { "confirmed": 40, "estimated": 180 }
+    "casualties": {
+      "confirmed": 40,
+      "estimated": 180
+    },
+    "entity": "strike"
   },
   {
     "id": "2",
@@ -19,13 +23,17 @@
     "title": "US-Israel Strikes on Isfahan Military Sites",
     "location": "Isfahan, Iran",
     "lat": 32.6546,
-    "lng": 51.6680,
+    "lng": 51.668,
     "type": "strike",
     "target_type": "military",
     "actor": "US",
     "severity": "high",
     "description": "Joint US-Israeli airstrikes hit military and government facilities in Isfahan as part of Operation Epic Fury. Strikes targeted missile production infrastructure and IRGC bases in the city.",
-    "casualties": { "confirmed": 0, "estimated": 50 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 50
+    },
+    "entity": "strike"
   },
   {
     "id": "3",
@@ -39,7 +47,11 @@
     "actor": "US",
     "severity": "high",
     "description": "Airstrikes struck military sites in Qom and Kermanshah simultaneously with the Tehran opening wave. Targets included IRGC command infrastructure and missile storage facilities.",
-    "casualties": { "confirmed": 0, "estimated": 30 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 30
+    },
+    "entity": "strike"
   },
   {
     "id": "4",
@@ -47,13 +59,17 @@
     "title": "Assassination of Supreme Leader Ali Khamenei",
     "location": "Leadership House Compound, Tehran, Iran",
     "lat": 35.7219,
-    "lng": 51.4160,
+    "lng": 51.416,
     "type": "strike",
     "target_type": "command",
     "actor": "Israel",
     "severity": "critical",
     "description": "A precision strike on the Leadership House compound killed Supreme Leader Ali Khamenei along with his daughter, son-in-law, grandchild, and daughter-in-law. Iranian state media confirmed the death early on 1 March. CBS News reported approximately 40 Iranian officials killed across the opening strikes.",
-    "casualties": { "confirmed": 5, "estimated": 40 }
+    "casualties": {
+      "confirmed": 5,
+      "estimated": 40
+    },
+    "entity": "strike"
   },
   {
     "id": "5",
@@ -67,7 +83,11 @@
     "actor": "Iran",
     "severity": "high",
     "description": "In retaliation for US-Israeli strikes, Iran launched a first wave of approximately 170 ballistic missiles toward Israel and Gulf states. The IDF estimated the barrage size and activated nationwide air raid sirens. Israel's Ministry of Health moved hospital operations underground.",
-    "casualties": { "confirmed": 0, "estimated": 10 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 10
+    },
+    "entity": "strike"
   },
   {
     "id": "6",
@@ -75,13 +95,17 @@
     "title": "Iranian Missile Strike — US Fifth Fleet HQ, Bahrain",
     "location": "Manama, Bahrain",
     "lat": 26.2285,
-    "lng": 50.5860,
+    "lng": 50.586,
     "type": "missile",
     "target_type": "military",
     "actor": "Iran",
     "severity": "high",
     "description": "Iran launched a ballistic missile strike targeting the US Fifth Fleet headquarters in Bahrain. Bahrain activated air-raid sirens as explosions and smoke were seen in the capital Manama. The strike was confirmed by Bahraini authorities.",
-    "casualties": { "confirmed": 0, "estimated": 5 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 5
+    },
+    "entity": "strike"
   },
   {
     "id": "7",
@@ -89,13 +113,17 @@
     "title": "Iranian Missile Strike — Al Udeid Air Base, Qatar",
     "location": "Al Udeid Air Base, Qatar",
     "lat": 25.1173,
-    "lng": 51.3150,
+    "lng": 51.315,
     "type": "missile",
     "target_type": "military",
     "actor": "Iran",
     "severity": "medium",
     "description": "Iran launched missiles targeting Al Udeid Air Base in Qatar, home to a major US forward headquarters. Qatar activated air defenses and intercepted the majority of incoming projectiles. 16 people were injured by shrapnel from interceptions.",
-    "casualties": { "confirmed": 0, "estimated": 16 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 16
+    },
+    "entity": "strike"
   },
   {
     "id": "8",
@@ -109,7 +137,11 @@
     "actor": "Iran",
     "severity": "medium",
     "description": "Iran launched ballistic missiles and drones toward Al Dhafra Air Base targeting US forces. UAE air defenses intercepted most projectiles but debris fell in a residential area near Zayed International Airport, killing one civilian and injuring seven others.",
-    "casualties": { "confirmed": 1, "estimated": 8 }
+    "casualties": {
+      "confirmed": 1,
+      "estimated": 8
+    },
+    "entity": "strike"
   },
   {
     "id": "9",
@@ -123,7 +155,11 @@
     "actor": "Iran",
     "severity": "medium",
     "description": "Iran struck Ali al-Salem Air Base in Kuwait as part of its opening retaliatory wave against US forward bases. Iranian attacks killed one person and injured 32 in Kuwait overall. Kuwait's foreign ministry summoned Iran's ambassador in protest.",
-    "casualties": { "confirmed": 1, "estimated": 32 }
+    "casualties": {
+      "confirmed": 1,
+      "estimated": 32
+    },
+    "entity": "strike"
   },
   {
     "id": "10",
@@ -137,7 +173,11 @@
     "actor": "Israel",
     "severity": "high",
     "description": "Missile strikes were reported on University Street, the Jomhouri area, and the northern Seyed Khandan area of Tehran. Two students were killed in a strike in Tehran according to Al Jazeera. Iranian Red Crescent reported 201 civilians killed and 747 injured across all Iran strikes on the opening day.",
-    "casualties": { "confirmed": 2, "estimated": 201 }
+    "casualties": {
+      "confirmed": 2,
+      "estimated": 201
+    },
+    "entity": "strike"
   },
   {
     "id": "11",
@@ -145,13 +185,17 @@
     "title": "US Submarine Sinks IRIS Dena — Indian Ocean",
     "location": "Off the Coast of Galle, Sri Lanka",
     "lat": 5.9549,
-    "lng": 80.5550,
+    "lng": 80.555,
     "type": "naval",
     "target_type": "military",
     "actor": "US",
     "severity": "high",
     "description": "A US submarine sank the Iranian frigate IRIS Dena off the coast of Galle, Sri Lanka. The ship was returning from the International Fleet Review 2026 held in India. 87 crewmen were killed and 32 were rescued by the Sri Lankan navy. US Secretary of Defense Pete Hegseth confirmed the attack.",
-    "casualties": { "confirmed": 87, "estimated": 87 }
+    "casualties": {
+      "confirmed": 87,
+      "estimated": 87
+    },
+    "entity": "strike"
   },
   {
     "id": "12",
@@ -165,21 +209,29 @@
     "actor": "US",
     "severity": "high",
     "description": "A US-Israeli airstrike sank an Iranian Soleimani-class corvette in the port of Bandar Abbas. The strike targeted Iran's naval infrastructure as part of the broader campaign to degrade Iran's military capabilities.",
-    "casualties": { "confirmed": 0, "estimated": 20 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 20
+    },
+    "entity": "strike"
   },
   {
     "id": "13",
     "date": "2026-02-28",
     "title": "IRGC Malek-Ashtar Building Destroyed — Tehran",
     "location": "Tehran, Iran",
-    "lat": 35.7350,
-    "lng": 51.4150,
+    "lat": 35.735,
+    "lng": 51.415,
     "type": "strike",
     "target_type": "military",
     "actor": "US",
     "severity": "high",
     "description": "Video footage released by Iran International showed the IRGC Malek-Ashtar building in Tehran completely destroyed in a joint US strike. The building housed key IRGC command and research functions.",
-    "casualties": { "confirmed": 0, "estimated": 25 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 25
+    },
+    "entity": "strike"
   },
   {
     "id": "14",
@@ -193,7 +245,11 @@
     "actor": "Iran",
     "severity": "low",
     "description": "An Iranian drone struck the US consulate in Dubai, causing a fire that was quickly contained with no injuries. Fallen debris caused damage to structures in Dubai including areas around Palm Jumeirah and the Burj Al Arab hotel.",
-    "casualties": { "confirmed": 0, "estimated": 0 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 0
+    },
+    "entity": "strike"
   },
   {
     "id": "15",
@@ -201,13 +257,17 @@
     "title": "Shahed Drone Strike — Palm Jumeirah, Dubai",
     "location": "Palm Jumeirah, Dubai, UAE",
     "lat": 25.1124,
-    "lng": 55.1390,
+    "lng": 55.139,
     "type": "drone",
     "target_type": "civilian",
     "actor": "Iran",
     "severity": "medium",
     "description": "A Shahed-type drone struck near the Fairmont The Palm Hotel on Palm Jumeirah, causing a large explosion and fire. Four individuals were injured primarily from debris and blast effects. Windows shattered in nearby buildings across the luxurious district.",
-    "casualties": { "confirmed": 0, "estimated": 4 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 4
+    },
+    "entity": "strike"
   },
   {
     "id": "16",
@@ -215,27 +275,35 @@
     "title": "US-Israel Strikes on Iraqi Militias — Jurf al-Sakhar",
     "location": "Jurf al-Sakhar, Babil, Iraq",
     "lat": 32.9667,
-    "lng": 44.2500,
+    "lng": 44.25,
     "type": "strike",
     "target_type": "military",
     "actor": "US",
     "severity": "medium",
     "description": "The US and Israel conducted strikes on Iranian-backed Iraqi Popular Mobilization Units near Jurf al-Sakhar south of Baghdad to degrade their retaliatory capabilities. Two fighters were killed and three wounded. Kataib Hezbollah threatened to begin attacking US bases in response.",
-    "casualties": { "confirmed": 2, "estimated": 5 }
+    "casualties": {
+      "confirmed": 2,
+      "estimated": 5
+    },
+    "entity": "strike"
   },
   {
     "id": "17",
     "date": "2026-03-02",
     "title": "Civilian Deaths — Niloofar Square, Tehran",
     "location": "Niloofar Square, Tehran, Iran",
-    "lat": 35.7550,
-    "lng": 51.3780,
+    "lat": 35.755,
+    "lng": 51.378,
     "type": "strike",
     "target_type": "civilian",
     "actor": "Israel",
     "severity": "high",
     "description": "Twenty civilians were killed in Tehran's Niloofar Square in a strike on 2 March, according to Iranian state-owned media. The strike drew international condemnation and calls for investigation into targeting practices.",
-    "casualties": { "confirmed": 20, "estimated": 20 }
+    "casualties": {
+      "confirmed": 20,
+      "estimated": 20
+    },
+    "entity": "strike"
   },
   {
     "id": "18",
@@ -249,7 +317,11 @@
     "actor": "US",
     "severity": "medium",
     "description": "In a friendly fire incident, a Kuwaiti F/A-18 shot down three American F-15E aircraft. All six crew members survived. The incident highlighted the complexity and risk of coordinating multi-national airspace operations during the conflict.",
-    "casualties": { "confirmed": 0, "estimated": 0 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 0
+    },
+    "entity": "strike"
   },
   {
     "id": "19",
@@ -263,7 +335,11 @@
     "actor": "Iran",
     "severity": "medium",
     "description": "An Iranian missile struck the US Embassy in Kuwait, prompting Secretary of State Marco Rubio to close the embassy until further notice. The attack was part of Iran's sustained campaign against US diplomatic and military infrastructure in Gulf states.",
-    "casualties": { "confirmed": 0, "estimated": 5 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 5
+    },
+    "entity": "strike"
   },
   {
     "id": "20",
@@ -277,7 +353,11 @@
     "actor": "Iran",
     "severity": "medium",
     "description": "Qatari F-15s downed two Iranian Su-24 bombers that were two minutes from Qatari territory targeting Al Udeid Air Base and Ras Laffan Industrial City. A UK Royal Air Force Typhoon also shot down an attack drone directed at Qatar. A search was underway to recover the Iranian crews.",
-    "casualties": { "confirmed": 0, "estimated": 4 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 4
+    },
+    "entity": "strike"
   },
   {
     "id": "21",
@@ -285,13 +365,17 @@
     "title": "Iranian Drone Strike — Ras Laffan Gas Facility, Qatar",
     "location": "Ras Laffan, Qatar",
     "lat": 25.9167,
-    "lng": 51.5500,
+    "lng": 51.55,
     "type": "drone",
     "target_type": "military",
     "actor": "Iran",
     "severity": "high",
     "description": "Two Iranian drones struck the Ras Laffan Industrial City and Mesaieed Industrial Area. QatarEnergy subsequently announced it was ceasing all natural gas production and declared Force Majeure on contracts. The attack caused sharp increases in world gas prices.",
-    "casualties": { "confirmed": 0, "estimated": 5 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 5
+    },
+    "entity": "strike"
   },
   {
     "id": "22",
@@ -305,7 +389,11 @@
     "actor": "Iran",
     "severity": "medium",
     "description": "Dubai International Airport was struck by a suspected drone attack, leading to four staff being injured and an evacuation of Terminal 3. The airport sustained minor damage and emergency teams were deployed. Videos posted to social media at around 1:30 AM local time confirmed the strike.",
-    "casualties": { "confirmed": 0, "estimated": 4 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 4
+    },
+    "entity": "strike"
   },
   {
     "id": "23",
@@ -313,13 +401,17 @@
     "title": "IDF F-35 Shoots Down Iranian Yak-130 — Tehran Airspace",
     "location": "Tehran, Iran",
     "lat": 35.6892,
-    "lng": 51.3890,
+    "lng": 51.389,
     "type": "strike",
     "target_type": "military",
     "actor": "Israel",
     "severity": "low",
     "description": "An IDF F-35I 'Adir' shot down a Russian-made Iranian Yak-130 fighter jet over Tehran, marking the first time in history a stealth fighter has shot down a manned aircraft in combat. It was also the first Israeli air-to-air kill since 1985.",
-    "casualties": { "confirmed": 0, "estimated": 2 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 2
+    },
+    "entity": "strike"
   },
   {
     "id": "24",
@@ -333,7 +425,11 @@
     "actor": "Iran",
     "severity": "high",
     "description": "An Iranian drone attack on a Kuwait army base killed four US soldiers. ABC News identified the victims as Capt. Cody A. Khork, Sgt. 1st Class Noah L. Tietjens, Sgt. 1st Class Nicole M. Amor, and Spc. Declan J. Coady.",
-    "casualties": { "confirmed": 4, "estimated": 4 }
+    "casualties": {
+      "confirmed": 4,
+      "estimated": 4
+    },
+    "entity": "strike"
   },
   {
     "id": "25",
@@ -341,14 +437,18 @@
     "disputed": true,
     "title": "Iranian Strike — Minab Girls' Elementary School",
     "location": "Minab, Hormozgan, Iran",
-    "lat": 27.1500,
+    "lat": 27.15,
     "lng": 57.0833,
     "type": "strike",
     "target_type": "civilian",
     "actor": "US",
     "severity": "critical",
     "description": "The Shajareh Tayyebeh girls' elementary school in Minab was struck by a missile at 07:15 UTC. Iranian media reported 180 killed, mostly school children, and 95 wounded. Iran's foreign ministry called it a war crime. Evidence assembled by The New York Times suggested the attack was carried out by the US, which CENTCOM said it was investigating.",
-    "casualties": { "confirmed": 180, "estimated": 275 }
+    "casualties": {
+      "confirmed": 180,
+      "estimated": 275
+    },
+    "entity": "strike"
   },
   {
     "id": "26",
@@ -356,13 +456,17 @@
     "title": "Iranian Missile Strike — Al Udeid Air Base, Qatar",
     "location": "Al Udeid Air Base, Qatar",
     "lat": 25.1173,
-    "lng": 51.3150,
+    "lng": 51.315,
     "type": "missile",
     "target_type": "military",
     "actor": "Iran",
     "severity": "low",
     "description": "An Iranian missile struck Al Udeid Air Base in Qatar but did not cause any casualties. Qatar's air defenses had been on heightened alert following the previous day's Su-24 intercepts. Canadian military personnel present at the base were confirmed safe by Canadian Defence Minister David McGuinty.",
-    "casualties": { "confirmed": 0, "estimated": 0 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 0
+    },
+    "entity": "strike"
   },
   {
     "id": "27",
@@ -376,7 +480,11 @@
     "actor": "Iran",
     "severity": "high",
     "description": "Riyadh was struck by direct Iranian missile attacks as part of a sustained campaign against Gulf states. The strikes targeted the Saudi capital and the Eastern Province as Iran sought to pressure Gulf states hosting US military forces.",
-    "casualties": { "confirmed": 0, "estimated": 15 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 15
+    },
+    "entity": "strike"
   },
   {
     "id": "28",
@@ -390,7 +498,11 @@
     "actor": "Iran",
     "severity": "medium",
     "description": "An Iranian drone struck the Crowne Plaza Hotel in Manama, Bahrain, causing a fire. The attack was part of Iran's sustained campaign against civilian and military infrastructure across Gulf states.",
-    "casualties": { "confirmed": 0, "estimated": 10 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 10
+    },
+    "entity": "strike"
   },
   {
     "id": "29",
@@ -404,7 +516,11 @@
     "actor": "Iran",
     "severity": "low",
     "description": "An Iranian drone was intercepted near the Etihad Towers complex near the Israeli embassy in Abu Dhabi. Debris from the interception damaged the towers and caused minor injuries to a woman and her child.",
-    "casualties": { "confirmed": 0, "estimated": 2 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 2
+    },
+    "entity": "strike"
   },
   {
     "id": "30",
@@ -418,7 +534,11 @@
     "actor": "Iran",
     "severity": "medium",
     "description": "Two Iranian drones targeted a warehouse at Al-Salam Naval Base in Abu Dhabi, causing a fire in two containers storing general materials. The base is operated jointly by the UAE Air Force and the Royal Air Force and houses Australian Defence Force headquarters.",
-    "casualties": { "confirmed": 0, "estimated": 2 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 2
+    },
+    "entity": "strike"
   },
   {
     "id": "31",
@@ -432,7 +552,11 @@
     "actor": "Iran",
     "severity": "high",
     "description": "An Iranian missile breached Israeli defenses and struck a synagogue in Beit Shemesh, killing nine people, leaving 11 missing, and injuring 51 others. The strike was one of the most significant direct hits on Israeli civilian infrastructure during the conflict.",
-    "casualties": { "confirmed": 9, "estimated": 20 }
+    "casualties": {
+      "confirmed": 9,
+      "estimated": 20
+    },
+    "entity": "strike"
   },
   {
     "id": "32",
@@ -446,7 +570,11 @@
     "actor": "Iran",
     "severity": "medium",
     "description": "The French naval base Camp de la Paix in Abu Dhabi was struck by an Iranian missile or drone. France subsequently deployed Rafale jets to protect its bases following the attack. France strongly condemned the strike.",
-    "casualties": { "confirmed": 0, "estimated": 5 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 5
+    },
+    "entity": "strike"
   },
   {
     "id": "33",
@@ -461,21 +589,29 @@
     "actor": "Iran",
     "severity": "medium",
     "description": "Two one-way attack drones struck the Azerbaijani exclave of Nakhchivan. Azerbaijan blamed Iran and vowed retaliation. Iran denied responsibility, with Foreign Minister Araghchi suggesting it was an Israeli false flag operation. Azerbaijan recalled its diplomatic staff from Iran on March 6.",
-    "casualties": { "confirmed": 0, "estimated": 5 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 5
+    },
+    "entity": "strike"
   },
   {
     "id": "34",
     "date": "2026-03-05",
     "title": "Iran Launches 500th Ballistic Missile — Sustained Campaign",
     "location": "Multiple Locations, Middle East",
-    "lat": 32.0000,
-    "lng": 53.0000,
+    "lat": 32,
+    "lng": 53,
     "type": "missile",
     "target_type": "military",
     "actor": "Iran",
     "severity": "critical",
     "description": "Iranian military sources reported that Iran had fired over 500 ballistic and naval missiles and nearly 2,000 drones since 28 February. Approximately 40% were aimed at Israel and 60% at US targets in the region. Analysts noted declining launch rates pointing to depletion of Iranian missile stocks.",
-    "casualties": { "confirmed": 0, "estimated": 0 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 0
+    },
+    "entity": "strike"
   },
   {
     "id": "35",
@@ -483,13 +619,17 @@
     "title": "Israel Strikes 400+ Iranian Targets — Sustained Campaign",
     "location": "Iran",
     "lat": 32.4279,
-    "lng": 53.6880,
+    "lng": 53.688,
     "type": "strike",
     "target_type": "military",
     "actor": "Israel",
     "severity": "critical",
     "description": "Israeli forces struck over 400 Iranian targets in an effort to cripple Iran's military power, including missile bases and naval ports confirmed by satellite photography. The sustained campaign entered its seventh day with no signs of de-escalation from either side.",
-    "casualties": { "confirmed": 0, "estimated": 100 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 100
+    },
+    "entity": "strike"
   },
   {
     "id": "36",
@@ -498,13 +638,17 @@
     "title": "Over 6,668 Civilian Sites Targeted — Iranian Red Crescent Report",
     "location": "Iran",
     "lat": 32.4279,
-    "lng": 53.6880,
+    "lng": 53.688,
     "type": "strike",
     "target_type": "civilian",
     "actor": "US",
     "severity": "critical",
     "description": "The Iranian Red Crescent Society reported that over 6,668 civilian units had been targeted by US-Israeli strikes since 28 February, including residential buildings, schools, and hospitals. The figure could not be independently verified due to restricted media access inside Iran.",
-    "casualties": { "confirmed": 2100, "estimated": 6000 }
+    "casualties": {
+      "confirmed": 2100,
+      "estimated": 6000
+    },
+    "entity": "strike"
   },
   {
     "id": "37",
@@ -518,7 +662,11 @@
     "actor": "Iran",
     "severity": "high",
     "description": "Iran launched a new wave of ballistic missiles targeting Israel and US bases across the Gulf on day seven of the conflict. The launches came as Iran's Foreign Ministry stated that military units had been operating according to old general instructions following command disruption.",
-    "casualties": { "confirmed": 0, "estimated": 10 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 10
+    },
+    "entity": "strike"
   },
   {
     "id": "38",
@@ -532,6 +680,10 @@
     "actor": "Iran",
     "severity": "high",
     "description": "Clashes between Hezbollah and Israel escalated significantly amid the widening fallout from the war on Iran. Israel pounded Beirut and targets in Lebanon as Hezbollah increased rocket and missile fire into northern Israel, opening a second active front in the conflict.",
-    "casualties": { "confirmed": 0, "estimated": 30 }
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 30
+    },
+    "entity": "strike"
   }
 ]

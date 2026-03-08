@@ -1,355 +1,1307 @@
 {
   "strikes": [
-    { "PutRequest": { "Item": {
-      "id":          { "S": "1" },
-      "date":        { "S": "2026-02-28" },
-      "title":       { "S": "Operation Roaring Lion / Epic Fury — Opening Strikes on Tehran" },
-      "location":    { "S": "Tehran, Iran" },
-      "lat":         { "N": "35.6892" },
-      "lng":         { "N": "51.3890" },
-      "type":        { "S": "strike" },
-      "target_type": { "S": "command" },
-      "actor":       { "S": "Israel" },
-      "severity":    { "S": "critical" },
-      "description": { "S": "Israel and the US launched coordinated airstrikes on Tehran targeting Supreme Leader Khamenei's compound, the presidential palace, and the National Security Council. Khamenei was killed in the strike on his compound. Approximately 200 Israeli fighter jets participated in the largest combat sortie in Israeli history." },
-      "casualties":  { "M": { "confirmed": { "N": "40" }, "estimated": { "N": "180" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "2" },
-      "date":        { "S": "2026-02-28" },
-      "title":       { "S": "US-Israel Strikes on Isfahan Military Sites" },
-      "location":    { "S": "Isfahan, Iran" },
-      "lat":         { "N": "32.6546" },
-      "lng":         { "N": "51.6680" },
-      "type":        { "S": "strike" },
-      "target_type": { "S": "military" },
-      "actor":       { "S": "US" },
-      "severity":    { "S": "high" },
-      "description": { "S": "Joint US-Israeli airstrikes hit military and government facilities in Isfahan as part of Operation Epic Fury. Strikes targeted missile production infrastructure and IRGC bases in the city." },
-      "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "50" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "3" },
-      "date":        { "S": "2026-02-28" },
-      "title":       { "S": "US-Israel Strikes on Qom and Kermanshah" },
-      "location":    { "S": "Qom, Iran" },
-      "lat":         { "N": "34.6416" },
-      "lng":         { "N": "50.8746" },
-      "type":        { "S": "strike" },
-      "target_type": { "S": "military" },
-      "actor":       { "S": "US" },
-      "severity":    { "S": "high" },
-      "description": { "S": "Airstrikes struck military sites in Qom and Kermanshah simultaneously with the Tehran opening wave. Targets included IRGC command infrastructure and missile storage facilities." },
-      "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "30" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "4" },
-      "date":        { "S": "2026-02-28" },
-      "title":       { "S": "Assassination of Supreme Leader Ali Khamenei" },
-      "location":    { "S": "Leadership House Compound, Tehran, Iran" },
-      "lat":         { "N": "35.7219" },
-      "lng":         { "N": "51.4160" },
-      "type":        { "S": "strike" },
-      "target_type": { "S": "command" },
-      "actor":       { "S": "Israel" },
-      "severity":    { "S": "critical" },
-      "description": { "S": "A precision strike on the Leadership House compound killed Supreme Leader Ali Khamenei along with his daughter, son-in-law, grandchild, and daughter-in-law. Iranian state media confirmed the death early on 1 March. CBS News reported approximately 40 Iranian officials killed across the opening strikes." },
-      "casualties":  { "M": { "confirmed": { "N": "5" }, "estimated": { "N": "40" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "5" },
-      "date":        { "S": "2026-02-28" },
-      "title":       { "S": "Iran Retaliatory Missile Barrage — Wave 1" },
-      "location":    { "S": "Israel" },
-      "lat":         { "N": "31.7683" },
-      "lng":         { "N": "35.2137" },
-      "type":        { "S": "missile" },
-      "target_type": { "S": "military" },
-      "actor":       { "S": "Iran" },
-      "severity":    { "S": "high" },
-      "description": { "S": "In retaliation for US-Israeli strikes, Iran launched a first wave of approximately 170 ballistic missiles toward Israel and Gulf states. The IDF estimated the barrage size and activated nationwide air raid sirens. Israel's Ministry of Health moved hospital operations underground." },
-      "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "10" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "6" },
-      "date":        { "S": "2026-02-28" },
-      "title":       { "S": "Iranian Missile Strike — US Fifth Fleet HQ, Bahrain" },
-      "location":    { "S": "Manama, Bahrain" },
-      "lat":         { "N": "26.2285" },
-      "lng":         { "N": "50.5860" },
-      "type":        { "S": "missile" },
-      "target_type": { "S": "military" },
-      "actor":       { "S": "Iran" },
-      "severity":    { "S": "high" },
-      "description": { "S": "Iran launched a ballistic missile strike targeting the US Fifth Fleet headquarters in Bahrain. Bahrain activated air-raid sirens as explosions and smoke were seen in the capital Manama. The strike was confirmed by Bahraini authorities." },
-      "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "5" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "7" },
-      "date":        { "S": "2026-02-28" },
-      "title":       { "S": "Iranian Missile Strike — Al Udeid Air Base, Qatar" },
-      "location":    { "S": "Al Udeid Air Base, Qatar" },
-      "lat":         { "N": "25.1173" },
-      "lng":         { "N": "51.3150" },
-      "type":        { "S": "missile" },
-      "target_type": { "S": "military" },
-      "actor":       { "S": "Iran" },
-      "severity":    { "S": "medium" },
-      "description": { "S": "Iran launched missiles targeting Al Udeid Air Base in Qatar, home to a major US forward headquarters. Qatar activated air defenses and intercepted the majority of incoming projectiles. 16 people were injured by shrapnel from interceptions." },
-      "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "16" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "8" },
-      "date":        { "S": "2026-02-28" },
-      "title":       { "S": "Iranian Strikes — Al Dhafra Air Base, UAE" },
-      "location":    { "S": "Abu Dhabi, UAE" },
-      "lat":         { "N": "24.2483" },
-      "lng":         { "N": "54.5477" },
-      "type":        { "S": "missile" },
-      "target_type": { "S": "military" },
-      "actor":       { "S": "Iran" },
-      "severity":    { "S": "medium" },
-      "description": { "S": "Iran launched ballistic missiles and drones toward Al Dhafra Air Base targeting US forces. UAE air defenses intercepted most projectiles but debris fell in a residential area near Zayed International Airport, killing one civilian and injuring seven others." },
-      "casualties":  { "M": { "confirmed": { "N": "1" }, "estimated": { "N": "8" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "9" },
-      "date":        { "S": "2026-02-28" },
-      "title":       { "S": "Iranian Strikes — Ali al-Salem Air Base, Kuwait" },
-      "location":    { "S": "Kuwait" },
-      "lat":         { "N": "29.3375" },
-      "lng":         { "N": "47.6581" },
-      "type":        { "S": "missile" },
-      "target_type": { "S": "military" },
-      "actor":       { "S": "Iran" },
-      "severity":    { "S": "medium" },
-      "description": { "S": "Iran struck Ali al-Salem Air Base in Kuwait as part of its opening retaliatory wave against US forward bases. Iranian attacks killed one person and injured 32 in Kuwait overall. Kuwait's foreign ministry summoned Iran's ambassador in protest." },
-      "casualties":  { "M": { "confirmed": { "N": "1" }, "estimated": { "N": "32" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "10" },
-      "date":        { "S": "2026-02-28" },
-      "title":       { "S": "Civilian Strike — Tehran University Street and Jomhouri Area" },
-      "location":    { "S": "Tehran, Iran" },
-      "lat":         { "N": "35.7006" },
-      "lng":         { "N": "51.3929" },
-      "type":        { "S": "strike" },
-      "target_type": { "S": "civilian" },
-      "actor":       { "S": "Israel" },
-      "severity":    { "S": "high" },
-      "description": { "S": "Missile strikes were reported on University Street, the Jomhouri area, and the northern Seyed Khandan area of Tehran. Two students were killed in a strike in Tehran according to Al Jazeera. Iranian Red Crescent reported 201 civilians killed and 747 injured across all Iran strikes on the opening day." },
-      "casualties":  { "M": { "confirmed": { "N": "2" }, "estimated": { "N": "201" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "11" },
-      "date":        { "S": "2026-02-28" },
-      "title":       { "S": "US Submarine Sinks IRIS Dena — Indian Ocean" },
-      "location":    { "S": "Off the Coast of Galle, Sri Lanka" },
-      "lat":         { "N": "5.9549" },
-      "lng":         { "N": "80.5550" },
-      "type":        { "S": "naval" },
-      "target_type": { "S": "military" },
-      "actor":       { "S": "US" },
-      "severity":    { "S": "high" },
-      "description": { "S": "A US submarine sank the Iranian frigate IRIS Dena off the coast of Galle, Sri Lanka. The ship was returning from the International Fleet Review 2026 held in India. 87 crewmen were killed and 32 were rescued by the Sri Lankan navy. US Secretary of Defense Pete Hegseth confirmed the attack." },
-      "casualties":  { "M": { "confirmed": { "N": "87" }, "estimated": { "N": "87" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "12" },
-      "date":        { "S": "2026-02-28" },
-      "title":       { "S": "Iranian Warship Sunk — Port of Bandar Abbas" },
-      "location":    { "S": "Bandar Abbas, Iran" },
-      "lat":         { "N": "27.1832" },
-      "lng":         { "N": "56.2666" },
-      "type":        { "S": "naval" },
-      "target_type": { "S": "military" },
-      "actor":       { "S": "US" },
-      "severity":    { "S": "high" },
-      "description": { "S": "A US-Israeli airstrike sank an Iranian Soleimani-class corvette in the port of Bandar Abbas. The strike targeted Iran's naval infrastructure as part of the broader campaign to degrade Iran's military capabilities." },
-      "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "20" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "13" },
-      "date":        { "S": "2026-02-28" },
-      "title":       { "S": "IRGC Malek-Ashtar Building Destroyed — Tehran" },
-      "location":    { "S": "Tehran, Iran" },
-      "lat":         { "N": "35.7350" },
-      "lng":         { "N": "51.4150" },
-      "type":        { "S": "strike" },
-      "target_type": { "S": "military" },
-      "actor":       { "S": "US" },
-      "severity":    { "S": "high" },
-      "description": { "S": "Video footage released by Iran International showed the IRGC Malek-Ashtar building in Tehran completely destroyed in a joint US strike. The building housed key IRGC command and research functions." },
-      "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "25" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "14" },
-      "date":        { "S": "2026-02-28" },
-      "title":       { "S": "Iranian Drone Strike — US Consulate, Dubai" },
-      "location":    { "S": "Dubai, UAE" },
-      "lat":         { "N": "25.2048" },
-      "lng":         { "N": "55.2708" },
-      "type":        { "S": "drone" },
-      "target_type": { "S": "command" },
-      "actor":       { "S": "Iran" },
-      "severity":    { "S": "low" },
-      "description": { "S": "An Iranian drone struck the US consulate in Dubai, causing a fire that was quickly contained with no injuries. Fallen debris caused damage to structures in Dubai including areas around Palm Jumeirah and the Burj Al Arab hotel." },
-      "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "15" },
-      "date":        { "S": "2026-02-28" },
-      "title":       { "S": "Shahed Drone Strike — Palm Jumeirah, Dubai" },
-      "location":    { "S": "Palm Jumeirah, Dubai, UAE" },
-      "lat":         { "N": "25.1124" },
-      "lng":         { "N": "55.1390" },
-      "type":        { "S": "drone" },
-      "target_type": { "S": "civilian" },
-      "actor":       { "S": "Iran" },
-      "severity":    { "S": "medium" },
-      "description": { "S": "A Shahed-type drone struck near the Fairmont The Palm Hotel on Palm Jumeirah, causing a large explosion and fire. Four individuals were injured primarily from debris and blast effects. Windows shattered in nearby buildings across the luxurious district." },
-      "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "4" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "16" },
-      "date":        { "S": "2026-03-01" },
-      "title":       { "S": "US-Israel Strikes on Iraqi Militias — Jurf al-Sakhar" },
-      "location":    { "S": "Jurf al-Sakhar, Babil, Iraq" },
-      "lat":         { "N": "32.9667" },
-      "lng":         { "N": "44.2500" },
-      "type":        { "S": "strike" },
-      "target_type": { "S": "military" },
-      "actor":       { "S": "US" },
-      "severity":    { "S": "medium" },
-      "description": { "S": "The US and Israel conducted strikes on Iranian-backed Iraqi Popular Mobilization Units near Jurf al-Sakhar south of Baghdad to degrade their retaliatory capabilities. Two fighters were killed and three wounded. Kataib Hezbollah threatened to begin attacking US bases in response." },
-      "casualties":  { "M": { "confirmed": { "N": "2" }, "estimated": { "N": "5" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "17" },
-      "date":        { "S": "2026-03-02" },
-      "title":       { "S": "Civilian Deaths — Niloofar Square, Tehran" },
-      "location":    { "S": "Niloofar Square, Tehran, Iran" },
-      "lat":         { "N": "35.7550" },
-      "lng":         { "N": "51.3780" },
-      "type":        { "S": "strike" },
-      "target_type": { "S": "civilian" },
-      "actor":       { "S": "Israel" },
-      "severity":    { "S": "high" },
-      "description": { "S": "Twenty civilians were killed in Tehran's Niloofar Square in a strike on 2 March, according to Iranian state-owned media. The strike drew international condemnation and calls for investigation into targeting practices." },
-      "casualties":  { "M": { "confirmed": { "N": "20" }, "estimated": { "N": "20" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "18" },
-      "date":        { "S": "2026-03-02" },
-      "title":       { "S": "Kuwaiti F/A-18 Shoots Down Three US F-15Es — Friendly Fire" },
-      "location":    { "S": "Kuwait" },
-      "lat":         { "N": "29.3759" },
-      "lng":         { "N": "47.9774" },
-      "type":        { "S": "strike" },
-      "target_type": { "S": "military" },
-      "actor":       { "S": "US" },
-      "severity":    { "S": "medium" },
-      "description": { "S": "In a friendly fire incident, a Kuwaiti F/A-18 shot down three American F-15E aircraft. All six crew members survived. The incident highlighted the complexity and risk of coordinating multi-national airspace operations during the conflict." },
-      "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "19" },
-      "date":        { "S": "2026-03-02" },
-      "title":       { "S": "Iranian Missile Strike — US Embassy, Kuwait" },
-      "location":    { "S": "Kuwait City, Kuwait" },
-      "lat":         { "N": "29.3697" },
-      "lng":         { "N": "47.9783" },
-      "type":        { "S": "missile" },
-      "target_type": { "S": "command" },
-      "actor":       { "S": "Iran" },
-      "severity":    { "S": "medium" },
-      "description": { "S": "An Iranian missile struck the US Embassy in Kuwait, prompting Secretary of State Marco Rubio to close the embassy until further notice. The attack was part of Iran's sustained campaign against US diplomatic and military infrastructure in Gulf states." },
-      "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "5" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "20" },
-      "date":        { "S": "2026-03-02" },
-      "title":       { "S": "Qatar Shoots Down Two Iranian Su-24 Bombers" },
-      "location":    { "S": "Qatar Airspace" },
-      "lat":         { "N": "25.3548" },
-      "lng":         { "N": "51.1839" },
-      "type":        { "S": "strike" },
-      "target_type": { "S": "military" },
-      "actor":       { "S": "Iran" },
-      "severity":    { "S": "medium" },
-      "description": { "S": "Qatari F-15s downed two Iranian Su-24 bombers that were two minutes from Qatari territory targeting Al Udeid Air Base and Ras Laffan Industrial City. A UK Royal Air Force Typhoon also shot down an attack drone directed at Qatar. A search was underway to recover the Iranian crews." },
-      "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "4" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "21" },
-      "date":        { "S": "2026-03-02" },
-      "title":       { "S": "Iranian Drone Strike — Ras Laffan Gas Facility, Qatar" },
-      "location":    { "S": "Ras Laffan, Qatar" },
-      "lat":         { "N": "25.9167" },
-      "lng":         { "N": "51.5500" },
-      "type":        { "S": "drone" },
-      "target_type": { "S": "military" },
-      "actor":       { "S": "Iran" },
-      "severity":    { "S": "high" },
-      "description": { "S": "Two Iranian drones struck the Ras Laffan Industrial City and Mesaieed Industrial Area. QatarEnergy subsequently announced it was ceasing all natural gas production and declared Force Majeure on contracts. The attack caused sharp increases in world gas prices." },
-      "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "5" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "22" },
-      "date":        { "S": "2026-03-02" },
-      "title":       { "S": "Iranian Drone Strike — Dubai International Airport" },
-      "location":    { "S": "Dubai International Airport, UAE" },
-      "lat":         { "N": "25.2532" },
-      "lng":         { "N": "55.3657" },
-      "type":        { "S": "drone" },
-      "target_type": { "S": "civilian" },
-      "actor":       { "S": "Iran" },
-      "severity":    { "S": "medium" },
-      "description": { "S": "Dubai International Airport was struck by a suspected drone attack, leading to four staff being injured and an evacuation of Terminal 3. The airport sustained minor damage and emergency teams were deployed. Videos posted to social media at around 1:30 AM local time confirmed the strike." },
-      "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "4" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "23" },
-      "date":        { "S": "2026-03-02" },
-      "title":       { "S": "IDF F-35 Shoots Down Iranian Yak-130 — Tehran Airspace" },
-      "location":    { "S": "Tehran, Iran" },
-      "lat":         { "N": "35.6892" },
-      "lng":         { "N": "51.3890" },
-      "type":        { "S": "strike" },
-      "target_type": { "S": "military" },
-      "actor":       { "S": "Israel" },
-      "severity":    { "S": "low" },
-      "description": { "S": "An IDF F-35I 'Adir' shot down a Russian-made Iranian Yak-130 fighter jet over Tehran, marking the first time in history a stealth fighter has shot down a manned aircraft in combat. It was also the first Israeli air-to-air kill since 1985." },
-      "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "2" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "24" },
-      "date":        { "S": "2026-03-02" },
-      "title":       { "S": "Iranian Drone Strike — Kuwait Army Base" },
-      "location":    { "S": "Kuwait" },
-      "lat":         { "N": "29.3117" },
-      "lng":         { "N": "47.4818" },
-      "type":        { "S": "drone" },
-      "target_type": { "S": "military" },
-      "actor":       { "S": "Iran" },
-      "severity":    { "S": "high" },
-      "description": { "S": "An Iranian drone attack on a Kuwait army base killed four US soldiers. ABC News identified the victims as Capt. Cody A. Khork, Sgt. 1st Class Noah L. Tietjens, Sgt. 1st Class Nicole M. Amor, and Spc. Declan J. Coady." },
-      "casualties":  { "M": { "confirmed": { "N": "4" }, "estimated": { "N": "4" } } }
-    } } },
-    { "PutRequest": { "Item": {
-      "id":          { "S": "25" },
-      "date":        { "S": "2026-03-02" },
-      "disputed":    { "BOOL": true },
-      "title":       { "S": "Iranian Strike — Minab Girls' Elementary School" },
-      "location":    { "S": "Minab, Hormozgan, Iran" },
-      "lat":         { "N": "27.1500" },
-      "lng":         { "N": "57.0833" },
-      "type":        { "S": "strike" },
-      "target_type": { "S": "civilian" },
-      "actor":       { "S": "US" },
-      "severity":    { "S": "critical" },
-      "description": { "S": "The Shajareh Tayyebeh girls' elementary school in Minab was struck by a missile at 07:15 UTC. Iranian media reported 180 killed, mostly school children, and 95 wounded. Iran's foreign ministry called it a war crime. Evidence assembled by The New York Times suggested the attack was carried out by the US, which CENTCOM said it was investigating." },
-      "casualties":  { "M": { "confirmed": { "N": "180" }, "estimated": { "N": "275" } } }
-    } } }
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "1"
+          },
+          "date": {
+            "S": "2026-02-28"
+          },
+          "title": {
+            "S": "Operation Roaring Lion / Epic Fury — Opening Strikes on Tehran"
+          },
+          "location": {
+            "S": "Tehran, Iran"
+          },
+          "lat": {
+            "N": "35.6892"
+          },
+          "lng": {
+            "N": "51.3890"
+          },
+          "type": {
+            "S": "strike"
+          },
+          "target_type": {
+            "S": "command"
+          },
+          "actor": {
+            "S": "Israel"
+          },
+          "severity": {
+            "S": "critical"
+          },
+          "description": {
+            "S": "Israel and the US launched coordinated airstrikes on Tehran targeting Supreme Leader Khamenei's compound, the presidential palace, and the National Security Council. Khamenei was killed in the strike on his compound. Approximately 200 Israeli fighter jets participated in the largest combat sortie in Israeli history."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "40"
+              },
+              "estimated": {
+                "N": "180"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "2"
+          },
+          "date": {
+            "S": "2026-02-28"
+          },
+          "title": {
+            "S": "US-Israel Strikes on Isfahan Military Sites"
+          },
+          "location": {
+            "S": "Isfahan, Iran"
+          },
+          "lat": {
+            "N": "32.6546"
+          },
+          "lng": {
+            "N": "51.6680"
+          },
+          "type": {
+            "S": "strike"
+          },
+          "target_type": {
+            "S": "military"
+          },
+          "actor": {
+            "S": "US"
+          },
+          "severity": {
+            "S": "high"
+          },
+          "description": {
+            "S": "Joint US-Israeli airstrikes hit military and government facilities in Isfahan as part of Operation Epic Fury. Strikes targeted missile production infrastructure and IRGC bases in the city."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "0"
+              },
+              "estimated": {
+                "N": "50"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "3"
+          },
+          "date": {
+            "S": "2026-02-28"
+          },
+          "title": {
+            "S": "US-Israel Strikes on Qom and Kermanshah"
+          },
+          "location": {
+            "S": "Qom, Iran"
+          },
+          "lat": {
+            "N": "34.6416"
+          },
+          "lng": {
+            "N": "50.8746"
+          },
+          "type": {
+            "S": "strike"
+          },
+          "target_type": {
+            "S": "military"
+          },
+          "actor": {
+            "S": "US"
+          },
+          "severity": {
+            "S": "high"
+          },
+          "description": {
+            "S": "Airstrikes struck military sites in Qom and Kermanshah simultaneously with the Tehran opening wave. Targets included IRGC command infrastructure and missile storage facilities."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "0"
+              },
+              "estimated": {
+                "N": "30"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "4"
+          },
+          "date": {
+            "S": "2026-02-28"
+          },
+          "title": {
+            "S": "Assassination of Supreme Leader Ali Khamenei"
+          },
+          "location": {
+            "S": "Leadership House Compound, Tehran, Iran"
+          },
+          "lat": {
+            "N": "35.7219"
+          },
+          "lng": {
+            "N": "51.4160"
+          },
+          "type": {
+            "S": "strike"
+          },
+          "target_type": {
+            "S": "command"
+          },
+          "actor": {
+            "S": "Israel"
+          },
+          "severity": {
+            "S": "critical"
+          },
+          "description": {
+            "S": "A precision strike on the Leadership House compound killed Supreme Leader Ali Khamenei along with his daughter, son-in-law, grandchild, and daughter-in-law. Iranian state media confirmed the death early on 1 March. CBS News reported approximately 40 Iranian officials killed across the opening strikes."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "5"
+              },
+              "estimated": {
+                "N": "40"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "5"
+          },
+          "date": {
+            "S": "2026-02-28"
+          },
+          "title": {
+            "S": "Iran Retaliatory Missile Barrage — Wave 1"
+          },
+          "location": {
+            "S": "Israel"
+          },
+          "lat": {
+            "N": "31.7683"
+          },
+          "lng": {
+            "N": "35.2137"
+          },
+          "type": {
+            "S": "missile"
+          },
+          "target_type": {
+            "S": "military"
+          },
+          "actor": {
+            "S": "Iran"
+          },
+          "severity": {
+            "S": "high"
+          },
+          "description": {
+            "S": "In retaliation for US-Israeli strikes, Iran launched a first wave of approximately 170 ballistic missiles toward Israel and Gulf states. The IDF estimated the barrage size and activated nationwide air raid sirens. Israel's Ministry of Health moved hospital operations underground."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "0"
+              },
+              "estimated": {
+                "N": "10"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "6"
+          },
+          "date": {
+            "S": "2026-02-28"
+          },
+          "title": {
+            "S": "Iranian Missile Strike — US Fifth Fleet HQ, Bahrain"
+          },
+          "location": {
+            "S": "Manama, Bahrain"
+          },
+          "lat": {
+            "N": "26.2285"
+          },
+          "lng": {
+            "N": "50.5860"
+          },
+          "type": {
+            "S": "missile"
+          },
+          "target_type": {
+            "S": "military"
+          },
+          "actor": {
+            "S": "Iran"
+          },
+          "severity": {
+            "S": "high"
+          },
+          "description": {
+            "S": "Iran launched a ballistic missile strike targeting the US Fifth Fleet headquarters in Bahrain. Bahrain activated air-raid sirens as explosions and smoke were seen in the capital Manama. The strike was confirmed by Bahraini authorities."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "0"
+              },
+              "estimated": {
+                "N": "5"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "7"
+          },
+          "date": {
+            "S": "2026-02-28"
+          },
+          "title": {
+            "S": "Iranian Missile Strike — Al Udeid Air Base, Qatar"
+          },
+          "location": {
+            "S": "Al Udeid Air Base, Qatar"
+          },
+          "lat": {
+            "N": "25.1173"
+          },
+          "lng": {
+            "N": "51.3150"
+          },
+          "type": {
+            "S": "missile"
+          },
+          "target_type": {
+            "S": "military"
+          },
+          "actor": {
+            "S": "Iran"
+          },
+          "severity": {
+            "S": "medium"
+          },
+          "description": {
+            "S": "Iran launched missiles targeting Al Udeid Air Base in Qatar, home to a major US forward headquarters. Qatar activated air defenses and intercepted the majority of incoming projectiles. 16 people were injured by shrapnel from interceptions."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "0"
+              },
+              "estimated": {
+                "N": "16"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "8"
+          },
+          "date": {
+            "S": "2026-02-28"
+          },
+          "title": {
+            "S": "Iranian Strikes — Al Dhafra Air Base, UAE"
+          },
+          "location": {
+            "S": "Abu Dhabi, UAE"
+          },
+          "lat": {
+            "N": "24.2483"
+          },
+          "lng": {
+            "N": "54.5477"
+          },
+          "type": {
+            "S": "missile"
+          },
+          "target_type": {
+            "S": "military"
+          },
+          "actor": {
+            "S": "Iran"
+          },
+          "severity": {
+            "S": "medium"
+          },
+          "description": {
+            "S": "Iran launched ballistic missiles and drones toward Al Dhafra Air Base targeting US forces. UAE air defenses intercepted most projectiles but debris fell in a residential area near Zayed International Airport, killing one civilian and injuring seven others."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "1"
+              },
+              "estimated": {
+                "N": "8"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "9"
+          },
+          "date": {
+            "S": "2026-02-28"
+          },
+          "title": {
+            "S": "Iranian Strikes — Ali al-Salem Air Base, Kuwait"
+          },
+          "location": {
+            "S": "Kuwait"
+          },
+          "lat": {
+            "N": "29.3375"
+          },
+          "lng": {
+            "N": "47.6581"
+          },
+          "type": {
+            "S": "missile"
+          },
+          "target_type": {
+            "S": "military"
+          },
+          "actor": {
+            "S": "Iran"
+          },
+          "severity": {
+            "S": "medium"
+          },
+          "description": {
+            "S": "Iran struck Ali al-Salem Air Base in Kuwait as part of its opening retaliatory wave against US forward bases. Iranian attacks killed one person and injured 32 in Kuwait overall. Kuwait's foreign ministry summoned Iran's ambassador in protest."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "1"
+              },
+              "estimated": {
+                "N": "32"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "10"
+          },
+          "date": {
+            "S": "2026-02-28"
+          },
+          "title": {
+            "S": "Civilian Strike — Tehran University Street and Jomhouri Area"
+          },
+          "location": {
+            "S": "Tehran, Iran"
+          },
+          "lat": {
+            "N": "35.7006"
+          },
+          "lng": {
+            "N": "51.3929"
+          },
+          "type": {
+            "S": "strike"
+          },
+          "target_type": {
+            "S": "civilian"
+          },
+          "actor": {
+            "S": "Israel"
+          },
+          "severity": {
+            "S": "high"
+          },
+          "description": {
+            "S": "Missile strikes were reported on University Street, the Jomhouri area, and the northern Seyed Khandan area of Tehran. Two students were killed in a strike in Tehran according to Al Jazeera. Iranian Red Crescent reported 201 civilians killed and 747 injured across all Iran strikes on the opening day."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "2"
+              },
+              "estimated": {
+                "N": "201"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "11"
+          },
+          "date": {
+            "S": "2026-02-28"
+          },
+          "title": {
+            "S": "US Submarine Sinks IRIS Dena — Indian Ocean"
+          },
+          "location": {
+            "S": "Off the Coast of Galle, Sri Lanka"
+          },
+          "lat": {
+            "N": "5.9549"
+          },
+          "lng": {
+            "N": "80.5550"
+          },
+          "type": {
+            "S": "naval"
+          },
+          "target_type": {
+            "S": "military"
+          },
+          "actor": {
+            "S": "US"
+          },
+          "severity": {
+            "S": "high"
+          },
+          "description": {
+            "S": "A US submarine sank the Iranian frigate IRIS Dena off the coast of Galle, Sri Lanka. The ship was returning from the International Fleet Review 2026 held in India. 87 crewmen were killed and 32 were rescued by the Sri Lankan navy. US Secretary of Defense Pete Hegseth confirmed the attack."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "87"
+              },
+              "estimated": {
+                "N": "87"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "12"
+          },
+          "date": {
+            "S": "2026-02-28"
+          },
+          "title": {
+            "S": "Iranian Warship Sunk — Port of Bandar Abbas"
+          },
+          "location": {
+            "S": "Bandar Abbas, Iran"
+          },
+          "lat": {
+            "N": "27.1832"
+          },
+          "lng": {
+            "N": "56.2666"
+          },
+          "type": {
+            "S": "naval"
+          },
+          "target_type": {
+            "S": "military"
+          },
+          "actor": {
+            "S": "US"
+          },
+          "severity": {
+            "S": "high"
+          },
+          "description": {
+            "S": "A US-Israeli airstrike sank an Iranian Soleimani-class corvette in the port of Bandar Abbas. The strike targeted Iran's naval infrastructure as part of the broader campaign to degrade Iran's military capabilities."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "0"
+              },
+              "estimated": {
+                "N": "20"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "13"
+          },
+          "date": {
+            "S": "2026-02-28"
+          },
+          "title": {
+            "S": "IRGC Malek-Ashtar Building Destroyed — Tehran"
+          },
+          "location": {
+            "S": "Tehran, Iran"
+          },
+          "lat": {
+            "N": "35.7350"
+          },
+          "lng": {
+            "N": "51.4150"
+          },
+          "type": {
+            "S": "strike"
+          },
+          "target_type": {
+            "S": "military"
+          },
+          "actor": {
+            "S": "US"
+          },
+          "severity": {
+            "S": "high"
+          },
+          "description": {
+            "S": "Video footage released by Iran International showed the IRGC Malek-Ashtar building in Tehran completely destroyed in a joint US strike. The building housed key IRGC command and research functions."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "0"
+              },
+              "estimated": {
+                "N": "25"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "14"
+          },
+          "date": {
+            "S": "2026-02-28"
+          },
+          "title": {
+            "S": "Iranian Drone Strike — US Consulate, Dubai"
+          },
+          "location": {
+            "S": "Dubai, UAE"
+          },
+          "lat": {
+            "N": "25.2048"
+          },
+          "lng": {
+            "N": "55.2708"
+          },
+          "type": {
+            "S": "drone"
+          },
+          "target_type": {
+            "S": "command"
+          },
+          "actor": {
+            "S": "Iran"
+          },
+          "severity": {
+            "S": "low"
+          },
+          "description": {
+            "S": "An Iranian drone struck the US consulate in Dubai, causing a fire that was quickly contained with no injuries. Fallen debris caused damage to structures in Dubai including areas around Palm Jumeirah and the Burj Al Arab hotel."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "0"
+              },
+              "estimated": {
+                "N": "0"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "15"
+          },
+          "date": {
+            "S": "2026-02-28"
+          },
+          "title": {
+            "S": "Shahed Drone Strike — Palm Jumeirah, Dubai"
+          },
+          "location": {
+            "S": "Palm Jumeirah, Dubai, UAE"
+          },
+          "lat": {
+            "N": "25.1124"
+          },
+          "lng": {
+            "N": "55.1390"
+          },
+          "type": {
+            "S": "drone"
+          },
+          "target_type": {
+            "S": "civilian"
+          },
+          "actor": {
+            "S": "Iran"
+          },
+          "severity": {
+            "S": "medium"
+          },
+          "description": {
+            "S": "A Shahed-type drone struck near the Fairmont The Palm Hotel on Palm Jumeirah, causing a large explosion and fire. Four individuals were injured primarily from debris and blast effects. Windows shattered in nearby buildings across the luxurious district."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "0"
+              },
+              "estimated": {
+                "N": "4"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "16"
+          },
+          "date": {
+            "S": "2026-03-01"
+          },
+          "title": {
+            "S": "US-Israel Strikes on Iraqi Militias — Jurf al-Sakhar"
+          },
+          "location": {
+            "S": "Jurf al-Sakhar, Babil, Iraq"
+          },
+          "lat": {
+            "N": "32.9667"
+          },
+          "lng": {
+            "N": "44.2500"
+          },
+          "type": {
+            "S": "strike"
+          },
+          "target_type": {
+            "S": "military"
+          },
+          "actor": {
+            "S": "US"
+          },
+          "severity": {
+            "S": "medium"
+          },
+          "description": {
+            "S": "The US and Israel conducted strikes on Iranian-backed Iraqi Popular Mobilization Units near Jurf al-Sakhar south of Baghdad to degrade their retaliatory capabilities. Two fighters were killed and three wounded. Kataib Hezbollah threatened to begin attacking US bases in response."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "2"
+              },
+              "estimated": {
+                "N": "5"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "17"
+          },
+          "date": {
+            "S": "2026-03-02"
+          },
+          "title": {
+            "S": "Civilian Deaths — Niloofar Square, Tehran"
+          },
+          "location": {
+            "S": "Niloofar Square, Tehran, Iran"
+          },
+          "lat": {
+            "N": "35.7550"
+          },
+          "lng": {
+            "N": "51.3780"
+          },
+          "type": {
+            "S": "strike"
+          },
+          "target_type": {
+            "S": "civilian"
+          },
+          "actor": {
+            "S": "Israel"
+          },
+          "severity": {
+            "S": "high"
+          },
+          "description": {
+            "S": "Twenty civilians were killed in Tehran's Niloofar Square in a strike on 2 March, according to Iranian state-owned media. The strike drew international condemnation and calls for investigation into targeting practices."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "20"
+              },
+              "estimated": {
+                "N": "20"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "18"
+          },
+          "date": {
+            "S": "2026-03-02"
+          },
+          "title": {
+            "S": "Kuwaiti F/A-18 Shoots Down Three US F-15Es — Friendly Fire"
+          },
+          "location": {
+            "S": "Kuwait"
+          },
+          "lat": {
+            "N": "29.3759"
+          },
+          "lng": {
+            "N": "47.9774"
+          },
+          "type": {
+            "S": "strike"
+          },
+          "target_type": {
+            "S": "military"
+          },
+          "actor": {
+            "S": "US"
+          },
+          "severity": {
+            "S": "medium"
+          },
+          "description": {
+            "S": "In a friendly fire incident, a Kuwaiti F/A-18 shot down three American F-15E aircraft. All six crew members survived. The incident highlighted the complexity and risk of coordinating multi-national airspace operations during the conflict."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "0"
+              },
+              "estimated": {
+                "N": "0"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "19"
+          },
+          "date": {
+            "S": "2026-03-02"
+          },
+          "title": {
+            "S": "Iranian Missile Strike — US Embassy, Kuwait"
+          },
+          "location": {
+            "S": "Kuwait City, Kuwait"
+          },
+          "lat": {
+            "N": "29.3697"
+          },
+          "lng": {
+            "N": "47.9783"
+          },
+          "type": {
+            "S": "missile"
+          },
+          "target_type": {
+            "S": "command"
+          },
+          "actor": {
+            "S": "Iran"
+          },
+          "severity": {
+            "S": "medium"
+          },
+          "description": {
+            "S": "An Iranian missile struck the US Embassy in Kuwait, prompting Secretary of State Marco Rubio to close the embassy until further notice. The attack was part of Iran's sustained campaign against US diplomatic and military infrastructure in Gulf states."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "0"
+              },
+              "estimated": {
+                "N": "5"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "20"
+          },
+          "date": {
+            "S": "2026-03-02"
+          },
+          "title": {
+            "S": "Qatar Shoots Down Two Iranian Su-24 Bombers"
+          },
+          "location": {
+            "S": "Qatar Airspace"
+          },
+          "lat": {
+            "N": "25.3548"
+          },
+          "lng": {
+            "N": "51.1839"
+          },
+          "type": {
+            "S": "strike"
+          },
+          "target_type": {
+            "S": "military"
+          },
+          "actor": {
+            "S": "Iran"
+          },
+          "severity": {
+            "S": "medium"
+          },
+          "description": {
+            "S": "Qatari F-15s downed two Iranian Su-24 bombers that were two minutes from Qatari territory targeting Al Udeid Air Base and Ras Laffan Industrial City. A UK Royal Air Force Typhoon also shot down an attack drone directed at Qatar. A search was underway to recover the Iranian crews."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "0"
+              },
+              "estimated": {
+                "N": "4"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "21"
+          },
+          "date": {
+            "S": "2026-03-02"
+          },
+          "title": {
+            "S": "Iranian Drone Strike — Ras Laffan Gas Facility, Qatar"
+          },
+          "location": {
+            "S": "Ras Laffan, Qatar"
+          },
+          "lat": {
+            "N": "25.9167"
+          },
+          "lng": {
+            "N": "51.5500"
+          },
+          "type": {
+            "S": "drone"
+          },
+          "target_type": {
+            "S": "military"
+          },
+          "actor": {
+            "S": "Iran"
+          },
+          "severity": {
+            "S": "high"
+          },
+          "description": {
+            "S": "Two Iranian drones struck the Ras Laffan Industrial City and Mesaieed Industrial Area. QatarEnergy subsequently announced it was ceasing all natural gas production and declared Force Majeure on contracts. The attack caused sharp increases in world gas prices."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "0"
+              },
+              "estimated": {
+                "N": "5"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "22"
+          },
+          "date": {
+            "S": "2026-03-02"
+          },
+          "title": {
+            "S": "Iranian Drone Strike — Dubai International Airport"
+          },
+          "location": {
+            "S": "Dubai International Airport, UAE"
+          },
+          "lat": {
+            "N": "25.2532"
+          },
+          "lng": {
+            "N": "55.3657"
+          },
+          "type": {
+            "S": "drone"
+          },
+          "target_type": {
+            "S": "civilian"
+          },
+          "actor": {
+            "S": "Iran"
+          },
+          "severity": {
+            "S": "medium"
+          },
+          "description": {
+            "S": "Dubai International Airport was struck by a suspected drone attack, leading to four staff being injured and an evacuation of Terminal 3. The airport sustained minor damage and emergency teams were deployed. Videos posted to social media at around 1:30 AM local time confirmed the strike."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "0"
+              },
+              "estimated": {
+                "N": "4"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "23"
+          },
+          "date": {
+            "S": "2026-03-02"
+          },
+          "title": {
+            "S": "IDF F-35 Shoots Down Iranian Yak-130 — Tehran Airspace"
+          },
+          "location": {
+            "S": "Tehran, Iran"
+          },
+          "lat": {
+            "N": "35.6892"
+          },
+          "lng": {
+            "N": "51.3890"
+          },
+          "type": {
+            "S": "strike"
+          },
+          "target_type": {
+            "S": "military"
+          },
+          "actor": {
+            "S": "Israel"
+          },
+          "severity": {
+            "S": "low"
+          },
+          "description": {
+            "S": "An IDF F-35I 'Adir' shot down a Russian-made Iranian Yak-130 fighter jet over Tehran, marking the first time in history a stealth fighter has shot down a manned aircraft in combat. It was also the first Israeli air-to-air kill since 1985."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "0"
+              },
+              "estimated": {
+                "N": "2"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "24"
+          },
+          "date": {
+            "S": "2026-03-02"
+          },
+          "title": {
+            "S": "Iranian Drone Strike — Kuwait Army Base"
+          },
+          "location": {
+            "S": "Kuwait"
+          },
+          "lat": {
+            "N": "29.3117"
+          },
+          "lng": {
+            "N": "47.4818"
+          },
+          "type": {
+            "S": "drone"
+          },
+          "target_type": {
+            "S": "military"
+          },
+          "actor": {
+            "S": "Iran"
+          },
+          "severity": {
+            "S": "high"
+          },
+          "description": {
+            "S": "An Iranian drone attack on a Kuwait army base killed four US soldiers. ABC News identified the victims as Capt. Cody A. Khork, Sgt. 1st Class Noah L. Tietjens, Sgt. 1st Class Nicole M. Amor, and Spc. Declan J. Coady."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "4"
+              },
+              "estimated": {
+                "N": "4"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": {
+            "S": "25"
+          },
+          "date": {
+            "S": "2026-03-02"
+          },
+          "disputed": {
+            "BOOL": true
+          },
+          "title": {
+            "S": "Iranian Strike — Minab Girls' Elementary School"
+          },
+          "location": {
+            "S": "Minab, Hormozgan, Iran"
+          },
+          "lat": {
+            "N": "27.1500"
+          },
+          "lng": {
+            "N": "57.0833"
+          },
+          "type": {
+            "S": "strike"
+          },
+          "target_type": {
+            "S": "civilian"
+          },
+          "actor": {
+            "S": "US"
+          },
+          "severity": {
+            "S": "critical"
+          },
+          "description": {
+            "S": "The Shajareh Tayyebeh girls' elementary school in Minab was struck by a missile at 07:15 UTC. Iranian media reported 180 killed, mostly school children, and 95 wounded. Iran's foreign ministry called it a war crime. Evidence assembled by The New York Times suggested the attack was carried out by the US, which CENTCOM said it was investigating."
+          },
+          "casualties": {
+            "M": {
+              "confirmed": {
+                "N": "180"
+              },
+              "estimated": {
+                "N": "275"
+              }
+            }
+          },
+          "entity": {
+            "S": "strike"
+          }
+        }
+      }
+    }
   ]
 }

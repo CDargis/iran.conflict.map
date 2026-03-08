@@ -2,6 +2,7 @@ I'm building an Iran/Middle East conflict map. I need you to generate DynamoDB s
 
   Schema:
   - id (String) — unique numeric string, increment from the last ID I give you
+  - entity (String) — always "strike" (GSI partition key, required)
   - date (String) — ISO 8601, YYYY-MM-DD
   - title (String) — short event title
   - location (String) — human-readable place name
@@ -27,6 +28,7 @@ I'm building an Iran/Middle East conflict map. I need you to generate DynamoDB s
         "PutRequest": {
           "Item": {
             "id":          { "S": "..." },
+            "entity":      { "S": "strike" },
             "date":        { "S": "YYYY-MM-DD" },
             "title":       { "S": "..." },
             "location":    { "S": "..." },
