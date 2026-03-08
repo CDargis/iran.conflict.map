@@ -14,7 +14,14 @@ namespace IranConflictMap.Sync;
 
 public class Function
 {
-    private static readonly HttpClient Http = new();
+    private static readonly HttpClient Http = CreateHttpClient();
+
+    private static HttpClient CreateHttpClient()
+    {
+        var client = new HttpClient();
+        client.DefaultRequestHeaders.Add("User-Agent", "IranConflictMap/1.0 (https://conflictmap.chrisdargis.com)");
+        return client;
+    }
 
     private readonly IAmazonDynamoDB _dynamo;
     private readonly IAmazonSimpleSystemsManagement _ssm;
