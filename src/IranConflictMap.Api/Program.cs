@@ -1,15 +1,21 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using Amazon.Lambda.Core;
+using Amazon.Lambda.RuntimeSupport;
+using Amazon.Lambda.Serialization.SystemTextJson;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
 builder.Services.AddSingleton<IAmazonDynamoDB>(new AmazonDynamoDBClient());
+builder.Services.AddSingleton(new Amazon.Lambda.AmazonLambdaClient());
 
 var app = builder.Build();
 
+// ── In-memory cache ────────────────────────────────────────────────────────────
 List<object>? strikeCache = null;
 var cacheExpiry = DateTime.MinValue;
 
+// ── GET /api/strikes ───────────────────────────────────────────────────────────
 app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo) =>
 {
     if (strikeCache is not null && DateTime.UtcNow < cacheExpiry)
@@ -53,8 +59,54 @@ app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo) =>
     }).ToList();
 
     cacheExpiry = DateTime.UtcNow.AddMinutes(5);
-
     return Results.Ok(strikeCache);
+});
+
+// ── GET /api/syncs ─────────────────────────────────────────────────────────────
+app.MapGet("/api/syncs", async (IAmazonDynamoDB dynamo) =>
+{
+    var tableName = Environment.GetEnvironmentVariable("SYNCS_TABLE") ?? "syncs";
+
+    var response = await dynamo.QueryAsync(new QueryRequest
+    {
+        TableName                 = tableName,
+        IndexName                 = "entity-timestamp-index",
+        KeyConditionExpression    = "entity = :e",
+        ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+        {
+            [":e"] = new AttributeValue { S = "sync" }
+        },
+        ScanIndexForward = false,
+        Limit            = 10
+    });
+
+    var syncs = response.Items.Select(item => (object)new
+    {
+        id              = item["id"].S,
+        timestamp       = item["timestamp"].S,
+        new_event_count = int.Parse(item["new_event_count"].N),
+        has_edits       = item.ContainsKey("has_edits") && item["has_edits"].BOOL,
+        status          = item["status"].S
+    });
+
+    return Results.Ok(syncs);
+});
+
+// ── POST /api/sync/trigger ─────────────────────────────────────────────────────
+app.MapPost("/api/sync/trigger", async () =>
+{
+    var functionName = Environment.GetEnvironmentVariable("SYNC_FUNCTION_NAME");
+    if (string.IsNullOrEmpty(functionName))
+        return Results.Problem("SYNC_FUNCTION_NAME not configured");
+
+    var lambdaClient = new Amazon.Lambda.AmazonLambdaClient();
+    var response = await lambdaClient.InvokeAsync(new Amazon.Lambda.Model.InvokeRequest
+    {
+        FunctionName    = functionName,
+        InvocationType  = Amazon.Lambda.Model.InvocationType.Event  // async, fire-and-forget
+    });
+
+    return Results.Ok(new { triggered = true, status = (int)response.StatusCode });
 });
 
 app.Run();

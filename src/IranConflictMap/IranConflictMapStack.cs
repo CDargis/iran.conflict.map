@@ -5,10 +5,14 @@ using Amazon.CDK.AWS.CertificateManager;
 using Amazon.CDK.AWS.CloudFront;
 using Amazon.CDK.AWS.CloudFront.Origins;
 using Amazon.CDK.AWS.DynamoDB;
+using Amazon.CDK.AWS.Events;
+using Amazon.CDK.AWS.Events.Targets;
+using Amazon.CDK.AWS.IAM;
 using Amazon.CDK.AWS.Route53;
 using Amazon.CDK.AWS.Route53.Targets;
 using Amazon.CDK.AWS.S3;
 using Amazon.CDK.AWS.S3.Deployment;
+using Amazon.CDK.AWS.SSM;
 using Constructs;
 using LambdaFunction = Amazon.CDK.AWS.Lambda.Function;
 using LambdaFunctionProps = Amazon.CDK.AWS.Lambda.FunctionProps;
@@ -80,7 +84,37 @@ public class IranConflictMapStack : Stack
             MemorySize = 256
         });
 
+        // ── DynamoDB Syncs Table ───────────────────────────────────────────────
+        var syncsTable = new Table(this, "SyncsTable", new TableProps
+        {
+            TableName     = "syncs",
+            PartitionKey  = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "id", Type = AttributeType.STRING },
+            BillingMode   = BillingMode.PAY_PER_REQUEST,
+            RemovalPolicy = RemovalPolicy.RETAIN
+        });
+
+        syncsTable.AddGlobalSecondaryIndex(new GlobalSecondaryIndexProps
+        {
+            IndexName      = "entity-timestamp-index",
+            PartitionKey   = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "entity",    Type = AttributeType.STRING },
+            SortKey        = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "timestamp", Type = AttributeType.STRING },
+            ProjectionType = ProjectionType.ALL
+        });
+
+        // ── SSM Parameters (initial values — updated at runtime by sync Lambda) ──
+        new StringParameter(this, "LastSynced", new StringParameterProps
+        {
+            ParameterName = "/iran-conflict-map/last_synced",
+            StringValue   = "2026-02-27"
+        });
+        new StringParameter(this, "LastRevisionId", new StringParameterProps
+        {
+            ParameterName = "/iran-conflict-map/last_revision_id",
+            StringValue   = "none"
+        });
+
         strikesTable.GrantReadData(apiLambda);
+        syncsTable.GrantReadData(apiLambda);
 
         // ── HTTP API Gateway ───────────────────────────────────────────────
         var httpApi = new HttpApi(this, "HttpApi", new HttpApiProps
@@ -94,6 +128,52 @@ public class IranConflictMapStack : Stack
             Methods     = new[] { Amazon.CDK.AWS.Apigatewayv2.Alpha.HttpMethod.GET },
             Integration = new HttpLambdaIntegration("StrikesIntegration", apiLambda)
         });
+
+        // ── Sync Lambda ────────────────────────────────────────────────────────
+        var syncLambda = new LambdaFunction(this, "SyncFunction", new LambdaFunctionProps
+        {
+            FunctionName = "iran-conflict-map-sync",
+            Runtime      = Amazon.CDK.AWS.Lambda.Runtime.DOTNET_8,
+            Handler      = "IranConflictMap.Sync::IranConflictMap.Sync.Function::FunctionHandler",
+            Code         = Amazon.CDK.AWS.Lambda.Code.FromAsset("src/IranConflictMap.Sync", new Amazon.CDK.AWS.S3.Assets.AssetOptions
+            {
+                Bundling = new BundlingOptions
+                {
+                    Image   = Amazon.CDK.AWS.Lambda.Runtime.DOTNET_8.BundlingImage,
+                    Command = new[] { "bash", "-c", "dotnet publish -c Release -o /asset-output" }
+                }
+            }),
+            Environment = new Dictionary<string, string>
+            {
+                ["STRIKES_TABLE"]  = strikesTable.TableName,
+                ["SYNCS_TABLE"]    = syncsTable.TableName,
+                ["SSM_PREFIX"]     = "/iran-conflict-map",
+                ["WIKIPEDIA_PAGE"] = "2026_Israel%E2%80%93Iran_war"
+            },
+            Timeout    = Duration.Minutes(5),
+            MemorySize = 512
+        });
+
+        strikesTable.GrantReadWriteData(syncLambda);
+        syncsTable.GrantReadWriteData(syncLambda);
+
+        // SSM: read last_synced, last_revision_id, anthropic_api_key; write last_synced, last_revision_id
+        syncLambda.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
+        {
+            Actions   = ["ssm:GetParameters", "ssm:PutParameter"],
+            Resources = [$"arn:aws:ssm:{this.Region}:{this.Account}:parameter/iran-conflict-map/*"]
+        }));
+
+        // Allow API Lambda to invoke sync Lambda for manual trigger endpoint
+        syncLambda.GrantInvoke(apiLambda);
+        apiLambda.AddEnvironment("SYNC_FUNCTION_NAME", syncLambda.FunctionName);
+
+        // ── EventBridge Schedule — 3 AM and 3 PM Central (09:00 and 21:00 UTC) ──
+        var syncRule = new Rule(this, "SyncSchedule", new RuleProps
+        {
+            Schedule = Schedule.Cron(new CronOptions { Hour = "9,21", Minute = "0" })
+        });
+        syncRule.AddTarget(new LambdaFunction(syncLambda));
 
         // ── S3 Bucket ──────────────────────────────────────────────────────
         var bucket = new Bucket(this, "SiteBucket", new BucketProps
