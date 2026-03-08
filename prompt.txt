@@ -1,4 +1,4 @@
-  I'm building an Iran/Middle East conflict map. I need you to generate DynamoDB seed data for the strikes table.
+I'm building an Iran/Middle East conflict map. I need you to generate DynamoDB seed data for the strikes table.
 
   Schema:
   - id (String) — unique numeric string, increment from the last ID I give you
@@ -8,9 +8,17 @@
   - lat / lng (Number) — decimal degrees
   - type (String) — one of: strike, drone, naval, missile
   - target_type (String) — one of: military, maritime, nuclear, command, civilian
-  - actor (String) — one of: US, Israel, Iran, Houthi/Iran
+  - actor (String) — one of: US, Israel, Iran
+  - severity (String) — one of: low, medium, high, critical
   - description (String) — 1–3 sentence factual summary
   - casualties (Map) — { confirmed: N, estimated: N }
+  - disputed (Boolean, optional) — set to true if the event is contested, unverified, or denied by a party; omit if not disputed
+
+  Severity guidelines:
+  - low — minor incident, 0 casualties, warning shots, disputed/intercepted attacks
+  - medium — limited engagement, 1–10 casualties, localized damage
+  - high — significant strike, 10–50 casualties, major infrastructure or military target
+  - critical — mass casualty event (50+ estimated), nuclear facility strike, decapitation strike, or major strategic escalation
 
   Output format (DynamoDB batch-write-item JSON):
   {
@@ -27,14 +35,16 @@
             "type":        { "S": "..." },
             "target_type": { "S": "..." },
             "actor":       { "S": "..." },
+            "severity":    { "S": "..." },
             "description": { "S": "..." },
-            "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } }
+            "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+            "disputed":    { "BOOL": true }
           }
         }
       }
     ]
   }
 
-  The last used ID is [X]. Please generate [N] new events starting from ID [X+1].
+  Only include the "disputed" field when the event is genuinely contested. Omit it entirely for undisputed events.
 
-  
+  The last used ID is [X]. Please generate [N] new events starting from ID [X+1].
