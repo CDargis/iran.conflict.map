@@ -173,7 +173,7 @@ public class IranConflictMapStack : Stack
         {
             Schedule = Schedule.Cron(new CronOptions { Hour = "9,21", Minute = "0" })
         });
-        syncRule.AddTarget(new LambdaFunction(syncLambda));
+        syncRule.AddTarget(new Amazon.CDK.AWS.Events.Targets.LambdaFunction(syncLambda));
 
         // ── S3 Bucket ──────────────────────────────────────────────────────
         var bucket = new Bucket(this, "SiteBucket", new BucketProps

@@ -103,7 +103,7 @@ app.MapPost("/api/sync/trigger", async () =>
     var response = await lambdaClient.InvokeAsync(new Amazon.Lambda.Model.InvokeRequest
     {
         FunctionName    = functionName,
-        InvocationType  = Amazon.Lambda.Model.InvocationType.Event  // async, fire-and-forget
+        InvocationType  = "Event"  // async, fire-and-forget
     });
 
     return Results.Ok(new { triggered = true, status = (int)response.StatusCode });
