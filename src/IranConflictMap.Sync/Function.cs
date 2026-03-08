@@ -229,15 +229,15 @@ public class Function
     private async Task<List<Dictionary<string, AttributeValue>>> CallClaude(
         string pageContent, string lastSynced, int nextId, string apiKey, ILambdaContext ctx)
     {
-        var prompt = $"""
+        var prompt = $$"""
             You maintain a conflict map database of military events in the Iran/Middle East conflict.
 
             Here is a Wikipedia article about the conflict:
 
-            {pageContent}
+            {{pageContent}}
 
-            Extract all military events that occurred STRICTLY AFTER {lastSynced}.
-            Start IDs from {nextId} and increment by 1 for each event.
+            Extract all military events that occurred STRICTLY AFTER {{lastSynced}}.
+            Start IDs from {{nextId}} and increment by 1 for each event.
 
             Rules:
             - entity is always "strike"
@@ -245,27 +245,27 @@ public class Function
             - type must be one of: strike, drone, naval, missile
             - target_type must be one of: military, maritime, nuclear, command, civilian
             - severity: low (minor/0 cas), medium (1-10 cas), high (10-50 cas), critical (50+ cas or nuclear/decapitation)
-            - Only include "disputed": {{"BOOL": true}} if the event is genuinely contested or denied
-            - If no new events exist after {lastSynced}, output an empty array: []
+            - Only include "disputed": {"BOOL": true} if the event is genuinely contested or denied
+            - If no new events exist after {{lastSynced}}, output an empty array: []
 
             Output ONLY a valid JSON array of DynamoDB Item objects. No explanation, no markdown.
 
             Example item:
-            {{
-              "id":          {{"S": "{nextId}"}},
-              "entity":      {{"S": "strike"}},
-              "date":        {{"S": "YYYY-MM-DD"}},
-              "title":       {{"S": "Short event title"}},
-              "location":    {{"S": "City, Country"}},
-              "lat":         {{"N": "00.0000"}},
-              "lng":         {{"N": "00.0000"}},
-              "type":        {{"S": "strike"}},
-              "target_type": {{"S": "military"}},
-              "actor":       {{"S": "US"}},
-              "severity":    {{"S": "high"}},
-              "description": {{"S": "1-3 sentence factual summary."}},
-              "casualties":  {{"M": {{"confirmed": {{"N": "0"}}, "estimated": {{"N": "0"}}}}}}
-            }}
+            {
+              "id":          {"S": "{{nextId}}"},
+              "entity":      {"S": "strike"},
+              "date":        {"S": "YYYY-MM-DD"},
+              "title":       {"S": "Short event title"},
+              "location":    {"S": "City, Country"},
+              "lat":         {"N": "00.0000"},
+              "lng":         {"N": "00.0000"},
+              "type":        {"S": "strike"},
+              "target_type": {"S": "military"},
+              "actor":       {"S": "US"},
+              "severity":    {"S": "high"},
+              "description": {"S": "1-3 sentence factual summary."},
+              "casualties":  {"M": {"confirmed": {"N": "0"}, "estimated": {"N": "0"}}}
+            }
             """;
 
         var body = JsonSerializer.Serialize(new

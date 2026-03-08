@@ -168,10 +168,10 @@ public class IranConflictMapStack : Stack
         syncLambda.GrantInvoke(apiLambda);
         apiLambda.AddEnvironment("SYNC_FUNCTION_NAME", syncLambda.FunctionName);
 
-        // ── EventBridge Schedule — 3 AM and 3 PM Central (09:00 and 21:00 UTC) ──
+        // ── EventBridge Schedule — 4 AM and 4 PM Central (10:00 and 22:00 UTC) ──
         var syncRule = new Rule(this, "SyncSchedule", new RuleProps
         {
-            Schedule = Schedule.Cron(new CronOptions { Hour = "9,21", Minute = "0" })
+            Schedule = Schedule.Cron(new CronOptions { Hour = "10,22", Minute = "0" })
         });
         syncRule.AddTarget(new Amazon.CDK.AWS.Events.Targets.LambdaFunction(syncLambda));
 
