@@ -377,6 +377,14 @@
       text-transform: uppercase; opacity: .85;
     }
 
+    .disputed-badge {
+      display: inline-block; margin-top: 5px; margin-left: 5px;
+      font-size: 8px; letter-spacing: .12em; padding: 1px 5px;
+      border: 1px solid rgba(232,160,32,.5);
+      color: var(--amber);
+      text-transform: uppercase; opacity: .9;
+    }
+
     .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .stat-box { background: var(--bg); border: 1px solid var(--border); padding: 12px; }
     .stat-num { font-family: var(--sans); font-weight: 700; font-size: 30px; line-height: 1; color: #fff; }
@@ -790,16 +798,17 @@ setInterval(tick,1000);tick();
 /* ── MARKERS ── */
 let markers={},activeId=null,allStrikes=[],minDate=null,maxDate=null;
 const SEVERITY_SIZE={low:14,medium:18,high:22,critical:28};
-function makeIcon(type,severity='low',hi=false){
+function makeIcon(type,severity='low',hi=false,disputed=false){
   const c=TARGET_CFG[type]?.color||'#c8392b';
   const base=SEVERITY_SIZE[severity]||14;
   const size=hi?base+6:base;
   const dot=Math.round(size*0.32);
   const pulse=hi||(severity==='critical')||(severity==='high');
   const dur=severity==='critical'?'1.1s':'1.6s';
+  const dash=disputed?`stroke-dasharray="3 2"`:'';
   return L.divIcon({className:'',iconSize:[size,size],iconAnchor:[size/2,size/2],
     html:`<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="${size/2}" cy="${size/2}" r="${size/2-1.5}" fill="none" stroke="${c}" stroke-width="${hi?2:1.5}" opacity="${hi?1:.7}"/>
+      <circle cx="${size/2}" cy="${size/2}" r="${size/2-1.5}" fill="none" stroke="${c}" stroke-width="${hi?2:1.5}" opacity="${hi?1:.7}" ${dash}/>
       <circle cx="${size/2}" cy="${size/2}" r="${dot/2}" fill="${c}" opacity="${hi?1:.9}"/>
       ${pulse?`<circle cx="${size/2}" cy="${size/2}" r="${size/2-1}" fill="none" stroke="${c}" stroke-width="1" opacity=".3"><animate attributeName="r" from="${size/2-1}" to="${size/2+6}" dur="${dur}" repeatCount="indefinite"/><animate attributeName="opacity" from=".3" to="0" dur="${dur}" repeatCount="indefinite"/></circle>`:''}
     </svg>`});
@@ -813,17 +822,18 @@ function popupHTML(s){
     <div class="popup-date">${s.date} · ${s.location}</div>
     <div class="popup-desc">${s.description}</div>
     <div style="margin-top:6px;font-size:9px;color:var(--dim)">METHOD: ${albl} &nbsp;·&nbsp; SEVERITY: <span style="color:${{low:'var(--dim)',medium:'var(--amber)',high:'var(--accent)',critical:'#ff4444'}[s.severity]||'var(--dim)'}">${(s.severity||'—').toUpperCase()}</span></div>
+    ${s.disputed?`<div style="margin-top:5px;font-size:9px;color:var(--amber);letter-spacing:.08em">⚠ DISPUTED — attribution or details contested</div>`:''}
     ${s.casualties?.confirmed>0||s.casualties?.estimated>0
       ?`<div class="popup-cas">KIA CONFIRMED: <span>${s.casualties.confirmed}</span> · EST: <span>${s.casualties.estimated}</span></div>`:''}`;
 }
 function focusStrike(id){
   if(activeId&&markers[activeId]){
-    markers[activeId].m.setIcon(makeIcon(markers[activeId].s.target_type,markers[activeId].s.severity,false));
+    markers[activeId].m.setIcon(makeIcon(markers[activeId].s.target_type,markers[activeId].s.severity,false,markers[activeId].s.disputed));
     document.querySelectorAll(`.strike-item[data-id="${activeId}"]`).forEach(el=>el.classList.remove('active'));
   }
   activeId=id;
   const e=markers[id];if(!e)return;
-  e.m.setIcon(makeIcon(e.s.target_type,e.s.severity,true));
+  e.m.setIcon(makeIcon(e.s.target_type,e.s.severity,true,e.s.disputed));
   map.flyTo([e.s.lat,e.s.lng],7,{duration:1.1});
   setTimeout(()=>e.m.openPopup(),850);
   document.querySelectorAll(`.strike-item[data-id="${id}"]`).forEach(el=>{
@@ -888,15 +898,11 @@ const ACTOR_COLORS={
   'US':          '#4a9eda',
   'Israel':      '#a8d8ea',
   'Iran':        '#2ecc71',
-  'Houthi/Iran': '#e8a020',
 };
 const FALLBACK_PALETTE=['#c0392b','#8e44ad','#16a085','#d35400','#2980b9','#f39c12','#27ae60'];
 let activeActors=new Set();
 
-function actorLabel(actor){
-  const map={'Houthi/Iran':'HOUTHI'};
-  return (map[actor]||actor).toUpperCase();
-}
+function actorLabel(actor){ return actor.toUpperCase(); }
 
 function initActorFilters(data){
   const actors=[...new Set(data.map(s=>s.actor))].sort();
@@ -958,7 +964,7 @@ function feedHTML(data){
       <div class="strike-date">${s.date}</div>
       <div class="strike-title">${s.title}</div>
       <div class="strike-loc">${s.location}</div>
-      <span class="strike-tag">${TARGET_CFG[s.target_type]?.label||s.target_type}</span>
+      <span class="strike-tag">${TARGET_CFG[s.target_type]?.label||s.target_type}</span>${s.disputed?'<span class="disputed-badge">⚠ Disputed</span>':''}
     </div>`).join('');
 }
 function statsHTML(data){
@@ -989,7 +995,7 @@ function render(data){
   allStrikes=data;
   initActorFilters(data);
   data.forEach(s=>{
-    const m=L.marker([s.lat,s.lng],{icon:makeIcon(s.target_type,s.severity)})
+    const m=L.marker([s.lat,s.lng],{icon:makeIcon(s.target_type,s.severity,false,s.disputed)})
       .bindPopup(popupHTML(s),{maxWidth:300});
     m.on('click',()=>focusStrike(s.id));
     markers[s.id]={m,s};
