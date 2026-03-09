@@ -256,6 +256,7 @@ public class Function
             - target_type must be one of: military, maritime, nuclear, command, civilian
             - severity: low (minor/0 cas), medium (1-10 cas), high (10-50 cas), critical (50+ cas or nuclear/decapitation)
             - Only include "disputed": {"BOOL": true} if the event is genuinely contested or denied
+            - SKIP any aggregated or summary entries (e.g. "X strikes over Y days", "wave of attacks", "series of strikes") — only extract discrete, individually-dated events
             - If no new events exist after LAST_SYNCED, output an empty array: []
 
             Output ONLY a valid JSON array of DynamoDB Item objects. No explanation, no markdown.
