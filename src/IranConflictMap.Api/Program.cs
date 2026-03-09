@@ -13,12 +13,14 @@ var app = builder.Build();
 
 // ── In-memory cache ────────────────────────────────────────────────────────────
 List<object>? strikeCache = null;
-var cacheExpiry = DateTime.MinValue;
+var strikeCacheExpiry = DateTime.MinValue;
+List<object>? syncCache = null;
+var syncCacheExpiry = DateTime.MinValue;
 
 // ── GET /api/strikes ───────────────────────────────────────────────────────────
 app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo) =>
 {
-    if (strikeCache is not null && DateTime.UtcNow < cacheExpiry)
+    if (strikeCache is not null && DateTime.UtcNow < strikeCacheExpiry)
         return Results.Ok(strikeCache);
 
     var tableName = Environment.GetEnvironmentVariable("STRIKES_TABLE") ?? "strikes";
@@ -58,13 +60,16 @@ app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo) =>
         }
     }).ToList();
 
-    cacheExpiry = DateTime.UtcNow.AddMinutes(5);
+    strikeCacheExpiry = DateTime.UtcNow.AddMinutes(5);
     return Results.Ok(strikeCache);
 });
 
 // ── GET /api/syncs ─────────────────────────────────────────────────────────────
 app.MapGet("/api/syncs", async (IAmazonDynamoDB dynamo) =>
 {
+    if (syncCache is not null && DateTime.UtcNow < syncCacheExpiry)
+        return Results.Ok(syncCache);
+
     var tableName = Environment.GetEnvironmentVariable("SYNCS_TABLE") ?? "syncs";
 
     var response = await dynamo.QueryAsync(new QueryRequest
@@ -80,16 +85,17 @@ app.MapGet("/api/syncs", async (IAmazonDynamoDB dynamo) =>
         Limit            = 10
     });
 
-    var syncs = response.Items.Select(item => (object)new
+    syncCache = response.Items.Select(item => (object)new
     {
         id              = item["id"].S,
         timestamp       = item["timestamp"].S,
         new_event_count = int.Parse(item["new_event_count"].N),
         has_edits       = item.ContainsKey("has_edits") && item["has_edits"].BOOL,
         status          = item["status"].S
-    });
+    }).ToList();
 
-    return Results.Ok(syncs);
+    syncCacheExpiry = DateTime.UtcNow.AddMinutes(5);
+    return Results.Ok(syncCache);
 });
 
 // ── POST /api/sync/trigger ─────────────────────────────────────────────────────
