@@ -89,6 +89,7 @@ app.MapGet("/api/syncs", async (IAmazonDynamoDB dynamo) =>
     {
         id              = item["id"].S,
         timestamp       = item["timestamp"].S,
+        last_synced     = item.ContainsKey("last_synced") ? item["last_synced"].S : "",
         new_event_count = int.Parse(item["new_event_count"].N),
         has_edits       = item.ContainsKey("has_edits") && item["has_edits"].BOOL,
         status          = item["status"].S

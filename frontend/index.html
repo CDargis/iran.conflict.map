@@ -1079,14 +1079,20 @@ function syncLogHTML(syncs){
   if(!syncs||!syncs.length) return '<div class="data-note" style="color:var(--dim)">No syncs yet.</div>';
   return syncs.map(s=>{
     const ts=fmtSyncTs(s.timestamp);
+    const after=s.last_synced?`after ${s.last_synced}`:'';
     let resultClass='none', resultText='no changes';
     if(s.status==='error'){resultClass='error';resultText='error';}
     else if(s.new_event_count>0){resultClass='new';resultText=`+${s.new_event_count} event${s.new_event_count>1?'s':''}` ;}
     const edits=s.has_edits?'<span class="sync-edits">⚠ edits detected</span>':'';
     return `<div class="sync-entry">
-      <span class="sync-ts">${ts}</span>
-      <span class="sync-result ${resultClass}">${resultText}</span>
-      ${edits}
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="sync-ts">${ts}</span>
+        ${edits}
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
+        <span class="sync-ts">${after}</span>
+        <span class="sync-result ${resultClass}">${resultText}</span>
+      </div>
     </div>`;
   }).join('');
 }

@@ -43,9 +43,11 @@ public class Function
         var runId = DateTime.UtcNow.ToString("o");
         context.Logger.LogLine($"[sync] run started: {runId}");
 
+        var lastSynced = "";
         try
         {
-            var (lastSynced, lastRevisionId, anthropicKey) = await ReadSsmParams();
+            string lastRevisionId, anthropicKey;
+            (lastSynced, lastRevisionId, anthropicKey) = await ReadSsmParams();
             context.Logger.LogLine($"[sync] last_synced={lastSynced} last_revision={lastRevisionId}");
 
             var currentRevisionId = await GetCurrentRevisionId(context);
@@ -54,7 +56,7 @@ public class Function
             if (currentRevisionId == lastRevisionId)
             {
                 context.Logger.LogLine("[sync] no wikipedia changes — skipping");
-                await WriteSyncRecord(runId, 0, false, "no_changes");
+                await WriteSyncRecord(runId, 0, false, "no_changes", lastSynced);
                 return "no_changes";
             }
 
@@ -73,7 +75,7 @@ public class Function
             if (newItems.Count > 0)
                 await WriteEvents(newItems);
 
-            await WriteSyncRecord(runId, newItems.Count, hasEdits, "success");
+            await WriteSyncRecord(runId, newItems.Count, hasEdits, "success", lastSynced);
             await UpdateSsmParams(DateTime.UtcNow.ToString("yyyy-MM-dd"), currentRevisionId);
 
             context.Logger.LogLine($"[sync] done — {newItems.Count} events, hasEdits={hasEdits}");
@@ -82,7 +84,7 @@ public class Function
         catch (Exception ex)
         {
             context.Logger.LogLine($"[sync] error: {ex}");
-            await WriteSyncRecord(runId, 0, false, "error");
+            await WriteSyncRecord(runId, 0, false, "error", lastSynced);
             throw;
         }
     }
@@ -217,7 +219,7 @@ public class Function
         }
     }
 
-    private async Task WriteSyncRecord(string id, int newEventCount, bool hasEdits, string status)
+    private async Task WriteSyncRecord(string id, int newEventCount, bool hasEdits, string status, string lastSynced)
     {
         await _dynamo.PutItemAsync(new PutItemRequest
         {
@@ -227,6 +229,7 @@ public class Function
                 ["id"]              = new() { S    = id },
                 ["entity"]          = new() { S    = "sync" },
                 ["timestamp"]       = new() { S    = id },
+                ["last_synced"]     = new() { S    = lastSynced },
                 ["new_event_count"] = new() { N    = newEventCount.ToString() },
                 ["has_edits"]       = new() { BOOL = hasEdits },
                 ["status"]          = new() { S    = status }
