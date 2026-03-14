@@ -80,6 +80,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Claude Code
+.claude/settings.local.json
+
 # Editors
 *.swp
 *.swo
