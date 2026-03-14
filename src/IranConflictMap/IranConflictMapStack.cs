@@ -8,10 +8,12 @@ using Amazon.CDK.AWS.DynamoDB;
 using Amazon.CDK.AWS.Events;
 using Amazon.CDK.AWS.Events.Targets;
 using Amazon.CDK.AWS.IAM;
+using Amazon.CDK.AWS.Lambda.EventSources;
 using Amazon.CDK.AWS.Route53;
 using Amazon.CDK.AWS.Route53.Targets;
 using Amazon.CDK.AWS.S3;
 using Amazon.CDK.AWS.S3.Deployment;
+using Amazon.CDK.AWS.SQS;
 using Amazon.CDK.AWS.SSM;
 using Constructs;
 using LambdaFunction = Amazon.CDK.AWS.Lambda.Function;
@@ -101,6 +103,60 @@ public class IranConflictMapStack : Stack
             ProjectionType = ProjectionType.ALL
         });
 
+        // ── SQS Queues ────────────────────────────────────────────────────────
+        var deadLetterQueue = new Queue(this, "DeadLetterQueue", new QueueProps
+        {
+            QueueName         = "iran-conflict-map-dlq",
+            RetentionPeriod   = Duration.Days(14),
+            VisibilityTimeout = Duration.Seconds(30)
+        });
+
+        var processorQueue = new Queue(this, "ProcessorQueue", new QueueProps
+        {
+            QueueName         = "iran-conflict-map-processor",
+            VisibilityTimeout = Duration.Minutes(6),  // > processor lambda timeout
+            RetentionPeriod   = Duration.Days(7),
+            DeadLetterQueue   = new DeadLetterQueue
+            {
+                Queue           = deadLetterQueue,
+                MaxReceiveCount = 3
+            }
+        });
+
+        // ── Processor Lambda (SQS-triggered) ─────────────────────────────────
+        var processorLambda = new LambdaFunction(this, "ProcessorFunction", new LambdaFunctionProps
+        {
+            FunctionName = "iran-conflict-map-processor",
+            Runtime      = Amazon.CDK.AWS.Lambda.Runtime.DOTNET_8,
+            Handler      = "IranConflictMap.Lambda::IranConflictMap.Lambda.Function::FunctionHandler",
+            Code         = Amazon.CDK.AWS.Lambda.Code.FromAsset("src/IranConflictMap.Lambda", new Amazon.CDK.AWS.S3.Assets.AssetOptions
+            {
+                Bundling = new BundlingOptions
+                {
+                    Image   = Amazon.CDK.AWS.Lambda.Runtime.DOTNET_8.BundlingImage,
+                    Command = new[] { "bash", "-c", "dotnet publish -c Release -o /asset-output" }
+                }
+            }),
+            Environment = new Dictionary<string, string>
+            {
+                ["STRIKES_TABLE"]        = strikesTable.TableName,
+                ["SYNCS_TABLE"]          = syncsTable.TableName,
+                ["STRIKES_GSI"]          = "entity-date-index",
+                ["DEAD_LETTER_QUEUE_URL"] = deadLetterQueue.QueueUrl
+            },
+            Timeout    = Duration.Minutes(5),
+            MemorySize = 512
+        });
+
+        processorLambda.AddEventSource(new SqsEventSource(processorQueue, new SqsEventSourceProps
+        {
+            BatchSize = 1
+        }));
+
+        strikesTable.GrantReadWriteData(processorLambda);
+        syncsTable.GrantReadWriteData(processorLambda);
+        deadLetterQueue.GrantSendMessages(processorLambda);
+
         // ── SSM Parameters (initial values — updated at runtime by sync Lambda) ──
         new StringParameter(this, "LastSynced", new StringParameterProps
         {
@@ -145,19 +201,18 @@ public class IranConflictMapStack : Stack
             }),
             Environment = new Dictionary<string, string>
             {
-                ["STRIKES_TABLE"]  = strikesTable.TableName,
-                ["SYNCS_TABLE"]    = syncsTable.TableName,
-                ["SSM_PREFIX"]     = "/iran-conflict-map",
-                ["WIKIPEDIA_PAGE"] = "List_of_attacks_during_the_2026_Iran_war"
+                ["SYNCS_TABLE"]          = syncsTable.TableName,
+                ["SSM_PREFIX"]           = "/iran-conflict-map",
+                ["PROCESSOR_QUEUE_URL"]  = processorQueue.QueueUrl
             },
             Timeout    = Duration.Minutes(5),
             MemorySize = 512
         });
 
-        strikesTable.GrantReadWriteData(syncLambda);
         syncsTable.GrantReadWriteData(syncLambda);
+        processorQueue.GrantSendMessages(syncLambda);
 
-        // SSM: read last_synced, last_revision_id, anthropic_api_key; write last_synced, last_revision_id
+        // SSM: read anthropic_api_key and Graph API creds
         syncLambda.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
         {
             Actions   = ["ssm:GetParameters", "ssm:PutParameter"],
@@ -168,10 +223,10 @@ public class IranConflictMapStack : Stack
         syncLambda.GrantInvoke(apiLambda);
         apiLambda.AddEnvironment("SYNC_FUNCTION_NAME", syncLambda.FunctionName);
 
-        // ── EventBridge Schedule — 4 AM and 4 PM Central (10:00 and 22:00 UTC) ──
+        // ── EventBridge Schedule — 9 PM Central (03:00 UTC next day) ─────────
         var syncRule = new Rule(this, "SyncSchedule", new RuleProps
         {
-            Schedule = Schedule.Cron(new CronOptions { Hour = "10,22", Minute = "0" })
+            Schedule = Schedule.Cron(new CronOptions { Hour = "3", Minute = "0" })
         });
         syncRule.AddTarget(new Amazon.CDK.AWS.Events.Targets.LambdaFunction(syncLambda));
 
@@ -321,6 +376,16 @@ public class IranConflictMapStack : Stack
         {
             Value       = strikesTable.TableName,
             Description = "DynamoDB strikes table"
+        });
+        new CfnOutput(this, "ProcessorQueueUrl", new CfnOutputProps
+        {
+            Value       = processorQueue.QueueUrl,
+            Description = "SQS queue URL for processor Lambda (send seed data here)"
+        });
+        new CfnOutput(this, "DeadLetterQueueUrl", new CfnOutputProps
+        {
+            Value       = deadLetterQueue.QueueUrl,
+            Description = "SQS dead-letter queue URL"
         });
     }
 }

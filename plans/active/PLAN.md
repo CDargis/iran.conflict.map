@@ -116,12 +116,14 @@ Replaces the old Wikipedia-era fields (`has_edits`, `last_synced`).
 | `id` | String | ISO 8601 timestamp of the run (partition key) |
 | `entity` | String | Always `"sync"` (GSI partition key) |
 | `timestamp` | String | Same as `id` |
-| `status` | String | `success`, `no_email`, `no_url`, `fetch_error`, `claude_error`, `error` |
+| `status` | String | `success`, `partial`, `no_email`, `no_url`, `fetch_error`, `claude_error`, `error` |
 | `report_url` | String (optional) | The CTP-ISW URL that was processed |
 | `new_event_count` | Number | Events written to `strikes` |
 | `update_count` | Number | Updates applied to existing records |
-| `ambiguous_count` | Number | Items sent to SQS dead-letter |
-| `error_message` | String (optional) | Human-readable error detail on failure |
+| `dead_letter_count` | Number | Items sent to SQS dead-letter (failed updates + ambiguous) |
+| `error_message` | String (optional) | Human-readable detail on failures (e.g. "3 updates dead-lettered; 1 ambiguous items dead-lettered") |
+
+- **`partial`** status means the run succeeded but some items were dead-lettered — visible in the UI so you know to check the DLQ
 
 ---
 
@@ -164,6 +166,10 @@ See `prompt.txt` for the full prompt text including DynamoDB wire format example
 - Schema includes `source_url` pointing to the specific CTP-ISW report for each batch
 
 ---
+
+## TODOs
+
+- [ ] **DLQ alerting** — set up notifications when messages land in the dead-letter queue (CloudWatch alarm on `ApproximateNumberOfMessagesVisible > 0` → SNS → email, or similar). Decide on mechanism.
 
 ## Open Questions
 
