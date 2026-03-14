@@ -1,52 +1,87 @@
-I'm building an Iran/Middle East conflict map. I need you to generate DynamoDB seed data for the strikes table.
+I'm building an Iran/Middle East conflict map. I need you to process a CTP-ISW Iran update report and extract strike events into structured DynamoDB data.
+Schema:
 
-  Schema:
-  - id (String) — unique numeric string, increment from the last ID I give you
-  - entity (String) — always "strike" (GSI partition key, required)
-  - date (String) — ISO 8601, YYYY-MM-DD
-  - title (String) — short event title
-  - location (String) — human-readable place name
-  - lat / lng (Number) — decimal degrees
-  - type (String) — one of: strike, drone, naval, missile
-  - target_type (String) — one of: military, maritime, nuclear, command, civilian
-  - actor (String) — one of: US, Israel, Iran
-  - severity (String) — one of: low, medium, high, critical
-  - description (String) — 1–3 sentence factual summary
-  - casualties (Map) — { confirmed: N, estimated: N }
-  - disputed (Boolean, optional) — set to true if the event is contested, unverified, or denied by a party; omit if not disputed
+id (String) — unique numeric string, increment from the last ID I give you (new events only)
+entity (String) — always "strike" (GSI partition key, required)
+date (String) — ISO 8601, YYYY-MM-DD
+title (String) — short event title
+location (String) — human-readable place name
+lat / lng (Number) — decimal degrees
+type (String) — one of: strike, drone, naval, missile
+target_type (String) — one of: military, maritime, nuclear, command, civilian
+actor (String) — free text, the attacking party (e.g. US, Israel, Iran, Saudi Arabia, Houthi, etc.)
+severity (String) — one of: low, medium, high, critical
+description (String) — 1–3 sentence factual summary
+casualties (Map) — { confirmed: N, estimated: N }
+source_url (String, optional) — the CTP-ISW report URL this event was extracted from; same value for every event extracted from a given report
+citations (List of Strings, optional) — URLs of primary sources cited inline in this event's topline paragraph; resolve each footnote marker (e.g. [i], [ii], [xv]) to its full URL from the footnote block at the bottom of the report; only include footnotes directly associated with this event's paragraph; omit if none
+disputed (Boolean, optional) — set to true if the event is contested, unverified, or denied by a party; omit if not disputed
 
-  Severity guidelines:
-  - low — minor incident, 0 casualties, warning shots, disputed/intercepted attacks
-  - medium — limited engagement, 1–10 casualties, localized damage
-  - high — significant strike, 10–50 casualties, major infrastructure or military target
-  - critical — mass casualty event (50+ estimated), nuclear facility strike, decapitation strike, or major strategic escalation
+Severity guidelines:
 
-  Output format (DynamoDB batch-write-item JSON):
-  {
-    "strikes": [
-      {
-        "PutRequest": {
-          "Item": {
-            "id":          { "S": "..." },
-            "entity":      { "S": "strike" },
-            "date":        { "S": "YYYY-MM-DD" },
-            "title":       { "S": "..." },
-            "location":    { "S": "..." },
-            "lat":         { "N": "..." },
-            "lng":         { "N": "..." },
-            "type":        { "S": "..." },
-            "target_type": { "S": "..." },
-            "actor":       { "S": "..." },
-            "severity":    { "S": "..." },
-            "description": { "S": "..." },
-            "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
-            "disputed":    { "BOOL": true }
-          }
+low — minor incident, 0 casualties, warning shots, disputed/intercepted attacks
+medium — limited engagement, 1–10 casualties, localized damage
+high — significant strike, 10–50 casualties, major infrastructure or military target
+critical — mass casualty event (50+ estimated), nuclear facility strike, decapitation strike, or major strategic escalation
+
+Granularity rule: Generate one event per distinct operation or topline paragraph. Do not log individual munitions within a barrage as separate events. A single coordinated wave of strikes on the same target type in the same location on the same date = one event.
+Source URL rule: Set source_url to the full URL of the CTP-ISW report being processed. This is the same value for every event extracted from a given report. It serves as the canonical provenance pointer for the event record.
+Citation mapping rule: The report contains inline footnote markers (e.g. [i], [ii], [xv]) within each topline paragraph, and a corresponding footnote block at the bottom of the report resolving each marker to a URL. For each event, collect only the footnote markers that appear within that event's topline paragraph, resolve them to their URLs using the footnote block, and include those URLs in the citations array. Do not include footnotes from other paragraphs. Omit the field entirely if no footnotes are mappable to this event.
+New vs update rule: This report may reference events from a prior reporting window that are being corrected or refined. Classify each extracted event as one of the following:
+
+new — this event has not been previously reported; assign it the next available ID
+update — this event was reported in a prior report and this report is adding detail, correcting casualties, changing disputed status, or otherwise refining it; do not assign a new ID, instead include only the fields that changed plus date, location, and actor as lookup keys
+ambiguous — you cannot confidently determine whether this is new or an update; include a note explaining why
+
+Output format — return a single JSON object with three arrays:
+json{
+  "new": [
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "..." },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "YYYY-MM-DD" },
+          "title":       { "S": "..." },
+          "location":    { "S": "..." },
+          "lat":         { "N": "..." },
+          "lng":         { "N": "..." },
+          "type":        { "S": "..." },
+          "target_type": { "S": "..." },
+          "actor":       { "S": "..." },
+          "severity":    { "S": "..." },
+          "description": { "S": "..." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/..." },
+          "citations":   { "L": [ { "S": "https://..." }, { "S": "https://..." } ] }
         }
       }
-    ]
-  }
-
-  Only include the "disputed" field when the event is genuinely contested. Omit it entirely for undisputed events.
-
-  The last used ID is [X]. Please generate [N] new events starting from ID [X+1].
+    }
+  ],
+  "updates": [
+    {
+      "lookup": {
+        "date":     "YYYY-MM-DD",
+        "location": "...",
+        "actor":    "..."
+      },
+      "changes": {
+        "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+        "description": { "S": "..." },
+        "severity":    { "S": "..." },
+        "source_url":  { "S": "https://www.criticalthreats.org/analysis/..." },
+        "citations":   { "L": [ { "S": "https://..." } ] },
+        "disputed":    { "BOOL": true }
+      }
+    }
+  ],
+  "ambiguous": [
+    {
+      "note": "...",
+      "raw": {}
+    }
+  ]
+}
+Only include "disputed" when the event is genuinely contested. Omit it entirely for undisputed events. Only include "citations" when footnote URLs are mappable to this specific event's paragraph. Only include "source_url" when the report URL is known. Only include fields in "changes" that are actually changing — do not repeat unchanged fields.
+The last used ID is [X]. Events already logged cover [DATE RANGE]. Please process the following CTP-ISW report and generate output starting from ID [X+1]:
+[PASTE REPORT TEXT HERE]
