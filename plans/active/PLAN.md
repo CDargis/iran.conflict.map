@@ -36,13 +36,22 @@ Replacing the Wikipedia-based sync lambda with a CTP-ISW email-driven pipeline. 
 
 ---
 
-## New Lambda Architecture
+## Two-Lambda Architecture
 
-### Trigger
-- EventBridge scheduled rule: **9 PM daily**
-- Replaces the existing 2x daily Wikipedia sync
+### Lambda 1: `IranConflictMap.Sync` — Email Checker (scheduled)
+- Trigger: EventBridge scheduled rule, **9 PM daily**
+- Responsibility: check Outlook, extract URL, fetch page, call Claude, push result to SQS
+- Does NOT write to DynamoDB directly
 
-### Steps
+### Lambda 2: `IranConflictMap.Lambda` — Processor (SQS-triggered)
+- Trigger: SQS message
+- Responsibility: read `{ new, updates, ambiguous }` off SQS and write to DynamoDB
+- Used for both **live sync** (fed by `.Sync`) and **historical seeding** (manually enqueued)
+- This is the piece built first
+
+---
+
+## Lambda 1: Sync Steps
 
 1. **Check Outlook inbox** via Microsoft Graph API
    - Auth: personal Outlook account using OAuth (device code or client credentials with delegated permissions)
@@ -65,20 +74,36 @@ Replacing the Wikipedia-based sync lambda with a CTP-ISW email-driven pipeline. 
    - Response should be `{ new: [...], updates: [...], ambiguous: [...] }`
    - If Claude returns a non-200, malformed JSON, or a response missing all three arrays: **fail the sync** — write a `claude_error` record to `syncs` table and stop; do not move the email
 
-5. **Write `new` events**
-   - Auto-increment ID (scan existing max ID + 1)
-   - `BatchWriteItem` to `strikes` DynamoDB table
+5. **Push Claude response to SQS** — raw `{ new, updates, ambiguous }` JSON as the message body
 
-6. **Write `updates`**
-   - Match existing record by `date + location + actor`
-   - Apply partial `UpdateItem` with only changed fields
+6. **Move email** from `queue` folder to `completed` folder in Outlook — only on full success
 
-7. **Write `ambiguous`**
-   - Send to **SQS dead-letter queue** for manual review
+7. **Write sync record** to `syncs` table (see schema below)
+
+---
+
+## Lambda 2: Processor Steps
+
+SQS message body is raw Claude output: `{ "new": [...], "updates": [...], "ambiguous": [...] }`
+
+1. **Process `new` array**
+   - Get next available ID (query existing max + 1)
+   - `BatchWriteItem` to `strikes` table (max 25 per batch)
+
+2. **Process `updates` array**
+   - For each update, look up the existing record:
+     - If `lookup.id` is present → `GetItem` directly by ID
+     - If no `id` → query entity GSI for `entity = "strike"`, filter by `date + location + actor`
+       - 1 match → apply `UpdateItem` with only the changed fields
+       - 0 matches → send to dead-letter SQS
+       - 2+ matches → send to dead-letter SQS (ambiguous)
+   - `citations` on updates: **union** incoming URLs with existing list, do not overwrite
+
+3. **Process `ambiguous` array**
+   - Send each item to dead-letter SQS
    - Do NOT write to `strikes` table
 
-8. **Move email** from `queue` folder to `completed` folder in Outlook — only on full success
-9. **Write sync record** to `syncs` table (see updated schema below)
+4. **Write sync record** to `syncs` table
 
 ---
 
@@ -116,14 +141,15 @@ The prompt instructs Claude to:
 
 See `prompt.txt` for the full prompt text including DynamoDB wire format examples.
 
-### Edge Cases the Lambda Must Handle
+### Edge Cases
 
 - **URL date format** — CTP-ISW URLs use no zero-padding (e.g. `march-7` not `march-07`)
 - **Report density** — morning reports ~30 footnotes, evening reports ~100–170; both must be handled
-- **Update with multiple matches** — if `date + location + actor` matches more than one existing record, do NOT write; send to SQS dead-letter for manual review
-- **Citations on updates** — union incoming citation URLs with the existing list; do not overwrite
-- **Misclassification** — Haiku may misclassify new events as updates or vice versa; the `ambiguous` array is the safety valve and should be treated as dead-letter
-- **JS-rendered page** — criticalthreats.org is JavaScript-rendered; must verify whether raw `HttpClient` works before coding; may need Playwright or a headless fetch strategy (open question #4)
+- **Update `id` presence** — seed files include `id` in the lookup (Claude remembered IDs from the same session); live sync updates will not have `id` since Claude has no DB knowledge
+- **Update with multiple matches** — if `date + location + actor` matches more than one existing record, do NOT write; send to dead-letter SQS
+- **Citations on updates** — union incoming URLs with existing list; do not overwrite
+- **Misclassification** — Haiku may misclassify new events as updates or vice versa; `ambiguous` array is the safety valve
+- **JS-rendered page** — criticalthreats.org may be JS-rendered; must verify before coding `.Sync` (open question #4)
 
 ---
 
@@ -152,11 +178,12 @@ See `prompt.txt` for the full prompt text including DynamoDB wire format example
 
 | File | Change |
 |---|---|
-| `src/IranConflictMap.Sync/Function.cs` | Full rewrite — new pipeline replacing Wikipedia sync |
-| `src/IranConflictMap/IranConflictMapStack.cs` | Update CDK: new EventBridge schedule (9 PM), SSM params for Graph API OAuth creds, SQS dead-letter queue for ambiguous |
-| `prompt.txt` | Already updated with new schema + prompt |
-| DynamoDB `strikes` table | Schema change: add `citations` (L), keep `source_url` (S), wipe existing data |
-| DynamoDB `syncs` table | Updated fields: drop `has_edits`/`last_synced`, add `report_url`, `update_count`, `ambiguous_count`, `error_message` |
+| `src/IranConflictMap.Lambda/Function.cs` | **Build first** — SQS-triggered processor: handles `new`, `updates`, `ambiguous` arrays, writes to DynamoDB |
+| `src/IranConflictMap.Sync/Function.cs` | **Build second** — full rewrite: Outlook → regex → page fetch → Claude → SQS |
+| `src/IranConflictMap/IranConflictMapStack.cs` | Update CDK: EventBridge 9 PM schedule, SQS queue + dead-letter queue, SSM params for Graph API OAuth creds |
+| `prompt.txt` | Already updated ✅ |
+| DynamoDB `strikes` table | Add `citations` (L), keep `source_url` (S), wipe existing data |
+| DynamoDB `syncs` table | Drop `has_edits`/`last_synced`, add `report_url`, `update_count`, `ambiguous_count`, `error_message` |
 
 ---
 
