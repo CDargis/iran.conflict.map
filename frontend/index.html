@@ -824,7 +824,7 @@ function popupHTML(s){
         `<a href="${u}" target="_blank" rel="noopener" class="popup-cite">&#x24${(i+1).toString(16).padStart(2,'0')} ${domain(u)}</a>`
       ).join('')}</div>`
     :'';
-  const fmtProv=iso=>{const d=new Date(iso);return`${MONTH_ABBR[d.getMonth()]} ${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')`;};
+  const fmtProv=iso=>{const d=new Date(iso);return`${MONTH_ABBR[d.getMonth()]} ${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;};
   let provLines=[];
   if(s.created_at) provLines.push(`Added ${fmtProv(s.created_at)}${s.created_source_url?` · <a href="${s.created_source_url}" target="_blank" rel="noopener">${domain(s.created_source_url)}</a>`:''}`);
   if(s.update_log?.length) s.update_log.forEach(u=>provLines.push(`Updated ${fmtProv(u.at)}${u.source_url?` · <a href="${u.source_url}" target="_blank" rel="noopener">${domain(u.source_url)}</a>`:''}${u.fields?.length?` (${u.fields.join(', ')})`:''}`)

@@ -317,12 +317,32 @@ public class IranConflictMapStack : Stack
             Resources = [$"arn:aws:ssm:{this.Region}:{this.Account}:parameter/iran-conflict-map/sync_key"]
         }));
 
-        // ── EventBridge Schedule — 11:45 PM Central (04:45 UTC) ──────────────
-        var syncRule = new Rule(this, "SyncSchedule", new RuleProps
+        // ── EventBridge S3 trigger — inbox/ ObjectCreated → sync Lambda ──────
+        emailBucket.EnableEventBridgeNotification();
+
+        var inboxRule = new Rule(this, "InboxObjectCreated", new RuleProps
         {
-            Schedule = Schedule.Cron(new CronOptions { Hour = "4", Minute = "45" })
+            EventPattern = new EventPattern
+            {
+                Source     = new[] { "aws.s3" },
+                DetailType = new[] { "Object Created" },
+                Detail     = new Dictionary<string, object>
+                {
+                    ["bucket"] = new Dictionary<string, object>
+                    {
+                        ["name"] = new[] { emailBucket.BucketName }
+                    },
+                    ["object"] = new Dictionary<string, object>
+                    {
+                        ["key"] = new Dictionary<string, object>
+                        {
+                            ["prefix"] = new[] { "inbox/" }
+                        }
+                    }
+                }
+            }
         });
-        syncRule.AddTarget(new Amazon.CDK.AWS.Events.Targets.LambdaFunction(syncLambda));
+        inboxRule.AddTarget(new Amazon.CDK.AWS.Events.Targets.LambdaFunction(syncLambda));
 
         // ── S3 Bucket ──────────────────────────────────────────────────────
         var bucket = new Bucket(this, "SiteBucket", new BucketProps
