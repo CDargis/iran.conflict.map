@@ -25,7 +25,7 @@
       --sans:     'Barlow Condensed', sans-serif;
       --header-h: 44px;
       --filter-h: 34px;
-      --time-h:   38px;
+      --time-h:   52px;
       --bar-h:    28px;
       --peek:     120px;
     }
@@ -534,27 +534,43 @@
       background: var(--panel);
       border-bottom: 1px solid var(--border);
       display: flex; align-items: center;
-      padding: 0 14px; gap: 10px; z-index: 800;
+      padding: 0 14px; gap: 12px; z-index: 800;
     }
-    .timebar-label {
-      font-size: 8px; letter-spacing: .14em; color: var(--dim);
-      text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
+    #timebar-date {
+      display: flex; flex-direction: column; align-items: center;
+      flex-shrink: 0; line-height: 1; gap: 2px;
+      padding-right: 12px;
+      border-right: 1px solid var(--border);
     }
-    .time-slider-wrap { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-    .time-date-row {
-      display: flex; justify-content: center;
-      font-size: 9px; color: var(--accent); letter-spacing: .08em; padding: 0 1px;
+    .td-month {
+      font-size: 8px; letter-spacing: .2em; color: var(--dim);
+      text-transform: uppercase;
     }
+    .td-day {
+      font-size: 24px; font-family: var(--sans); font-weight: 700;
+      color: #fff; line-height: 1;
+    }
+    .time-slider-wrap { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
     .time-track-wrap { position: relative; height: 18px; display: flex; align-items: center; }
     .time-track-bg {
       position: absolute; left: 0; right: 0; height: 2px;
       background: var(--border); border-radius: 1px;
     }
     .time-track-fill {
-      position: absolute; height: 2px;
-      background: var(--accent); opacity: .5; border-radius: 1px;
-      pointer-events: none;
+      position: absolute; left: 0; height: 2px;
+      background: var(--accent); opacity: .6; border-radius: 1px;
+      pointer-events: none; transition: width .1s linear;
     }
+    .time-ticks {
+      display: flex; align-items: flex-end; height: 7px;
+      padding: 0 7px; pointer-events: none;
+    }
+    .time-tick {
+      flex: 1; height: 3px; border-radius: 1px;
+      background: var(--border); margin: 0 1px;
+      transition: background .1s, opacity .1s;
+    }
+    .time-tick.past { background: var(--accent); opacity: .45; }
     .time-track-wrap input[type=range] {
       position: absolute; width: 100%;
       -webkit-appearance: none; appearance: none;
@@ -667,15 +683,17 @@
 </div>
 
 <div id="timebar">
-  <span class="timebar-label">DATE</span>
+  <div id="timebar-date">
+    <div class="td-month" id="lbl-month">—</div>
+    <div class="td-day" id="lbl-day">—</div>
+  </div>
   <div class="time-slider-wrap">
-    <div class="time-date-row">
-      <span id="lbl-date">—</span>
-    </div>
     <div class="time-track-wrap">
       <div class="time-track-bg"></div>
+      <div class="time-track-fill" id="time-fill"></div>
       <input type="range" id="range-day" min="0" max="100" value="100">
     </div>
+    <div class="time-ticks" id="time-ticks"></div>
   </div>
   <span class="timebar-hint" id="timebar-hint">◀ DRAG ▶</span>
 </div>
@@ -863,17 +881,31 @@ function getSelectedDate(){
   return sortedDates[+rd.value]||null;
 }
 
+function updateTimebar(idx){
+  const d=new Date(sortedDates[idx]+'T00:00:00Z');
+  document.getElementById('lbl-month').textContent=MONTH_ABB[d.getUTCMonth()];
+  document.getElementById('lbl-day').textContent=String(d.getUTCDate()).padStart(2,'0');
+  const pct=sortedDates.length>1?idx/(sortedDates.length-1)*100:100;
+  document.getElementById('time-fill').style.width=pct+'%';
+  document.querySelectorAll('.time-tick').forEach((el,i)=>{
+    el.classList.toggle('past',i<=idx);
+  });
+}
+
 function initTimeSlider(data){
   sortedDates=[...new Set(data.map(s=>s.date))].sort();
   const rd=document.getElementById('range-day');
   rd.min=0; rd.max=sortedDates.length-1; rd.value=sortedDates.length-1;
-  document.getElementById('lbl-date').textContent=fmtDate(new Date(sortedDates[rd.value]+'T00:00:00Z'));
+  // render ticks
+  document.getElementById('time-ticks').innerHTML=
+    sortedDates.map(()=>'<div class="time-tick"></div>').join('');
+  updateTimebar(sortedDates.length-1);
   rd.addEventListener('input',function(){
-    const dateStr=sortedDates[+rd.value];
-    document.getElementById('lbl-date').textContent=fmtDate(new Date(dateStr+'T00:00:00Z'));
+    const idx=+rd.value;
+    updateTimebar(idx);
     document.getElementById('timebar-hint').classList.add('used');
     clearTimeout(dayDebounceTimer);
-    dayDebounceTimer=setTimeout(()=>fetchDayStrikes(dateStr),300);
+    dayDebounceTimer=setTimeout(()=>fetchDayStrikes(sortedDates[idx]),300);
   });
 }
 
