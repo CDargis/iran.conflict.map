@@ -3,26 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>CONFLICT MAP // US · IRAN · ISRAEL 2026</title>
+  <title>Conflict Tracker — US · Iran · Israel 2026</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <style>
     :root {
-      --bg:       #0a0c0f;
-      --panel:    #0f1318;
-      --border:   #1e2830;
-      --accent:   #c8392b;
-      --amber:    #e8a020;
-      --green:    #2ecc71;
-      --blue:     #4a9eda;
-      --text:     #c4cdd6;
-      --dim:      #5a6a78;
-      --mono:     'Share Tech Mono', monospace;
-      --sans:     'Barlow Condensed', sans-serif;
+      --bg:       #13110e;
+      --panel:    #1b1814;
+      --border:   #2e2820;
+      --accent:   #9b2335;
+      --amber:    #c8a84b;
+      --green:    #4a7c59;
+      --blue:     #5b8db8;
+      --text:     #cfc3b0;
+      --dim:      #736860;
+      --mono:     'IBM Plex Mono', monospace;
+      --sans:     'Playfair Display', serif;
       --header-h: 44px;
       --filter-h: 34px;
       --time-h:   52px;
@@ -38,43 +38,31 @@
       overflow: hidden;
       -webkit-tap-highlight-color: transparent;
     }
-    body::before {
-      content: '';
-      position: fixed; inset: 0;
-      background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.04) 2px,rgba(0,0,0,.04) 4px);
-      pointer-events: none; z-index: 9000;
-    }
 
     /* ── TOPBAR ── */
     #topbar {
       position: fixed; top: 0; left: 0; right: 0;
       height: var(--header-h);
       background: var(--panel);
-      border-bottom: 1px solid var(--accent);
+      border-bottom: 1px solid var(--border);
       display: flex; align-items: center;
-      padding: 0 14px; z-index: 800; gap: 10px;
-    }
-    #topbar::after {
-      content: ''; position: absolute;
-      bottom: -3px; left: 0; right: 0; height: 2px;
-      background: linear-gradient(90deg,transparent,var(--accent),transparent);
-      opacity: .35;
+      padding: 0 16px; z-index: 800; gap: 10px;
     }
     .title-main {
-      font-family: var(--sans); font-weight: 700;
-      font-size: 14px; letter-spacing: .18em; text-transform: uppercase; color: #fff;
+      font-family: var(--sans); font-weight: 700; font-style: italic;
+      font-size: 17px; color: #fff; letter-spacing: 0;
     }
-    .title-sub { font-size: 9px; color: var(--dim); letter-spacing: .1em; }
+    .title-sub { font-size: 10px; color: var(--dim); letter-spacing: .04em; font-family: var(--mono); }
     .top-right  { margin-left: auto; display: flex; align-items: center; gap: 12px; }
-    #clock { font-size: 10px; color: var(--green); letter-spacing: .08em; }
-    .status-pill { display: flex; align-items: center; gap: 5px; font-size: 9px; color: var(--accent); letter-spacing: .1em; }
+    #clock { font-size: 10px; color: var(--dim); letter-spacing: .04em; }
+    .status-pill { display: flex; align-items: center; gap: 5px; font-size: 9px; color: var(--amber); letter-spacing: .06em; }
     .pulse {
-      width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
-      animation: pulse 1.8s ease-in-out infinite;
+      width: 5px; height: 5px; border-radius: 50%; background: var(--amber);
+      animation: pulse 2.4s ease-in-out infinite;
     }
     @keyframes pulse {
-      0%,100% { opacity:1; box-shadow: 0 0 0 0 rgba(200,57,43,.6); }
-      50%      { opacity:.6; box-shadow: 0 0 0 4px rgba(200,57,43,0); }
+      0%,100% { opacity:1; }
+      50%      { opacity:.3; }
     }
 
     /* ── ACTOR FILTER BAR ── */
@@ -115,17 +103,8 @@
       top: calc(var(--header-h) + var(--filter-h) + var(--time-h)); left: 0; right: 0; bottom: 0;
       z-index: 1;
     }
-    .leaflet-container { background: #111820; font-family: var(--mono); }
-
-    /*
-      FIX: Old filter was brightness(.5) saturate(.25) hue-rotate(195deg)
-      — too dark, unreadable on mobile AND desktop.
-      New: brightness(.78) saturate(.5) hue-rotate(190deg)
-      — dark enough to match the UI, but roads, borders and labels are legible.
-    */
-    .leaflet-tile {
-      filter: brightness(1.05) contrast(1.1);
-    }
+    .leaflet-container { background: #c8bfb0; font-family: var(--mono); }
+    .leaflet-tile { filter: sepia(0.2) brightness(0.92); }
 
     /* Zoom controls — larger tap targets for mobile */
     .leaflet-control-zoom {
@@ -151,16 +130,16 @@
 
     /* Popups */
     .leaflet-popup-content-wrapper {
-      background: rgba(12,16,22,.97) !important;
+      background: var(--panel) !important;
       border: 1px solid var(--border) !important;
       border-top: 2px solid var(--accent) !important;
-      border-radius: 0 !important;
-      box-shadow: 0 8px 40px rgba(0,0,0,.95) !important;
+      border-radius: 2px !important;
+      box-shadow: 0 8px 40px rgba(0,0,0,.7) !important;
       color: var(--text) !important;
       font-family: var(--mono) !important;
       max-width: min(320px, calc(100vw - 48px)) !important;
     }
-    .leaflet-popup-tip { background: rgba(12,16,22,.97) !important; }
+    .leaflet-popup-tip { background: var(--panel) !important; }
     .leaflet-popup-content {
       margin: 14px 16px !important;
       font-size: 11px;
@@ -175,8 +154,8 @@
       width: 28px !important;
       height: 28px !important;
     }
-    .popup-type  { font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
-    .popup-title { font-family: var(--sans); font-weight: 600; font-size: 15px; color: #fff; margin: 4px 0 2px; line-height: 1.2; }
+    .popup-type  { font-size: 9px; letter-spacing: .06em; color: var(--dim); }
+    .popup-title { font-family: var(--sans); font-weight: 700; font-style: italic; font-size: 16px; color: #fff; margin: 4px 0 2px; line-height: 1.25; }
     .popup-date  { font-size: 9px; color: var(--dim); }
     .popup-desc  { margin-top: 8px; font-size: 10px; line-height: 1.7; border-top: 1px solid var(--border); padding-top: 8px; color: #9ab0bc; }
     .popup-cas   { margin-top: 6px; font-size: 10px; }
@@ -611,8 +590,8 @@
       cursor: grab;
     }
     @keyframes thumb-glow {
-      0%,100% { box-shadow: 0 0 4px rgba(200,57,43,.4); }
-      50%      { box-shadow: 0 0 12px rgba(200,57,43,.95), 0 0 22px rgba(200,57,43,.3); }
+      0%,100% { box-shadow: 0 0 3px rgba(155,35,53,.3); }
+      50%      { box-shadow: 0 0 8px rgba(155,35,53,.6); }
     }
     .timebar-hint {
       font-size: 8px; letter-spacing: .14em; color: var(--accent);
@@ -677,17 +656,17 @@
         stroke-dasharray="40 98" stroke-linecap="round"/>
     </svg>
   </div>
-  <div class="loader-label">ACQUIRING DATA<span>_</span></div>
+  <div class="loader-label">Loading data<span>_</span></div>
 </div>
 
 <header id="topbar">
   <div>
     <div class="title-main">Conflict Tracker</div>
-    <div class="title-sub">US · IRAN · ISRAEL // 2026</div>
+    <div class="title-sub">US · Iran · Israel — 2026</div>
   </div>
   <div class="top-right">
     <div id="clock">--:--:-- UTC</div>
-    <div class="status-pill"><div class="pulse"></div>LIVE</div>
+    <div class="status-pill"><div class="pulse"></div>live</div>
   </div>
 </header>
 
@@ -708,18 +687,18 @@
     </div>
     <div class="time-ticks" id="time-ticks"></div>
   </div>
-  <span class="timebar-hint" id="timebar-hint">◀ DRAG ▶</span>
+  <span class="timebar-hint" id="timebar-hint">← drag →</span>
 </div>
 
 <div id="map"></div>
 <div id="coords">LAT — / LNG —</div>
-<div id="classmark">UNCLASSIFIED // OSINT</div>
+<div id="classmark">open-source intelligence</div>
 
 <!-- desktop layout shell -->
 <div id="desktop-shell">
   <aside id="desktop-left">
     <div class="desktop-panel-title">
-      <span>Strike Feed</span>
+      <span>Event Log</span>
       <small id="desktop-count">— events</small>
     </div>
     <div class="desktop-panel-body">
@@ -729,7 +708,7 @@
   <div id="desktop-center"></div>
   <aside id="desktop-right">
     <div class="desktop-panel-title">
-      <span>Intelligence</span>
+      <span>Overview</span>
       <small id="sync-desktop">—</small>
     </div>
     <div class="desktop-panel-body">
@@ -755,7 +734,7 @@
 <div id="sheet" class="snap-closed">
   <div id="sheet-handle">
     <div>
-      <div class="handle-label">Intel Feed</div>
+      <div class="handle-label">Event Feed</div>
       <div class="handle-hint">Swipe up to expand</div>
     </div>
     <div class="handle-meta">
@@ -820,7 +799,7 @@ const TICKERS = [
 
 /* ── MAP ── */
 const map = L.map('map',{center:[28,48],zoom:5,zoomControl:true});
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
   attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
   subdomains:'abcd', maxZoom:19
 }).addTo(map);
@@ -868,10 +847,10 @@ function popupHTML(s){
     <div class="popup-title">${s.title}</div>
     <div class="popup-date">${s.date} · ${s.location}</div>
     <div class="popup-desc">${s.description}</div>
-    <div style="margin-top:6px;font-size:9px;color:var(--dim)">METHOD: ${albl} &nbsp;·&nbsp; SEVERITY: <span style="color:${{low:'var(--dim)',medium:'var(--amber)',high:'var(--accent)',critical:'#ff4444'}[s.severity]||'var(--dim)'}">${(s.severity||'—').toUpperCase()}</span></div>
-    ${s.disputed?`<div style="margin-top:5px;font-size:9px;color:var(--amber);letter-spacing:.08em">⚠ DISPUTED — attribution or details contested</div>`:''}
+    <div style="margin-top:6px;font-size:9px;color:var(--dim)">${albl} &nbsp;·&nbsp; severity: <span style="color:${{low:'var(--dim)',medium:'var(--amber)',high:'var(--accent)',critical:'#ff4444'}[s.severity]||'var(--dim)'}">${s.severity||'—'}</span></div>
+    ${s.disputed?`<div style="margin-top:5px;font-size:9px;color:var(--amber)">⚠ Disputed — attribution or details contested</div>`:''}
     ${s.casualties?.confirmed>0||s.casualties?.estimated>0
-      ?`<div class="popup-cas">KIA CONFIRMED: <span>${s.casualties.confirmed}</span> · EST: <span>${s.casualties.estimated}</span></div>`:''}
+      ?`<div class="popup-cas">Casualties — confirmed: <span>${s.casualties.confirmed}</span> · est. <span>${s.casualties.estimated}</span></div>`:''}
     ${sourcesHTML}`;
 }
 function focusStrike(id){
