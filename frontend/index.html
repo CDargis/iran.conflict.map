@@ -665,7 +665,7 @@
     <div class="title-sub">US · Iran · Israel — 2026</div>
   </div>
   <div class="top-right">
-    <div id="clock">--:--:-- UTC</div>
+    <div id="clock">--:--:--</div>
     <div class="status-pill"><div class="pulse"></div>live</div>
   </div>
 </header>
@@ -809,7 +809,7 @@ map.on('mousemove',e=>{
 });
 
 /* ── CLOCK ── */
-function tick(){document.getElementById('clock').textContent=new Date().toUTCString().slice(17,25)+' UTC';}
+function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
 setInterval(tick,1000);tick();
 
 /* ── MARKERS ── */
@@ -1124,7 +1124,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
 const MONTH_ABBR=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 function fmtSyncTs(iso){
   const d=new Date(iso);
-  return `${MONTH_ABBR[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2,'0')} · ${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')} UTC`;
+  return `${MONTH_ABBR[d.getMonth()]} ${String(d.getDate()).padStart(2,'0')} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 function syncLogHTML(syncs){
   if(!syncs||!syncs.length) return '<div class="data-note" style="color:var(--dim)">No syncs yet.</div>';
