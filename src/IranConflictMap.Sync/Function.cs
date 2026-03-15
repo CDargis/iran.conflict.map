@@ -22,7 +22,10 @@ public class Function
     {
         AllowAutoRedirect        = true,
         MaxAutomaticRedirections = 10
-    });
+    })
+    {
+        Timeout = TimeSpan.FromMinutes(4)   // Sonnet with large reports can take 2-3 min; Lambda timeout is 5 min
+    };
 
     private readonly IAmazonDynamoDB _dynamo;
     private readonly IAmazonSimpleSystemsManagement _ssm;
