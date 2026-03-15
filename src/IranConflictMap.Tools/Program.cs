@@ -131,8 +131,8 @@ async Task Reseed(string[] opts)
         Console.WriteLine($"  {Path.GetFileName(file)}: {newCount} new, {updCount} updates, {ambCount} ambiguous — queued");
         totalMessages++;
 
-        // Small delay to avoid overwhelming the processor
-        await Task.Delay(500);
+        // Wait for processor Lambda to finish before sending next file
+        await Task.Delay(6000);
     }
 
     Console.WriteLine();

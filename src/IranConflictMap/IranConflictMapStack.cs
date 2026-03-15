@@ -155,7 +155,8 @@ public class IranConflictMapStack : Stack
 
         processorLambda.AddEventSource(new SqsEventSource(processorQueue, new SqsEventSourceProps
         {
-            BatchSize = 1
+            BatchSize      = 1,
+            MaxConcurrency = 1
         }));
 
         strikesTable.GrantReadWriteData(processorLambda);
