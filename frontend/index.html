@@ -890,6 +890,7 @@ function fetchDayStrikes(dateStr){
 function renderDay(data){
   markerLayer.clearLayers();
   markers={};
+  initActorFilters(data);
   data.forEach(s=>{
     const m=L.marker([s.lat,s.lng],{icon:makeIcon(s.target_type,s.severity,false,s.disputed)})
       .bindPopup(popupHTML(s),{maxWidth:300});
