@@ -37,7 +37,7 @@ await cmd.run(args[1..]);
 async Task Reseed(string[] opts)
 {
     const string tableName   = "strikes";
-    const string queueName   = "iran-conflict-map-processor";
+    const string queueName   = "iran-conflict-map-processor.fifo";
 
     var seedDir = opts.Length > 0 ? opts[0]
         : FindSeedDir() ?? throw new Exception("Could not locate seed/criticial-threats. Pass path as first argument.");
