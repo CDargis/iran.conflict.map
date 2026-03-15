@@ -12,26 +12,23 @@ builder.Services.AddSingleton(new Amazon.Lambda.AmazonLambdaClient());
 var app = builder.Build();
 
 // ── In-memory cache ────────────────────────────────────────────────────────────
-List<object>? strikeCache = null;
-var strikeCacheExpiry = DateTime.MinValue;
+var strikeCache = new Dictionary<string, (List<object> data, DateTime expiry)>();
 List<object>? syncCache = null;
 var syncCacheExpiry = DateTime.MinValue;
+const string AllDatesKey = "all";
 
 // ── GET /api/strikes ───────────────────────────────────────────────────────────
 app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo, string? date) =>
 {
-    // Date-filtered requests bypass cache
-    if (date == null && strikeCache is not null && DateTime.UtcNow < strikeCacheExpiry)
-        return Results.Ok(strikeCache);
+    var cacheKey = date ?? AllDatesKey;
+    if (strikeCache.TryGetValue(cacheKey, out var cached) && DateTime.UtcNow < cached.expiry)
+        return Results.Ok(cached.data);
 
     var tableName = Environment.GetEnvironmentVariable("STRIKES_TABLE") ?? "strikes";
     var indexName = Environment.GetEnvironmentVariable("STRIKES_GSI")   ?? "entity-date-index";
 
-    QueryRequest query;
-
-    if (date != null)
-    {
-        query = new QueryRequest
+    var query = date != null
+        ? new QueryRequest
         {
             TableName                 = tableName,
             IndexName                 = indexName,
@@ -42,11 +39,8 @@ app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo, string? date) =>
                 [":e"]    = new AttributeValue { S = "strike" },
                 [":date"] = new AttributeValue { S = date }
             }
-        };
-    }
-    else
-    {
-        query = new QueryRequest
+        }
+        : new QueryRequest
         {
             TableName                 = tableName,
             IndexName                 = indexName,
@@ -58,7 +52,6 @@ app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo, string? date) =>
                 [":from"] = new AttributeValue { S = "2026-02-27" }
             }
         };
-    }
 
     var response = await dynamo.QueryAsync(query);
 
@@ -83,12 +76,7 @@ app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo, string? date) =>
         }
     }).ToList();
 
-    if (date == null)
-    {
-        strikeCache = items;
-        strikeCacheExpiry = DateTime.UtcNow.AddMinutes(5);
-    }
-
+    strikeCache[cacheKey] = (items, DateTime.UtcNow.AddMinutes(5));
     return Results.Ok(items);
 });
 
