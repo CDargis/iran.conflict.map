@@ -38,8 +38,10 @@ public class Function
     private static readonly string OtherPrefix       = Env("EMAIL_OTHER_PREFIX",  "other/");
 
     // Filter: only process emails matching both of these
-    private const string ExpectedSender  = "criticalthreats@aei.org";
-    private const string ExpectedSubject = "Iran Update";
+    private const string ExpectedSender   = "criticalthreats@aei.org";
+    // Subject must contain both words, not necessarily adjacent (handles "Iran Update", "Iran War Update", etc.)
+    private const string ExpectedSubject1 = "Iran";
+    private const string ExpectedSubject2 = "Update";
 
     // ── Extraction system prompt ──────────────────────────────────────────────
     private const string SystemPrompt = """
@@ -225,7 +227,8 @@ public class Function
             var subject = message.Subject ?? "";
 
             if (from.Equals(ExpectedSender, StringComparison.OrdinalIgnoreCase) &&
-                subject.Contains(ExpectedSubject, StringComparison.OrdinalIgnoreCase))
+                subject.Contains(ExpectedSubject1, StringComparison.OrdinalIgnoreCase) &&
+                subject.Contains(ExpectedSubject2, StringComparison.OrdinalIgnoreCase))
             {
                 ctx.Logger.LogLine($"[sync] matched CTP email: {obj.Key}");
                 return (obj.Key, message);
