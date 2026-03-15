@@ -121,8 +121,9 @@ async Task Reseed(string[] opts)
 
         await sqs.SendMessageAsync(new SendMessageRequest
         {
-            QueueUrl    = queueUrl,
-            MessageBody = envelope
+            QueueUrl       = queueUrl,
+            MessageBody    = envelope,
+            MessageGroupId = "sync"
         });
 
         var newCount  = newArr.ValueKind       == JsonValueKind.Array ? newArr.GetArrayLength()       : 0;
@@ -130,9 +131,6 @@ async Task Reseed(string[] opts)
         var ambCount  = ambiguousArr.ValueKind == JsonValueKind.Array ? ambiguousArr.GetArrayLength() : 0;
         Console.WriteLine($"  {Path.GetFileName(file)}: {newCount} new, {updCount} updates, {ambCount} ambiguous — queued");
         totalMessages++;
-
-        // Wait for processor Lambda to finish before sending next file
-        await Task.Delay(6000);
     }
 
     Console.WriteLine();

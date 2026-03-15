@@ -200,8 +200,9 @@ public class Function
 
                 await _sqs.SendMessageAsync(new SendMessageRequest
                 {
-                    QueueUrl    = ProcessorQueueUrl,
-                    MessageBody = envelope
+                    QueueUrl        = ProcessorQueueUrl,
+                    MessageBody     = envelope,
+                    MessageGroupId  = "sync"
                 });
                 context.Logger.LogLine("[sync] Claude response pushed to SQS");
 
