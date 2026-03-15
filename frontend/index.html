@@ -718,7 +718,10 @@
       <div id="desktop-legend"></div>
       <div class="section-label">Data Notes</div>
       <div class="data-note">Open-source reporting only. Coordinates ±5km.</div>
-      <div class="section-label" style="margin-top:10px">Sync Log</div>
+      <div class="section-label" style="margin-top:10px;display:flex;justify-content:space-between;align-items:center">
+        Sync Log
+        <button id="desktop-sync-btn" onclick="triggerSync()" style="display:none;font-size:10px;padding:2px 8px;cursor:pointer;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:3px">Run Now</button>
+      </div>
       <div id="desktop-sync-log"><div class="data-note" style="color:var(--dim)">Loading…</div></div>
     </div>
   </aside>
@@ -760,7 +763,10 @@
     <div class="tab-panel" id="tab-info">
       <div class="section-label">Data Notes</div>
       <div class="data-note">Open-source reporting only. Coordinates ±5km.</div>
-      <div class="section-label" style="margin-top:10px;display:flex;justify-content:space-between;align-items:center">Sync Log <small id="sync-mobile" style="font-weight:400;color:var(--dim)">—</small></div>
+      <div class="section-label" style="margin-top:10px;display:flex;justify-content:space-between;align-items:center">
+        <span>Sync Log <small id="sync-mobile" style="font-weight:400;color:var(--dim)">—</small></span>
+        <button id="mobile-sync-btn" onclick="triggerSync()" style="display:none;font-size:10px;padding:2px 8px;cursor:pointer;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:3px">Run Now</button>
+      </div>
       <div id="mobile-sync-log"><div class="data-note" style="color:var(--dim)">Loading…</div></div>
     </div>
   </div>
@@ -1119,6 +1125,49 @@ document.querySelectorAll('.tab').forEach(tab=>{
     if(snapState==='closed') snapSheet('mid');
   });
 });
+
+/* ── ADMIN ── */
+(function(){
+  if(new URLSearchParams(location.search).get('admin')==='1'){
+    document.getElementById('desktop-sync-btn').style.display='';
+    document.getElementById('mobile-sync-btn').style.display='';
+  }
+})();
+
+async function triggerSync(){
+  let key=localStorage.getItem('sync_key');
+  if(!key){
+    key=prompt('Sync key:');
+    if(!key) return;
+  }
+  const btns=[document.getElementById('desktop-sync-btn'),document.getElementById('mobile-sync-btn')];
+  btns.forEach(b=>{if(b)b.disabled=true;b.textContent='…';});
+  try{
+    const r=await fetch('/api/sync/trigger',{method:'POST',headers:{'X-Sync-Key':key}});
+    if(r.status===401){
+      localStorage.removeItem('sync_key');
+      btns.forEach(b=>{if(b){b.disabled=false;b.textContent='Run Now';}});
+      alert('Invalid key — cleared. Try again.');
+      return;
+    }
+    if(r.status===429){
+      btns.forEach(b=>{if(b){b.disabled=false;b.textContent='Run Now';}});
+      alert('Sync triggered recently — wait 10 minutes.');
+      return;
+    }
+    if(!r.ok){
+      btns.forEach(b=>{if(b){b.disabled=false;b.textContent='Run Now';}});
+      alert('Error: '+r.status);
+      return;
+    }
+    localStorage.setItem('sync_key',key);
+    btns.forEach(b=>{if(b){b.disabled=false;b.textContent='Triggered ✓';}});
+    setTimeout(()=>btns.forEach(b=>{if(b)b.textContent='Run Now';}),3000);
+  }catch(e){
+    btns.forEach(b=>{if(b){b.disabled=false;b.textContent='Run Now';}});
+    alert('Request failed');
+  }
+}
 
 /* ── SYNC LOG ── */
 const MONTH_ABBR=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];

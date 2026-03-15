@@ -3,10 +3,13 @@ using Amazon.DynamoDBv2.Model;
 using Amazon.Lambda.Core;
 using Amazon.Lambda.RuntimeSupport;
 using Amazon.Lambda.Serialization.SystemTextJson;
+using Amazon.SimpleSystemsManagement;
+using Amazon.SimpleSystemsManagement.Model;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
 builder.Services.AddSingleton<IAmazonDynamoDB>(new AmazonDynamoDBClient());
+builder.Services.AddSingleton<IAmazonSimpleSystemsManagement>(new AmazonSimpleSystemsManagementClient());
 builder.Services.AddSingleton(new Amazon.Lambda.AmazonLambdaClient());
 
 var app = builder.Build();
@@ -124,8 +127,49 @@ app.MapGet("/api/syncs", async (IAmazonDynamoDB dynamo) =>
 });
 
 // ── POST /api/sync/trigger ─────────────────────────────────────────────────────
-app.MapPost("/api/sync/trigger", async () =>
+app.MapPost("/api/sync/trigger", async (HttpContext ctx, IAmazonSimpleSystemsManagement ssm, IAmazonDynamoDB dynamo) =>
 {
+    // ── Auth: validate X-Sync-Key against SSM ─────────────────────────────
+    var providedKey = ctx.Request.Headers["X-Sync-Key"].FirstOrDefault() ?? "";
+    if (string.IsNullOrEmpty(providedKey))
+        return Results.Unauthorized();
+
+    var ssmPrefix = Environment.GetEnvironmentVariable("SSM_PREFIX") ?? "/iran-conflict-map";
+    GetParameterResponse keyParam;
+    try
+    {
+        keyParam = await ssm.GetParameterAsync(new GetParameterRequest
+        {
+            Name           = $"{ssmPrefix}/sync_key",
+            WithDecryption = true
+        });
+    }
+    catch { return Results.Unauthorized(); }
+
+    if (!string.Equals(providedKey, keyParam.Parameter.Value, StringComparison.Ordinal))
+        return Results.Unauthorized();
+
+    // ── Rate limit: reject if last sync was < 10 minutes ago ──────────────
+    var syncsTable = Environment.GetEnvironmentVariable("SYNCS_TABLE") ?? "syncs";
+    var recent = await dynamo.QueryAsync(new QueryRequest
+    {
+        TableName                 = syncsTable,
+        IndexName                 = "entity-timestamp-index",
+        KeyConditionExpression    = "entity = :e",
+        ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+        {
+            [":e"] = new AttributeValue { S = "sync" }
+        },
+        ScanIndexForward = false,
+        Limit            = 1
+    });
+
+    if (recent.Items.Count > 0 &&
+        DateTime.TryParse(recent.Items[0]["timestamp"].S, out var lastSync) &&
+        (DateTime.UtcNow - lastSync).TotalMinutes < 10)
+        return Results.StatusCode(429);
+
+    // ── Trigger ───────────────────────────────────────────────────────────
     var functionName = Environment.GetEnvironmentVariable("SYNC_FUNCTION_NAME");
     if (string.IsNullOrEmpty(functionName))
         return Results.Problem("SYNC_FUNCTION_NAME not configured");
@@ -133,8 +177,8 @@ app.MapPost("/api/sync/trigger", async () =>
     var lambdaClient = new Amazon.Lambda.AmazonLambdaClient();
     var response = await lambdaClient.InvokeAsync(new Amazon.Lambda.Model.InvokeRequest
     {
-        FunctionName    = functionName,
-        InvocationType  = "Event"  // async, fire-and-forget
+        FunctionName   = functionName,
+        InvocationType = "Event"   // async, fire-and-forget
     });
 
     return Results.Ok(new { triggered = true, status = (int)response.StatusCode });

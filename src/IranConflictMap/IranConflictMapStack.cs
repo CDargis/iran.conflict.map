@@ -304,6 +304,14 @@ public class IranConflictMapStack : Stack
         // Allow API Lambda to invoke sync Lambda for manual trigger endpoint
         syncLambda.GrantInvoke(apiLambda);
         apiLambda.AddEnvironment("SYNC_FUNCTION_NAME", syncLambda.FunctionName);
+        apiLambda.AddEnvironment("SSM_PREFIX", "/iran-conflict-map");
+
+        // SSM: read sync_key for trigger auth
+        apiLambda.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
+        {
+            Actions   = ["ssm:GetParameter"],
+            Resources = [$"arn:aws:ssm:{this.Region}:{this.Account}:parameter/iran-conflict-map/sync_key"]
+        }));
 
         // ── EventBridge Schedule — 11:45 PM Central (04:45 UTC) ──────────────
         var syncRule = new Rule(this, "SyncSchedule", new RuleProps
