@@ -4,10 +4,13 @@ using System.Text.RegularExpressions;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Amazon.Lambda.Core;
+using Amazon.S3;
+using Amazon.S3.Model;
 using Amazon.SimpleSystemsManagement;
 using Amazon.SimpleSystemsManagement.Model;
 using Amazon.SQS;
 using Amazon.SQS.Model;
+using MimeKit;
 
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.SystemTextJson.DefaultLambdaJsonSerializer))]
 
@@ -17,20 +20,28 @@ public class Function
 {
     private static readonly HttpClient Http = new(new HttpClientHandler
     {
-        AllowAutoRedirect    = true,
+        AllowAutoRedirect        = true,
         MaxAutomaticRedirections = 10
     });
 
     private readonly IAmazonDynamoDB _dynamo;
     private readonly IAmazonSimpleSystemsManagement _ssm;
     private readonly IAmazonSQS _sqs;
+    private readonly IAmazonS3 _s3;
 
-    private static readonly string StrikesTable       = Env("STRIKES_TABLE",       "strikes");
-    private static readonly string SyncsTable         = Env("SYNCS_TABLE",         "syncs");
-    private static readonly string SsmPrefix          = Env("SSM_PREFIX",          "/iran-conflict-map");
-    private static readonly string ProcessorQueueUrl  = Env("PROCESSOR_QUEUE_URL", "");
+    private static readonly string StrikesTable      = Env("STRIKES_TABLE",       "strikes");
+    private static readonly string SyncsTable        = Env("SYNCS_TABLE",         "syncs");
+    private static readonly string SsmPrefix         = Env("SSM_PREFIX",          "/iran-conflict-map");
+    private static readonly string ProcessorQueueUrl = Env("PROCESSOR_QUEUE_URL", "");
+    private static readonly string EmailBucket       = Env("EMAIL_BUCKET",        "");
+    private static readonly string InboxPrefix       = Env("EMAIL_INBOX_PREFIX",  "inbox/");
+    private static readonly string OtherPrefix       = Env("EMAIL_OTHER_PREFIX",  "other/");
 
-    // ── Extraction system prompt (mirrors prompt.txt for live use) ────────────
+    // Filter: only process emails matching both of these
+    private const string ExpectedSender  = "publications@aei.org";
+    private const string ExpectedSubject = "Iran War Update";
+
+    // ── Extraction system prompt ──────────────────────────────────────────────
     private const string SystemPrompt = """
         I'm building an Iran/Middle East conflict map. I need you to process a CTP-ISW Iran update report and extract strike events into structured DynamoDB data.
         Schema:
@@ -79,14 +90,16 @@ public class Function
         _dynamo = new AmazonDynamoDBClient();
         _ssm    = new AmazonSimpleSystemsManagementClient();
         _sqs    = new AmazonSQSClient();
+        _s3     = new AmazonS3Client();
     }
 
     // For testing
-    public Function(IAmazonDynamoDB dynamo, IAmazonSimpleSystemsManagement ssm, IAmazonSQS sqs)
+    public Function(IAmazonDynamoDB dynamo, IAmazonSimpleSystemsManagement ssm, IAmazonSQS sqs, IAmazonS3 s3)
     {
         _dynamo = dynamo;
         _ssm    = ssm;
         _sqs    = sqs;
+        _s3     = s3;
     }
 
     public async Task<string> FunctionHandler(object input, ILambdaContext context)
@@ -96,26 +109,22 @@ public class Function
 
         try
         {
-            var (anthropicKey, clientId, clientSecret, refreshToken, lastSynced) = await ReadSsmParams();
+            var (anthropicKey, lastSynced) = await ReadSsmParams();
             context.Logger.LogLine($"[sync] last_synced={lastSynced}");
 
-            // ── 1. Get Zoho access token + account ID ─────────────────────────
-            var accessToken = await GetZohoAccessToken(clientId, clientSecret, refreshToken, context);
-            var accountId   = await GetAccountId(accessToken, context);
-
-            // ── 2. Get latest email from queue folder ─────────────────────────
-            var queueFolderId = await GetFolderId(accessToken, accountId, "queue", context);
-            var email = await GetLatestEmail(accessToken, accountId, queueFolderId, context);
-            if (email == null)
+            // ── 1. Find CTP-ISW email in inbox ────────────────────────────────
+            var (emailKey, emailMessage) = await FindCtpEmail(context);
+            if (emailKey == null || emailMessage == null)
             {
-                context.Logger.LogLine("[sync] no email in queue folder");
+                context.Logger.LogLine("[sync] no CTP-ISW email found in inbox");
                 await WriteSyncRecord(runId, "no_email", 0, 0, 0, null, null);
                 return "no_email";
             }
-            context.Logger.LogLine($"[sync] email: subject='{email.Subject}'");
+            context.Logger.LogLine($"[sync] processing: subject='{emailMessage.Subject}'");
 
-            // ── 3. Extract and resolve report URL ─────────────────────────────
-            var hubspotUrl = ExtractHubspotLink(email.Body, context);
+            // ── 2. Extract and resolve report URL ─────────────────────────────
+            var htmlBody   = emailMessage.HtmlBody ?? "";
+            var hubspotUrl = ExtractHubspotLink(htmlBody, context);
             if (hubspotUrl == null)
             {
                 context.Logger.LogLine("[sync] no Iran War Update link found in email");
@@ -134,7 +143,7 @@ public class Function
             }
             context.Logger.LogLine($"[sync] report URL: {reportUrl}");
 
-            // ── 4. Fetch report page ──────────────────────────────────────────
+            // ── 3. Fetch report page ──────────────────────────────────────────
             var reportText = await FetchReportPage(reportUrl, context);
             if (string.IsNullOrWhiteSpace(reportText))
             {
@@ -144,7 +153,7 @@ public class Function
                 return "fetch_error";
             }
 
-            // ── 5. Call Claude Haiku ──────────────────────────────────────────
+            // ── 4. Call Claude Haiku ──────────────────────────────────────────
             var nextId = await GetNextId();
             context.Logger.LogLine($"[sync] calling Claude, nextId={nextId}");
 
@@ -157,7 +166,7 @@ public class Function
                 return "claude_error";
             }
 
-            // ── 6. Push to processor SQS ──────────────────────────────────────
+            // ── 5. Push to processor SQS ──────────────────────────────────────
             await _sqs.SendMessageAsync(new SendMessageRequest
             {
                 QueueUrl    = ProcessorQueueUrl,
@@ -165,11 +174,11 @@ public class Function
             });
             context.Logger.LogLine("[sync] Claude response pushed to SQS");
 
-            // ── 7. Move email to processed folder ─────────────────────────────
-            var processedFolderId = await GetFolderId(accessToken, accountId, "processed", context);
-            await MoveEmail(email.Id, accountId, processedFolderId, accessToken, context);
+            // ── 6. Move email to processed ────────────────────────────────────
+            var processedKey = "processed/" + emailKey[InboxPrefix.Length..];
+            await MoveS3Object(emailKey, processedKey, context);
 
-            // ── 8. Write success sync record ──────────────────────────────────
+            // ── 7. Write sync record ──────────────────────────────────────────
             var doc         = JsonDocument.Parse(claudeJson);
             var newCount    = doc.RootElement.TryGetProperty("new",       out var nArr) ? nArr.GetArrayLength() : 0;
             var updateCount = doc.RootElement.TryGetProperty("updates",   out var uArr) ? uArr.GetArrayLength() : 0;
@@ -190,154 +199,65 @@ public class Function
         }
     }
 
-    // ── Zoho OAuth ───────────────────────────────────────────────────────────
+    // ── S3 Email Reading ─────────────────────────────────────────────────────
 
-    private async Task<string> GetZohoAccessToken(
-        string clientId, string clientSecret, string refreshToken, ILambdaContext ctx)
+    private async Task<(string? key, MimeMessage? message)> FindCtpEmail(ILambdaContext ctx)
     {
-        var body = new FormUrlEncodedContent(new Dictionary<string, string>
+        var listResp = await _s3.ListObjectsV2Async(new ListObjectsV2Request
         {
-            ["grant_type"]    = "refresh_token",
-            ["client_id"]     = clientId,
-            ["client_secret"] = clientSecret,
-            ["refresh_token"] = refreshToken
+            BucketName = EmailBucket,
+            Prefix     = InboxPrefix
         });
 
-        var res  = await Http.PostAsync("https://accounts.zoho.com/oauth/v2/token", body);
-        var json = await res.Content.ReadAsStringAsync();
+        var objects = listResp.S3Objects
+            .Where(o => o.Key != InboxPrefix)           // skip folder placeholder
+            .OrderByDescending(o => o.LastModified)
+            .ToList();
 
-        if (!res.IsSuccessStatusCode)
-            throw new Exception($"Zoho token refresh failed ({res.StatusCode}): {json[..Math.Min(json.Length, 500)]}");
+        ctx.Logger.LogLine($"[sync] {objects.Count} objects in inbox");
 
-        var doc         = JsonDocument.Parse(json);
-        var accessToken = doc.RootElement.GetProperty("access_token").GetString()!;
-        ctx.Logger.LogLine("[sync] Zoho access token obtained");
-        return accessToken;
-    }
-
-    // ── Zoho Mail API ────────────────────────────────────────────────────────
-
-    private async Task<string> GetAccountId(string accessToken, ILambdaContext ctx)
-    {
-        using var req = new HttpRequestMessage(HttpMethod.Get, "https://mail.zoho.com/api/accounts");
-        req.Headers.Add("Authorization", $"Zoho-oauthtoken {accessToken}");
-
-        var res  = await Http.SendAsync(req);
-        var json = await res.Content.ReadAsStringAsync();
-        if (!res.IsSuccessStatusCode)
-            throw new Exception($"Zoho accounts query failed ({res.StatusCode}): {json[..Math.Min(json.Length, 500)]}");
-
-        var doc      = JsonDocument.Parse(json);
-        var accounts = doc.RootElement.GetProperty("data").EnumerateArray().ToList();
-        if (accounts.Count == 0)
-            throw new Exception("No Zoho Mail accounts found");
-
-        var accountId = accounts[0].GetProperty("accountId").GetString()!;
-        ctx.Logger.LogLine($"[sync] Zoho accountId={accountId}");
-        return accountId;
-    }
-
-    private async Task<string> GetFolderId(string accessToken, string accountId, string folderName, ILambdaContext ctx)
-    {
-        using var req = new HttpRequestMessage(HttpMethod.Get,
-            $"https://mail.zoho.com/api/accounts/{accountId}/folders");
-        req.Headers.Add("Authorization", $"Zoho-oauthtoken {accessToken}");
-
-        var res  = await Http.SendAsync(req);
-        var json = await res.Content.ReadAsStringAsync();
-        if (!res.IsSuccessStatusCode)
-            throw new Exception($"Zoho folders query failed ({res.StatusCode}): {json[..Math.Min(json.Length, 500)]}");
-
-        var doc = JsonDocument.Parse(json);
-        foreach (var folder in doc.RootElement.GetProperty("data").EnumerateArray())
+        foreach (var obj in objects)
         {
-            if ((folder.GetProperty("folderName").GetString() ?? "")
-                    .Equals(folderName, StringComparison.OrdinalIgnoreCase))
+            var message = await ReadMimeMessage(obj.Key, ctx);
+            if (message == null) continue;
+
+            var from    = message.From.Mailboxes.FirstOrDefault()?.Address ?? "";
+            var subject = message.Subject ?? "";
+
+            if (from.Equals(ExpectedSender, StringComparison.OrdinalIgnoreCase) &&
+                subject.Contains(ExpectedSubject, StringComparison.OrdinalIgnoreCase))
             {
-                var id = folder.GetProperty("folderId").GetString()!;
-                ctx.Logger.LogLine($"[sync] folder '{folderName}' → {id}");
-                return id;
+                ctx.Logger.LogLine($"[sync] matched CTP email: {obj.Key}");
+                return (obj.Key, message);
             }
+
+            // Not a CTP-ISW report email — move out of inbox to keep it clean
+            ctx.Logger.LogLine($"[sync] skipping: from={from} subject={subject[..Math.Min(subject.Length, 60)]}");
+            await MoveS3Object(obj.Key, OtherPrefix + obj.Key[InboxPrefix.Length..], ctx);
         }
 
-        throw new Exception($"Zoho Mail folder '{folderName}' not found — create it in Zoho Mail first");
+        return (null, null);
     }
 
-    private record EmailInfo(string Id, string Subject, string Body);
-
-    private async Task<EmailInfo?> GetLatestEmail(string accessToken, string accountId, string folderId, ILambdaContext ctx)
+    private async Task<MimeMessage?> ReadMimeMessage(string key, ILambdaContext ctx)
     {
-        using var req = new HttpRequestMessage(HttpMethod.Get,
-            $"https://mail.zoho.com/api/accounts/{accountId}/folders/{folderId}/messages" +
-            "?limit=1&start=0&sortby=date&order=desc");
-        req.Headers.Add("Authorization", $"Zoho-oauthtoken {accessToken}");
-
-        var res  = await Http.SendAsync(req);
-        var json = await res.Content.ReadAsStringAsync();
-        if (!res.IsSuccessStatusCode)
-            throw new Exception($"Zoho messages query failed ({res.StatusCode}): {json[..Math.Min(json.Length, 500)]}");
-
-        var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("data", out var data)) return null;
-        var messages = data.EnumerateArray().ToList();
-        if (messages.Count == 0) return null;
-
-        var msg       = messages[0];
-        var messageId = msg.GetProperty("messageId").GetString()!;
-        var subject   = msg.GetProperty("subject").GetString() ?? "";
-        var body      = await GetMessageBody(accessToken, accountId, messageId, ctx);
-
-        return new EmailInfo(messageId, subject, body);
+        try
+        {
+            var resp = await _s3.GetObjectAsync(EmailBucket, key);
+            return await MimeMessage.LoadAsync(resp.ResponseStream);
+        }
+        catch (Exception ex)
+        {
+            ctx.Logger.LogLine($"[sync] warning: failed to read {key}: {ex.Message}");
+            return null;
+        }
     }
 
-    private async Task<string> GetMessageBody(string accessToken, string accountId, string messageId, ILambdaContext ctx)
+    private async Task MoveS3Object(string sourceKey, string destKey, ILambdaContext ctx)
     {
-        using var req = new HttpRequestMessage(HttpMethod.Get,
-            $"https://mail.zoho.com/api/accounts/{accountId}/messages/{messageId}");
-        req.Headers.Add("Authorization", $"Zoho-oauthtoken {accessToken}");
-
-        var res  = await Http.SendAsync(req);
-        var json = await res.Content.ReadAsStringAsync();
-        if (!res.IsSuccessStatusCode)
-        {
-            ctx.Logger.LogLine($"[sync] warning: failed to get message body ({res.StatusCode})");
-            return "";
-        }
-
-        var data = JsonDocument.Parse(json).RootElement.GetProperty("data");
-
-        // Prefer HTML body — needed for anchor tag extraction
-        if (data.TryGetProperty("htmlBody", out var html) && !string.IsNullOrWhiteSpace(html.GetString()))
-            return html.GetString()!;
-
-        return data.TryGetProperty("content", out var content) ? content.GetString() ?? "" : "";
-    }
-
-    private async Task MoveEmail(string emailId, string accountId, string destinationFolderId, string accessToken, ILambdaContext ctx)
-    {
-        var payload = JsonSerializer.Serialize(new
-        {
-            mode      = "moveto",
-            folderId  = destinationFolderId,
-            messageId = new[] { emailId }
-        });
-        using var req = new HttpRequestMessage(HttpMethod.Post,
-            $"https://mail.zoho.com/api/accounts/{accountId}/updatemessage")
-        {
-            Content = new StringContent(payload, Encoding.UTF8, "application/json")
-        };
-        req.Headers.Add("Authorization", $"Zoho-oauthtoken {accessToken}");
-
-        var res = await Http.SendAsync(req);
-        if (!res.IsSuccessStatusCode)
-        {
-            var err = await res.Content.ReadAsStringAsync();
-            ctx.Logger.LogLine($"[sync] warning: email move failed ({res.StatusCode}): {err[..Math.Min(err.Length, 300)]}");
-        }
-        else
-        {
-            ctx.Logger.LogLine("[sync] email moved to 'processed'");
-        }
+        await _s3.CopyObjectAsync(EmailBucket, sourceKey, EmailBucket, destKey);
+        await _s3.DeleteObjectAsync(EmailBucket, sourceKey);
+        ctx.Logger.LogLine($"[sync] moved {sourceKey} → {destKey}");
     }
 
     // ── URL Extraction ───────────────────────────────────────────────────────
@@ -361,7 +281,7 @@ public class Function
 
         ctx.Logger.LogLine("[sync] primary match failed — trying fallback keywords");
 
-        // Fallback: HubSpot href whose visible text suggests it's a report link
+        // Fallback: HubSpot href whose visible text suggests a report link
         foreach (Match m in anchorRe.Matches(emailBody))
         {
             var href = m.Groups[1].Value;
@@ -408,7 +328,6 @@ public class Function
             var html = await Http.GetStringAsync(url);
             ctx.Logger.LogLine($"[sync] fetched {html.Length} chars from report page");
 
-            // Strip HTML tags and collapse whitespace to get plain text for Claude
             var text = Regex.Replace(html, @"<[^>]+>", " ");
             text = Regex.Replace(text, @"[ \t]{2,}", " ");
             text = Regex.Replace(text, @"(\r?\n){3,}", "\n\n").Trim();
@@ -469,7 +388,6 @@ public class Function
             return null;
         }
 
-        // Extract the outermost JSON object
         var start = text.IndexOf('{');
         var end   = text.LastIndexOf('}');
         if (start == -1 || end == -1 || end <= start)
@@ -480,10 +398,9 @@ public class Function
 
         var jsonText = text[start..(end + 1)];
 
-        // Validate: must parse and contain at least one of the three arrays
         try
         {
-            var parsed = JsonDocument.Parse(jsonText);
+            var parsed     = JsonDocument.Parse(jsonText);
             var hasNew     = parsed.RootElement.TryGetProperty("new",       out var n) && n.ValueKind == JsonValueKind.Array;
             var hasUpdates = parsed.RootElement.TryGetProperty("updates",   out var u) && u.ValueKind == JsonValueKind.Array;
             var hasAmbig   = parsed.RootElement.TryGetProperty("ambiguous", out var a) && a.ValueKind == JsonValueKind.Array;
@@ -542,18 +459,11 @@ public class Function
 
     // ── SSM ──────────────────────────────────────────────────────────────────
 
-    private async Task<(string anthropicKey, string clientId, string clientSecret, string refreshToken, string lastSynced)> ReadSsmParams()
+    private async Task<(string anthropicKey, string lastSynced)> ReadSsmParams()
     {
         var response = await _ssm.GetParametersAsync(new GetParametersRequest
         {
-            Names = new List<string>
-            {
-                $"{SsmPrefix}/anthropic_api_key",
-                $"{SsmPrefix}/graph_client_id",
-                $"{SsmPrefix}/graph_client_secret",
-                $"{SsmPrefix}/graph_refresh_token",
-                $"{SsmPrefix}/last_synced"
-            },
+            Names          = new List<string> { $"{SsmPrefix}/anthropic_api_key", $"{SsmPrefix}/last_synced" },
             WithDecryption = true
         });
 
@@ -562,9 +472,6 @@ public class Function
 
         return (
             anthropicKey: Get("anthropic_api_key"),
-            clientId:     Get("graph_client_id"),
-            clientSecret: Get("graph_client_secret"),
-            refreshToken: Get("graph_refresh_token"),
             lastSynced:   Get("last_synced") is { Length: > 0 } s ? s : "2026-02-27"
         );
     }

@@ -13,6 +13,8 @@ using Amazon.CDK.AWS.Route53;
 using Amazon.CDK.AWS.Route53.Targets;
 using Amazon.CDK.AWS.S3;
 using Amazon.CDK.AWS.S3.Deployment;
+using Amazon.CDK.AWS.SES;
+using Amazon.CDK.AWS.SES.Actions;
 using Amazon.CDK.AWS.SQS;
 using Amazon.CDK.AWS.SSM;
 using Constructs;
@@ -185,6 +187,56 @@ public class IranConflictMapStack : Stack
             Integration = new HttpLambdaIntegration("ApiIntegration", apiLambda)
         });
 
+        // ── Email S3 Bucket ───────────────────────────────────────────────────
+        var emailBucket = new Bucket(this, "EmailBucket", new BucketProps
+        {
+            BucketName        = "iran-conflict-map-email",
+            BlockPublicAccess = BlockPublicAccess.BLOCK_ALL,
+            RemovalPolicy     = RemovalPolicy.RETAIN
+        });
+
+        // SES needs permission to deliver to this bucket
+        emailBucket.AddToResourcePolicy(new Amazon.CDK.AWS.IAM.PolicyStatement(
+            new Amazon.CDK.AWS.IAM.PolicyStatementProps
+            {
+                Principals = new Amazon.CDK.AWS.IAM.IPrincipal[]
+                {
+                    new Amazon.CDK.AWS.IAM.ServicePrincipal("ses.amazonaws.com")
+                },
+                Actions    = new[] { "s3:PutObject" },
+                Resources  = new[] { emailBucket.ArnForObjects("*") },
+                Conditions = new Dictionary<string, object>
+                {
+                    ["StringEquals"] = new Dictionary<string, string>
+                    {
+                        ["aws:Referer"] = this.Account
+                    }
+                }
+            }
+        ));
+
+        // ── SES Receipt Rule ──────────────────────────────────────────────────
+        // NOTE: after first deploy, activate this rule set with:
+        //   aws ses set-active-receipt-rule-set --rule-set-name iran-conflict-map --region us-east-1
+        var ruleSet = new ReceiptRuleSet(this, "EmailRuleSet", new ReceiptRuleSetProps
+        {
+            ReceiptRuleSetName = "iran-conflict-map"
+        });
+
+        ruleSet.AddRule("SaveToS3", new ReceiptRuleOptions
+        {
+            Recipients  = new[] { "sync@chrisdargis.com" },
+            ScanEnabled = false,
+            Actions     = new IReceiptRuleAction[]
+            {
+                new S3(new S3Props
+                {
+                    Bucket          = emailBucket,
+                    ObjectKeyPrefix = "inbox/"
+                })
+            }
+        });
+
         // ── Sync Lambda ────────────────────────────────────────────────────────
         var syncLambda = new LambdaFunction(this, "SyncFunction", new LambdaFunctionProps
         {
@@ -201,10 +253,13 @@ public class IranConflictMapStack : Stack
             }),
             Environment = new Dictionary<string, string>
             {
-                ["STRIKES_TABLE"]        = strikesTable.TableName,
-                ["SYNCS_TABLE"]          = syncsTable.TableName,
-                ["SSM_PREFIX"]           = "/iran-conflict-map",
-                ["PROCESSOR_QUEUE_URL"]  = processorQueue.QueueUrl
+                ["STRIKES_TABLE"]       = strikesTable.TableName,
+                ["SYNCS_TABLE"]         = syncsTable.TableName,
+                ["SSM_PREFIX"]          = "/iran-conflict-map",
+                ["PROCESSOR_QUEUE_URL"] = processorQueue.QueueUrl,
+                ["EMAIL_BUCKET"]        = emailBucket.BucketName,
+                ["EMAIL_INBOX_PREFIX"]  = "inbox/",
+                ["EMAIL_OTHER_PREFIX"]  = "other/"
             },
             Timeout    = Duration.Minutes(5),
             MemorySize = 512
@@ -213,6 +268,14 @@ public class IranConflictMapStack : Stack
         strikesTable.GrantReadData(syncLambda);
         syncsTable.GrantReadWriteData(syncLambda);
         processorQueue.GrantSendMessages(syncLambda);
+        emailBucket.GrantReadWrite(syncLambda);
+        syncLambda.AddToRolePolicy(new Amazon.CDK.AWS.IAM.PolicyStatement(
+            new Amazon.CDK.AWS.IAM.PolicyStatementProps
+            {
+                Actions   = new[] { "s3:DeleteObject" },
+                Resources = new[] { emailBucket.ArnForObjects("*") }
+            }
+        ));
 
         // SSM: read anthropic_api_key and Graph API creds
         syncLambda.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
