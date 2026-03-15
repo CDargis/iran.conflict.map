@@ -201,6 +201,13 @@ public class IranConflictMapStack : Stack
                     Prefix     = "processed/",
                     Expiration = Duration.Days(60),
                     Enabled    = true
+                },
+                new LifecycleRule
+                {
+                    Id         = "ExpireOtherEmails",
+                    Prefix     = "other/",
+                    Expiration = Duration.Days(15),
+                    Enabled    = true
                 }
             }
         });
