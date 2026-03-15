@@ -9,7 +9,7 @@ using Amazon.CDK.AWS.Events;
 using Amazon.CDK.AWS.Events.Targets;
 using Amazon.CDK.AWS.IAM;
 using Amazon.CDK.AWS.Lambda.EventSources;
-using Amazon.CDK.AWS.Logs;
+using RetentionDays = Amazon.CDK.AWS.Logs.RetentionDays;
 using Amazon.CDK.AWS.Route53;
 using Amazon.CDK.AWS.Route53.Targets;
 using Amazon.CDK.AWS.S3;
