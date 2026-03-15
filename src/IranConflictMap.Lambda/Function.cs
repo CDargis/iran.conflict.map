@@ -180,42 +180,41 @@ public class Function
             }
             else
             {
-                // Query by date + location + actor via entity GSI
-                var date = GetLookupString(lookup, "date");
+                // Query by date + location (+ actor if provided) via entity GSI
+                var date     = GetLookupString(lookup, "date");
                 var location = GetLookupString(lookup, "location");
-                var actor = GetLookupString(lookup, "actor");
+                var actor    = GetLookupString(lookup, "actor");
 
-                if (date == null || location == null || actor == null)
+                if (date == null || location == null)
                 {
-                    context.Logger.LogLine($"[processor] update missing lookup fields, dead-lettering");
+                    context.Logger.LogLine($"[processor] update missing date/location lookup fields, dead-lettering");
                     await SendToDeadLetter("update_missing_lookup", JsonSerializer.Serialize(update));
                     deadLettered++;
                     continue;
                 }
 
+                var filterExpr  = actor != null ? "#loc = :location AND actor = :actor" : "#loc = :location";
+                var attrValues  = new Dictionary<string, AttributeValue>
+                {
+                    [":entity"]   = new AttributeValue { S = "strike" },
+                    [":date"]     = new AttributeValue { S = date },
+                    [":location"] = new AttributeValue { S = location }
+                };
+                if (actor != null) attrValues[":actor"] = new AttributeValue { S = actor };
+
                 var queryResp = await _dynamo.QueryAsync(new QueryRequest
                 {
-                    TableName = StrikesTable,
-                    IndexName = StrikesGsi,
-                    KeyConditionExpression = "entity = :entity AND #d = :date",
-                    FilterExpression = "#loc = :location AND actor = :actor",
-                    ExpressionAttributeNames = new Dictionary<string, string>
-                    {
-                        ["#d"] = "date",
-                        ["#loc"] = "location"
-                    },
-                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-                    {
-                        [":entity"] = new AttributeValue { S = "strike" },
-                        [":date"] = new AttributeValue { S = date },
-                        [":location"] = new AttributeValue { S = location },
-                        [":actor"] = new AttributeValue { S = actor }
-                    }
+                    TableName                 = StrikesTable,
+                    IndexName                 = StrikesGsi,
+                    KeyConditionExpression    = "entity = :entity AND #d = :date",
+                    FilterExpression          = filterExpr,
+                    ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date", ["#loc"] = "location" },
+                    ExpressionAttributeValues = attrValues
                 });
 
                 if (queryResp.Items.Count == 0)
                 {
-                    context.Logger.LogLine($"[processor] update: no match for {date}/{location}/{actor}, dead-lettering");
+                    context.Logger.LogLine($"[processor] update: no match for {date}/{location}/{actor ?? "(any actor)"}, dead-lettering");
                     await SendToDeadLetter("update_no_match", JsonSerializer.Serialize(update));
                     deadLettered++;
                     continue;
@@ -223,7 +222,7 @@ public class Function
 
                 if (queryResp.Items.Count > 1)
                 {
-                    context.Logger.LogLine($"[processor] update: {queryResp.Items.Count} matches for {date}/{location}/{actor}, dead-lettering");
+                    context.Logger.LogLine($"[processor] update: {queryResp.Items.Count} matches for {date}/{location}/{actor ?? "(any actor)"}, dead-lettering");
                     await SendToDeadLetter("update_multiple_matches", JsonSerializer.Serialize(update));
                     deadLettered++;
                     continue;

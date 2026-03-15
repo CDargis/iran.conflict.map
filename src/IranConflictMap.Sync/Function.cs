@@ -77,7 +77,7 @@ public class Function
         Citation mapping rule: The report contains inline footnote markers (e.g. [i], [ii], [xv]) within each topline paragraph, and a corresponding footnote block at the bottom resolving each marker to a URL. For each event, collect only the footnote markers within that event's paragraph, resolve them to their URLs, and include those in citations. Omit the field entirely if no footnotes are mappable.
         New vs update rule: Classify each extracted event as:
         new — not previously reported; assign the next available ID
-        update — reported in a prior report, this report adds detail or corrects it; include only changed fields plus date, location, actor as lookup keys
+        update — reported in a prior report, this report adds detail or corrects it; include only changed fields plus date and location as lookup keys; include actor in the lookup only if you are certain of the exact actor name as it appeared in the original event
         ambiguous — cannot confidently determine whether new or update; include a note explaining why
 
         Output format — return a single JSON object:
