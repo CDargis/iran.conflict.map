@@ -360,19 +360,27 @@ public class Function
         var result = new Dictionary<string, AttributeValue>();
         foreach (var (key, value) in item)
         {
-            result[key] = ToDynamoAttributeValue(value);
+            var attr = ToDynamoAttributeValue(value);
+            if (attr != null) result[key] = attr;
         }
         return result;
     }
 
-    private static AttributeValue ToDynamoAttributeValue(JsonElement element)
+    // Returns null for empty/null string values so callers can skip them.
+    private static AttributeValue? ToDynamoAttributeValue(JsonElement element)
     {
         // DynamoDB wire format: { "S": "..." }, { "N": "..." }, { "BOOL": true }, { "M": {...} }, { "L": [...] }
         if (element.TryGetProperty("S", out var s))
-            return new AttributeValue { S = s.GetString() };
+        {
+            var str = s.GetString();
+            return string.IsNullOrEmpty(str) ? null : new AttributeValue { S = str };
+        }
 
         if (element.TryGetProperty("N", out var n))
-            return new AttributeValue { N = n.GetString() };
+        {
+            var num = n.GetString();
+            return string.IsNullOrEmpty(num) ? null : new AttributeValue { N = num };
+        }
 
         if (element.TryGetProperty("BOOL", out var b))
             return new AttributeValue { BOOL = b.GetBoolean() };
@@ -381,15 +389,20 @@ public class Function
         {
             var map = new Dictionary<string, AttributeValue>();
             foreach (var prop in m.EnumerateObject())
-                map[prop.Name] = ToDynamoAttributeValue(prop.Value);
+            {
+                var attr = ToDynamoAttributeValue(prop.Value);
+                if (attr != null) map[prop.Name] = attr;
+            }
             return new AttributeValue { M = map };
         }
 
         if (element.TryGetProperty("L", out var l))
         {
-            var list = new List<AttributeValue>();
-            foreach (var item in l.EnumerateArray())
-                list.Add(ToDynamoAttributeValue(item));
+            var list = l.EnumerateArray()
+                .Select(ToDynamoAttributeValue)
+                .Where(a => a != null)
+                .Select(a => a!)
+                .ToList();
             return new AttributeValue { L = list };
         }
 
