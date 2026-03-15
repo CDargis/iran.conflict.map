@@ -1,0 +1,435 @@
+{
+  "new": [
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "339" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "IDF Strikes LEC Traffic + Economic Security Police Units, Gharchak, Tehran Province" },
+          "location":    { "S": "Gharchak, Tehran Province, Iran" },
+          "lat":         { "N": "35.4333" },
+          "lng":         { "N": "51.2833" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "The combined force struck LEC sites specifically connected to the traffic and economic security police units in Gharchak, Tehran Province on March 13. Basij and security personnel have reportedly dispersed from fixed checkpoints to highway underpasses and bridges — in Rasht (Gilan Province) and parts of Tehran Province — to reduce exposure to drone surveillance and follow-on strikes." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IranIntl/status/2032438604807405842" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "340" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "IDF Strikes Basij Checkpoints in Northeastern and Southeastern Tehran Province (March 12–13)" },
+          "location":    { "S": "Northeastern and southeastern Tehran Province, Iran" },
+          "lat":         { "N": "35.7000" },
+          "lng":         { "N": "51.7000" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "The IDF struck Basij checkpoints in northeastern and southeastern Tehran Province on March 12 and 13, continuing the systematic degradation of the Basij's fixed checkpoint network across the greater Tehran area." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IDFFarsi/status/2032141275541979150?s=20" },
+            { "S": "https://x.com/IDFFarsi/status/2032487200097476973?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "341" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "IDF New Wave: IRGC + LEC + Basij Command Elements, Tehran; 200 Munitions on Tehran Province Including Air Defense Base (March 13)" },
+          "location":    { "S": "Tehran Province, Iran" },
+          "lat":         { "N": "35.6892" },
+          "lng":         { "N": "51.3890" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The IDF reported a new wave of strikes on March 13 targeting IRGC, LEC, and Basij command elements in Tehran. Separately, Israeli aircraft dropped 200 munitions on targets across Tehran Province, including air defense systems at one of the first air defense bases that Iran established in Tehran Province. US Defense Secretary Hegseth stated on March 13 that 'Iran has no air defenses.'" },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IDFFarsi/status/2032519173855682613?s=20" },
+            { "S": "https://www.war.gov/News/Transcripts/Transcript/Article/4434484/secretary-of-war-pete-hegseth-and-chairman-of-the-joint-chiefs-air-force-gen-da/" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "342" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "Second+ Strike on Shiraz Electronics Industries (SEI), Shiraz, Fars Province (March 12)" },
+          "location":    { "S": "Shiraz Electronics Industries (SEI) Zone, Shiraz, Fars Province, Iran" },
+          "lat":         { "N": "29.5918" },
+          "lng":         { "N": "52.5000" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "The combined force struck Shiraz Electronics Industries (SEI) in Shiraz, Fars Province, on March 12. SEI is a MODAFL-affiliated subsidiary of Iran Electronics Industries producing radars, avionics, and missile-guidance technology, US-sanctioned since 2008. This follows the earlier confirmed strike package of 13+ hits on SEI (ID 215, March 3–7)." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IranIntl/status/2032515419844600112?s=20" },
+            { "S": "https://www.iranwatch.org/iranian-entities/shiraz-electronics-industries-sei" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "343" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "Strike on Hajiabad Industrial Zone, Arak, Markazi Province — Pegah Aluminum Arak (Nuclear Centrifuge Supplier)" },
+          "location":    { "S": "Hajiabad Industrial Zone, Arak, Markazi Province, Iran" },
+          "lat":         { "N": "34.0954" },
+          "lng":         { "N": "49.6890" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "nuclear" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The combined force struck the Hajiabad Industrial Zone in Arak, Markazi Province on March 13. The zone hosts Pegah Aluminum Arak Company, US-sanctioned in April 2025 for manufacturing aluminum products for the Iran Centrifuge Technology Company (TESA) — a key entity supporting Iran's uranium enrichment program. This is the first recorded combined force strike in Markazi Province and the first strike specifically targeting Iran's uranium enrichment supply chain infrastructure (as distinct from nuclear production facilities)." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IranIntl/status/2032424431750877545?s=20" },
+            { "S": "https://www.iranwatch.org/iranian-entities/pegah-aluminum-arak-company" },
+            { "S": "https://home.treasury.gov/news/press-releases/sb0077" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "344" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "Iran 7 Missile Barrages at Israel — Cluster Munitions Hit Shoham, Rishon Lezion, Mishmar Hashiva (March 12–13)" },
+          "location":    { "S": "Shoham, Rishon Lezion, and Mishmar Hashiva, central Israel" },
+          "lat":         { "N": "31.9800" },
+          "lng":         { "N": "34.9200" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Iran launched seven missile barrages at Israel between 3:00 PM ET on March 12 and 3:00 PM ET on March 13. Cluster munitions struck a building in Shoham and damaged cars in Rishon Lezion; separate cluster munitions impacted in Mishmar Hashiva south of Tel Aviv. IDF-affiliated media reported a total of 28 residential building impacts and 27 open-area impacts in Israel since February 28. Hegseth confirmed Iranian missile volume is down 90 percent from campaign start." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/manniefabian/status/2032523479984030088" },
+            { "S": "https://x.com/FaytuksNetwork/status/2032477952680583520" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "345" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "Iranian Drone Strikes al Awhi Industrial Zone, Sohar, Oman — 2 Workers Killed (March 13)" },
+          "location":    { "S": "Al Awhi Industrial Zone, Sohar, Al Batinah North Governorate, Oman" },
+          "lat":         { "N": "24.3373" },
+          "lng":         { "N": "56.7060" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "high" },
+          "description": { "S": "An Iranian drone struck the al Awhi Industrial Zone in Sohar, Oman on March 13, killing two workers. This is the third confirmed Iranian attack on Oman during the conflict (following the March 3 and March 11 Port of Salalah strikes), and the first resulting in confirmed Omani civilian fatalities. Sohar is Oman's primary industrial port on the Gulf of Oman." },
+          "casualties":  { "M": { "confirmed": { "N": "2" }, "estimated": { "N": "2" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/no_itsmyturn/status/2032459887280550241" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "346" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "IDF Strikes Zrariyeh Bridge Over Litani River — Hezbollah Fighter Transit + Launch Site (March 13)" },
+          "location":    { "S": "Zrariyeh Bridge, Litani River, southern Lebanon" },
+          "lat":         { "N": "33.3500" },
+          "lng":         { "N": "35.4500" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The IDF struck the Zrariyeh bridge spanning the Litani River on March 13. The IDF stated Hezbollah used the bridge to move fighters from northern to southern Lebanon and positioned launchers near the bridge for attacks against Israel. This is the first recorded IDF strike on a Lebanese civilian infrastructure chokepoint during the current conflict, signaling a willingness to target Hezbollah logistics routes." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/idfonline/status/2032340617309659317" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "347" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "IDF Kills Hezbollah Unit 127 Operative Murtada Hussein Srour, Beirut (March 13)" },
+          "location":    { "S": "Beirut, Lebanon" },
+          "lat":         { "N": "33.8938" },
+          "lng":         { "N": "35.5018" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The IDF killed Murtada Hussein Srour in an airstrike in Beirut on March 13. Srour was an operative in Hezbollah Unit 127 — the aerial unit responsible for developing, producing, and launching attack drones. The IDF described Srour as a prominent figure and 'center of knowledge' in Hezbollah weapons manufacturing. Unit 127 has been a priority IDF target since Hezbollah expanded drone production following June 2025." },
+          "casualties":  { "M": { "confirmed": { "N": "1" }, "estimated": { "N": "1" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/AvichayAdraee/status/2032395880410587471" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "348" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "IDF Strikes al Qard al Hassan Branches + 2 Islamic Health Authority Centers, Southern Lebanon (March 13)" },
+          "location":    { "S": "Southern Lebanon" },
+          "lat":         { "N": "33.2700" },
+          "lng":         { "N": "35.4500" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The IDF struck several al Qard al Hassan branches (Hezbollah's primary financial arm) across Lebanon on March 13, additionally reporting that al Qard al Hassan has 'completely stopped its activities' due to cumulative IDF strikes. The IDF also struck two Islamic Health Authority centers in southern Lebanon — Hezbollah's medical services network for the Lebanese Shia population. The IDF confirmed 30 cumulative al Qard al Hassan sites destroyed since February 28." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/idfonline/status/2032370825303589100" },
+            { "S": "https://t.me/alichoeib1970/15795" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "349" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "IDF 146th Division: 400 Artillery Targets + Weapons Depot + Hezbollah Infrastructure, Southwestern Lebanon (March 13)" },
+          "location":    { "S": "Southwestern Lebanon" },
+          "lat":         { "N": "33.2700" },
+          "lng":         { "N": "35.3500" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The IDF 146th Division destroyed a Hezbollah weapons depot, rocket launch platforms, reconnaissance devices, and buildings in southwestern Lebanon on March 13. The division fired artillery at approximately 400 targets during its operations. The 91st and 36th IDF Divisions are advancing deeper into southern Lebanon." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/AvichayAdraee/status/2032383945174663230" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "350" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "IDF Orders Broad Northern Command Reinforcement — 98th Paratrooper Division + Division + 2 Brigades + Engineering Units (March 13)" },
+          "location":    { "S": "Israel-Lebanon border, northern Israel" },
+          "lat":         { "N": "33.2000" },
+          "lng":         { "N": "35.5500" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "high" },
+          "description": { "S": "IDF Chief of Staff Zamir ordered broad reinforcement of the Northern Command on March 13: an additional division, two brigades, and engineering battalions will deploy to the northern border. The 98th Paratrooper Division will specifically deploy to the Israel-Lebanon border. Israeli media report officials are examining options from an expansive ground operation reaching the Litani River to more limited actions, with a target of establishing 20 IDF outposts inside Lebanese territory and a 7–8km buffer zone similar to Gaza's 'yellow line.'" },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/idfonline/status/2032464874350006651" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "351" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "Hezbollah 25 Attacks — Meron Air Ops Base + Givaa Drone Base + Zarzir (300 Homes Damaged, 60 Injured) (March 12–13)" },
+          "location":    { "S": "Zarzir, Mount Meron area, and Safed area, northern Israel" },
+          "lat":         { "N": "32.7940" },
+          "lng":         { "N": "35.3000" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Lebanese Hezbollah" },
+          "severity":    { "S": "high" },
+          "description": { "S": "Hezbollah claimed 25 attacks between 3:00 PM ET March 12 and 3:00 PM ET March 13, including missile attacks on the IDF Meron Air Operations and Control Base and the Givaa Drone Base east of Safed. An IRGC social media account attributed to Hezbollah the missile strike on Zarzir, northern Israel, which damaged 300 homes and injured 60 residents (Israeli media had initially attributed this to an Iranian missile). Most Hezbollah rockets and missiles come from Iran or are built using Iranian technology." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "60" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://t.me/mmirleb/10973" },
+            { "S": "https://t.me/mmirleb/10958" },
+            { "S": "https://t.me/sepah_pasdaran/186207" }
+          ] },
+          "disputed":    { "BOOL": true }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "352" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "US Drone Strikes PMF Warehouse, Makhmour, Ninewa Province (March 12)" },
+          "location":    { "S": "Makhmour, Ninewa Province, Iraq" },
+          "lat":         { "N": "35.7700" },
+          "lng":         { "N": "43.5900" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US Central Command" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Geolocated footage posted on March 12 shows a US drone striking a PMF warehouse in Makhmour, Ninewa Province." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/WillUnderhill23/status/2032221576699994436?s=20" },
+            { "S": "https://x.com/Archer83Able/status/2032145743130030395?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "353" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "Strikes on Kataib Hezbollah HQ Fallujah + Asaib Ahl al Haq HQ Near Tikrit, Salah al Din Province (March 13)" },
+          "location":    { "S": "Fallujah, Anbar Province and near Tikrit, Salah al Din Province, Iraq" },
+          "lat":         { "N": "33.3510" },
+          "lng":         { "N": "43.7790" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "high" },
+          "description": { "S": "A security source told Iraqi media on March 13 that an airstrike targeted a Kataib Hezbollah headquarters in Fallujah, Anbar Province. Multiple airstrikes also targeted PMF positions near Tikrit, Salah al Din Province, hitting an Asaib Ahl al Haq headquarters per a security source. These are the first recorded combined force strikes in Fallujah and near Tikrit during the current conflict, extending the campaign geographically into central Iraq." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/Osint613/status/2032444410592379231" },
+            { "S": "https://x.com/Tammuz_Intel/status/2032225281939738823" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "354" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "MILITIA DRONE KILLS 1 FRENCH SOLDIER, WOUNDS 6 AT FRENCH BASE IN ERBIL — First Coalition Partner Nation KIA (March 12)" },
+          "location":    { "S": "French base, Erbil, Erbil Province, Iraqi Kurdistan" },
+          "lat":         { "N": "36.1901" },
+          "lng":         { "N": "44.0091" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Iranian-backed Iraqi Militias (Kataib Sarkhat al Quds / Harakat Hezbollah al Nujaba)" },
+          "severity":    { "S": "critical" },
+          "description": { "S": "A likely militia drone attack on a French base in Erbil, Iraqi Kurdistan, killed one French service member and wounded at least six others on March 12. Kataib Sarkhat al Quds (operating under Harakat Hezbollah al Nujaba's instructions) claimed a drone attack on US-Israeli interests in Erbil on March 13 but did not specify the French base. The group had also threatened French interests on March 13 following France's announcement of 10 additional warships deploying to the Middle East to escort commercial shipping. This is the first confirmed coalition partner nation military fatality of the current conflict." },
+          "casualties":  { "M": { "confirmed": { "N": "1" }, "estimated": { "N": "7" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/ariel_oseran/status/2032257902489075975" },
+            { "S": "https://t.me/aishab_alkahf/483" },
+            { "S": "https://t.me/aishab_alkahf/486" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "355" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "Militia Attacks on K1 Base Near Kirkuk City — Projectiles Hit Perimeter, No Casualties (March 13)" },
+          "location":    { "S": "K1 Air Base, near Kirkuk City, Kirkuk Province, Iraq" },
+          "lat":         { "N": "35.5700" },
+          "lng":         { "N": "44.1000" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Iranian-backed Iraqi Militias" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Likely Iranian-backed Iraqi militias attacked K1 base near Kirkuk City on March 13. Iraqi and regional media reported conflicting information on whether drones, mortar shells, or rockets were used, but most reporting indicates projectiles landed on the base's perimeter causing no casualties. K1 hosts US, French, and other Operation Inherent Resolve coalition troops." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://www.kurdistan24.net/en/story/900291/slug" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "356" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "Militia 3+ Drone Attacks on Baghdad International Airport — Fire at Nearby Power Station (March 13)" },
+          "location":    { "S": "Baghdad International Airport / Victory Base area, Baghdad, Iraq" },
+          "lat":         { "N": "33.2625" },
+          "lng":         { "N": "44.2342" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Iranian-backed Iraqi Militias" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Iranian-backed Iraqi militias almost certainly conducted at least three drone attacks targeting sites at Baghdad International Airport since 3:00 PM ET on March 12. Footage posted on March 13 shows a fire at a power station near the airport following a drone attack — the drone probably crashed before reaching the airport. Air defenses intercepted at least one drone targeting the Baghdad Diplomatic Support Center on March 12." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-13-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/Tammuz_Intel/status/2032496393764434030" },
+            { "S": "https://x.com/Alhadath_Brk/status/2032500586654953852?s=20" }
+          ] }
+        }
+      }
+    }
+  ],
+  "updates": [],
+  "ambiguous": []
+}

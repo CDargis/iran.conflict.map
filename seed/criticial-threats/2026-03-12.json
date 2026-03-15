@@ -1,0 +1,486 @@
+{
+  "new": [
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "319" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-11" },
+          "title":       { "S": "Satellite BDA: Military Garrison + Air Defense System, Hakimabad, Tehran" },
+          "location":    { "S": "Hakimabad, Tehran Province, Iran" },
+          "lat":         { "N": "35.5500" },
+          "lng":         { "N": "51.4500" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Commercially available satellite imagery from March 11 shows the combined force struck a military garrison and air defense system in Hakimabad, southeast of Tehran City." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "320" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-11" },
+          "title":       { "S": "Satellite BDA: IRGC Ground Forces 20th Ramezan Independent Armored Brigade, Tehran" },
+          "location":    { "S": "IRGC Ground Forces 20th Ramezan Independent Armored Brigade compound, Tehran, Iran" },
+          "lat":         { "N": "35.6200" },
+          "lng":         { "N": "51.5500" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "high" },
+          "description": { "S": "Commercially available satellite imagery from March 11 shows the combined force struck the IRGC Ground Forces 20th Ramezan Independent Armored Brigade compound. The 20th Ramezan is one of three brigades under the IRGC Ground Forces Sarallah Headquarters — the senior IRGC command structure responsible for Tehran's internal security and the regime's last resort for dealing with serious internal security threats." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [
+            { "S": "https://www.ncr-iran.org/en/news/iran-protests/irans-security-apparatus-is-designed-to-quash-protests-so-how-did-the-uprising-persist/" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "321" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "Strike on Air Defense Barracks, Garmdareh, Alborz Province" },
+          "location":    { "S": "Garmdareh, Alborz Province, Iran" },
+          "lat":         { "N": "35.8800" },
+          "lng":         { "N": "50.9500" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "An OSINT account posted video on March 12 showing combined force strikes on air defense barracks in Garmdareh, Alborz Province. Garmdareh is also the location of the previously struck Garmdareh Missile Base (ID 108/update) and solid-fuel chemical plant complex." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/ManotoNews/status/2032185596798542214?s=20" },
+            { "S": "https://x.com/mamlekate/status/2032190467509518842?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "322" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-10" },
+          "title":       { "S": "Strike on General Directorate of Intelligence, Qom Province (Confirmed via March 12 Satellite)" },
+          "location":    { "S": "Qom Province, Iran" },
+          "lat":         { "N": "34.6401" },
+          "lng":         { "N": "50.8764" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "high" },
+          "description": { "S": "An Israeli analyst reported on March 12 via satellite imagery that the combined force struck the General Directorate of Intelligence in Qom Province on March 10. This is the provincial headquarters of Iran's Ministry of Intelligence and Security (MOIS) in Qom — a strategically significant clerical and political city." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [
+            { "S": "https://t.me/BenTzionM/7095" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "323" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "Second Strike on IRGC Navy Imam Ali Naval Base, Chabahar, Sistan and Baluchistan Province" },
+          "location":    { "S": "IRGC Navy Imam Ali Naval Base, Chabahar, Sistan and Baluchistan Province, Iran" },
+          "lat":         { "N": "25.3527" },
+          "lng":         { "N": "60.5749" },
+          "type":        { "S": "naval" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "high" },
+          "description": { "S": "OSINT accounts reported on March 12 that the combined force struck the IRGC Navy Imam Ali Naval Base in Chabahar, Sistan and Baluchistan Province. This is the second strike on this base — the first was on February 28 (ID 12). Chabahar is Iran's only direct access port to the Indian Ocean and a key IRGC naval facility for operations in the Gulf of Oman and beyond." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/ManotoNews/status/2032086870281036101?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "324" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "Strikes on IRGC Karbala Operational Base + 1st Hazrat-e Hojjat Independent Armored Brigade, Ahvaz, Khuzestan Province" },
+          "location":    { "S": "Ahvaz, Khuzestan Province, Iran" },
+          "lat":         { "N": "31.3183" },
+          "lng":         { "N": "48.6706" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "high" },
+          "description": { "S": "Anti-regime media and an OSINT account reported on March 12 that the combined force struck the IRGC Ground Forces Karbala Operational Base and the 1st Hazrat-e Hojjat Independent Armored Brigade in Ahvaz, Khuzestan Province. The 1st Hazrat-e Hojjat Brigade previously deployed to Syria to support the Assad regime. This follows the March 8 strike on the Artesh 92nd Division in Ahvaz (ID 247), representing a second wave of strikes in Khuzestan's provincial capital." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/Osint613/status/2032102226743738698" },
+            { "S": "https://x.com/IranIntl/status/2032153914154356768" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "325" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "Strike on Unspecified Site in Behbahan, Khuzestan Province — Likely IRGC 15th Imam Hassan Mojtaba Special Forces Brigade" },
+          "location":    { "S": "Behbahan, Khuzestan Province, Iran" },
+          "lat":         { "N": "30.5957" },
+          "lng":         { "N": "50.2416" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "IRGC-affiliated media reported on March 12 that the combined force struck an unspecified site in Behbahan, Khuzestan Province. CTP-ISW assessed this likely targeted the IRGC Ground Forces 15th Imam Hassan Mojtaba Special Forces Brigade, which operates from Behbahan and was reportedly involved in suppressing protests in Izeh, Khuzestan Province, during the 2022 Mahsa Amini protests." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [
+            { "S": "https://t.me/Tasnimnews/395999" }
+          ] },
+          "disputed":    { "BOOL": true }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "326" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "Strike on IRGC Security Checkpoint 'Packed with Personnel,' Southwestern Tehran" },
+          "location":    { "S": "Southwestern Tehran, Tehran Province, Iran" },
+          "lat":         { "N": "35.6400" },
+          "lng":         { "N": "51.2800" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "An OSINT account stated on March 12 that the combined force struck a security checkpoint in southwestern Tehran that was described as 'packed with IRGC personnel.' Exact facility name unconfirmed." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/hey_itsmyturn/status/2032106863349633064" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "327" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-11" },
+          "title":       { "S": "Satellite BDA: Khavar Shahr Military Garrison, Tehran — Struck" },
+          "location":    { "S": "Khavar Shahr, Tehran Province, Iran" },
+          "lat":         { "N": "35.6000" },
+          "lng":         { "N": "51.6500" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Commercially available satellite imagery confirmed the combined force struck the Khavar Shahr Military Garrison in Tehran Province." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "328" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "Bunker-Busters Penetrate Taleghan 2 Concrete Sarcophagus at Parchin — Suspected Nuclear Weapons High-Explosive Test Chamber Breached" },
+          "location":    { "S": "Taleghan 2 site, Parchin Military Complex, Tehran Province, Iran" },
+          "lat":         { "N": "35.5200" },
+          "lng":         { "N": "51.7800" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "nuclear" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "critical" },
+          "description": { "S": "The Institute for Science and International Security reported on March 12 that Israeli bunker-buster bombs successfully penetrated the concrete 'sarcophagus' encasing the Taleghan 2 high-explosive testing chamber at the Parchin Military Complex, entering the facility's interior. Iran had constructed the sarcophagus in January 2026 to harden the facility against airstrikes. The Taleghan 2 site was previously used to test high explosives needed to detonate a nuclear device before Iran suspended its nuclear weapons program in 2003. The Institute also confirmed strikes damaged several support buildings. The successful penetration of a purpose-hardened nuclear-adjacent facility by bunker-busters represents the most significant nuclear-dimension strike since Natanz (March 2)." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/TheGoodISIS/status/2032184656947528135?s=20" },
+            { "S": "https://isis-online.org/isis-reports/imagery-update-concrete-sarcophagus-at-taleghan-2-nears-completion" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "329" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "CENTCOM: 30+ Iranian Minelaying Ships Destroyed; Naval Mine Warehouses and Manufacturing Facilities Targeted Across Iran (Cumulative)" },
+          "location":    { "S": "Strait of Hormuz / Iran (multiple locations)" },
+          "lat":         { "N": "26.5700" },
+          "lng":         { "N": "56.2500" },
+          "type":        { "S": "naval" },
+          "target_type": { "S": "maritime" },
+          "actor":       { "S": "US Central Command" },
+          "severity":    { "S": "critical" },
+          "description": { "S": "CENTCOM reported on March 12 that it has destroyed over 30 Iranian minelaying ships (up from 16 confirmed on March 10) and has additionally targeted naval mine warehouses and manufacturing facilities across Iran. This represents a significant escalation of the maritime counter-mining campaign, now extending to the land-based naval mine supply chain." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/CENTCOM/status/2032124369162379513" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "330" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "Iranian Missile Impacts Near Western Wall and al-Aqsa Mosque, Jerusalem (March 11–12)" },
+          "location":    { "S": "Jerusalem, Israel" },
+          "lat":         { "N": "31.7767" },
+          "lng":         { "N": "35.2345" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "critical" },
+          "description": { "S": "The Israeli Foreign Ministry reported on March 12 that one Iranian ballistic missile impacted in Jerusalem near the Western Wall and al-Aqsa Mosque — the holiest site in Judaism and the third holiest in Islam. Iran launched four missile barrages at Israel between 3:00 PM ET on March 11 and 3:00 PM ET on March 12. A missile landing in the vicinity of the most religiously contested site on earth, regardless of physical damage, carries extreme geopolitical and symbolic weight for all parties." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/Osint613/status/2032093859782541725" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "331" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "Drones Strike Coalition Base in Erbil — US Soldiers Injured; Camp Singara (NATO) Also Hit; US Consulate Erbil Intercepts 2 Drones (March 11–12)" },
+          "location":    { "S": "Erbil, Erbil Province, Iraqi Kurdistan" },
+          "lat":         { "N": "36.1901" },
+          "lng":         { "N": "44.0091" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Iran / Iranian-backed Iraqi Militias" },
+          "severity":    { "S": "high" },
+          "description": { "S": "Drones struck the coalition base in Erbil overnight on March 11–12, injuring several US soldiers. British Brigadier Guy Foden confirmed to BBC that unspecified projectiles struck the Erbil coalition base and another unspecified Baghdad base 'a number of times' on March 11. Italian Defense Ministry confirmed unidentified drones struck Camp Singara (a NATO base and part of Operation Inherent Resolve) in Erbil overnight. US air defenses at the US Consulate in Erbil separately shot down two unidentified drones on March 12. British forces shot down two Iranian drones overnight. This represents the first confirmed US personnel casualties in Erbil and the first strike on a NATO base during the current conflict." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "5" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [
+            { "S": "https://www.bbc.com/news/articles/c0e531gve7do" },
+            { "S": "https://www.reuters.com/world/italian-base-iraqi-kurdistan-hit-by-missile-defence-ministry-says-2026-03-12/" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "332" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "Iranian USVs Strike 2 Oil Tankers Off Basra — 1 Crew Member Killed (March 11–12)" },
+          "location":    { "S": "Off the coast of Basra, Iraqi waters / northern Persian Gulf" },
+          "lat":         { "N": "29.7000" },
+          "lng":         { "N": "48.8000" },
+          "type":        { "S": "naval" },
+          "target_type": { "S": "maritime" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "high" },
+          "description": { "S": "Suspected Iranian unmanned surface vessels (USVs) struck two oil tankers conducting a ship-to-ship transfer off the coast of Basra, Iraq, overnight on March 11–12, killing at least one crew member on one of the vessels. This is the first confirmed crew death from an Iranian USV attack in the current conflict." },
+          "casualties":  { "M": { "confirmed": { "N": "1" }, "estimated": { "N": "1" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [
+            { "S": "https://www.reuters.com/world/europe/zefyros-tanker-hit-by-unknown-projectile-iraqi-anchorage-ship-manager-2026-03-12/" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "333" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "Unknown Projectile Strikes Chinese-Owned MV SOURCE BLESSING, Strait of Hormuz — Fire, No Injuries" },
+          "location":    { "S": "Strait of Hormuz" },
+          "lat":         { "N": "26.5700" },
+          "lng":         { "N": "56.2500" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "maritime" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "UKMTO reported on March 12 that an unknown projectile struck the Chinese state-owned, Liberian-flagged MV SOURCE BLESSING in the Strait of Hormuz, causing a fire but no crew injuries. UKMTO assessed Iranian attacks do not show a consistent pattern of targeting Western vessels — the strike on a Chinese-owned vessel exemplifies Iran's broad maritime disruption strategy rather than selective targeting." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/UK_MTO/status/2032138885388444034/photo/1" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "334" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "Hezbollah 36 Attacks — 20 on Northern Israeli Towns, 14 on IDF Bases; 10 Drone Attacks (Record for Conflict) (March 11–12)" },
+          "location":    { "S": "Northern Israel and southern Lebanon" },
+          "lat":         { "N": "33.0700" },
+          "lng":         { "N": "35.3500" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Lebanese Hezbollah" },
+          "severity":    { "S": "high" },
+          "description": { "S": "Hezbollah claimed 36 attacks between 3:00 PM ET March 11 and 3:00 PM ET March 12 — including 14 on IDF bases and 20 targeting northern Israeli towns to displace civilian populations. Ten of the attacks were drone attacks, the highest single-day drone count in the conflict. Hezbollah did not heavily rely on drones in the October 7 War; this shift reflects Hezbollah's investment in drone production since June 2025 (Unit 127), with the Ayoub and Mersad models assembled domestically from civilian parts." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "335" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "IDF Kills 5 Hezbollah/IRGC Leaders: Rayyan (Radwan Force Commander), Mohammadi (IRGC/Hezbollah Missile), Tabaja (Imam Hussein Brigade Commander), Safira (Deputy), Handasa (Drone Operative)" },
+          "location":    { "S": "Southern Lebanon and Beirut, Lebanon" },
+          "lat":         { "N": "33.3000" },
+          "lng":         { "N": "35.5000" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "critical" },
+          "description": { "S": "The IDF confirmed killing five senior Hezbollah and IRGC figures on March 12: (1) Abu Ali Rayyan — Hezbollah Radwan Force Commander in southern Lebanon; directed Radwan operations, recruited fighters, and managed the force's supply chain. The Radwan Force is Hezbollah's elite special operations unit built to conduct major ground attacks into Israel. (2) Abu Dhar Mohammadi — IRGC commander in Hezbollah's ballistic missile unit in Beirut; central figure coordinating between Hezbollah and Iran, rebuilt Hezbollah's missile capabilities, helped plan and launch missiles against Israel in Fall 2024 and the current war. (3) Ali Muslim Tabaja — Imam Hussein Brigade Commander and prominent leader executing attacks against Israel; the Imam Hussein Brigade is an IRGC Quds Force-affiliated force comprising thousands of fighters. (4) Jihad al Safira — Imam Hussein Brigade Deputy Commander. (5) Sajjid al Handasa — drone operative in the Imam Hussein Brigade." },
+          "casualties":  { "M": { "confirmed": { "N": "5" }, "estimated": { "N": "5" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/AvichayAdraee/status/2032063318475657222" },
+            { "S": "https://x.com/AvichayAdraee/status/2032048840803524687" },
+            { "S": "https://x.com/AvichayAdraee/status/2032120064598503732" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "336" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "IDF Strikes Hezbollah Financial Site (Millions in Cash), Bashura, Beirut; 30 al Qard al Hassan Locations Destroyed (Cumulative)" },
+          "location":    { "S": "Bashura neighborhood, Beirut, Lebanon" },
+          "lat":         { "N": "33.8858" },
+          "lng":         { "N": "35.4909" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The IDF struck a Hezbollah site hiding millions of dollars in the Bashura neighborhood of Beirut on March 12. The IDF separately confirmed it has now destroyed 30 al Qard al Hassan locations since February 28 — al Qard al Hassan is Hezbollah's primary financial arm, used to finance military operations, pay fighters, and purchase weapons." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/AvichayAdraee/status/2032139114103861551" },
+            { "S": "https://x.com/idfonline/status/2031251052729712988" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "337" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-11" },
+          "title":       { "S": "Combined Force Strikes 19th PMF Brigade al Qaim + PMF General Secretariat Special Forces Regiment Kirkuk — 20+ Killed, Dozens Injured (March 11)" },
+          "location":    { "S": "Al Qaim, Anbar Province and Kirkuk Province, Iraq" },
+          "lat":         { "N": "34.4500" },
+          "lng":         { "N": "40.9700" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The combined force struck the Harakat Ansar Allah al Awfiya-controlled 19th PMF Brigade in al Qaim, Anbar Province and the PMF General Secretariat Special Forces Regiment headquarters in Kirkuk Province on March 11. Iraqi media reported the al Qaim strikes killed more than 20 PMF fighters and injured dozens; the Kirkuk strike killed one PMF member. The PMF General Secretariat Special Forces Regiment is a central PMF command element — striking its headquarters in Kirkuk marks a new target category." },
+          "casualties":  { "M": { "confirmed": { "N": "21" }, "estimated": { "N": "40" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [
+            { "S": "https://www.shafaq.com/ar/%D8%A3%D9%85%D9%80%D9%86/%D8%A3%D9%83%D8%AB%D8%B1-%D9%85%D9%86-20-%D9%82%D8%AA%D9%8A%D9%84%D8%A7-%D8%A8%D8%A7%D8%B3%D8%AA%D9%87%D8%AF%D8%A7%D9%81-%D9%85%D9%82%D8%B1-%D9%84%D9%84%D8%AD%D8%B4%D8%AF-%D8%A7%D9%84%D8%B4%D8%B9%D8%A8%D9%8A-%D9%81%D9%8A-%D8%A7%D9%84%D8%A3%D9%86%D8%A8%D8%A7%D8%B1" },
+            { "S": "https://x.com/JoeTruzman/status/2031939929958502808" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "338" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "Combined Force Strikes Kataib Hezbollah Base Jurf al Sakhr + Camp Saqr Baghdad — 1 Killed, 3 Injured at Camp Saqr (March 12)" },
+          "location":    { "S": "Jurf al Sakhr, Babil Province and Camp Saqr, Baghdad City, Baghdad Province, Iraq" },
+          "lat":         { "N": "32.6000" },
+          "lng":         { "N": "44.1000" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The combined force struck a Kataib Hezbollah base in Jurf al Sakhr, Babil Province and Camp Saqr in Baghdad City on March 12. Camp Saqr is an Iranian-backed PMF ammunition storage site inside Baghdad. The strike on Camp Saqr killed one PMF member and wounded three others. The PMF confirmed on March 12 that the United States has carried out 32 total airstrikes on PMF bases across Diyala, Kirkuk, Anbar, Salah al Din, Wasit, and Babil provinces since February 28, killing 27 members and injuring 50." },
+          "casualties":  { "M": { "confirmed": { "N": "1" }, "estimated": { "N": "4" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/sentdefender/status/2032105231115247882" },
+            { "S": "https://x.com/Tammuz_Intel/status/2032108637632573550" },
+            { "S": "https://shafaq.com/en/Security/One-killed-three-wounded-in-airstrike-on-Baghdad-s-Saqr-Camp" }
+          ] }
+        }
+      }
+    }
+  ],
+  "updates": [
+    {
+      "lookup": {
+        "id": "281",
+        "date": "2026-03-10",
+        "title": "CENTCOM Destroys 16 Iranian Minelayers Near Strait of Hormuz"
+      },
+      "changes": {
+        "description": { "S": "CENTCOM reported on March 10 that US forces destroyed 16 Iranian minelayers near the Strait of Hormuz. Updated March 12: CENTCOM confirmed the total has grown to over 30 Iranian minelaying ships destroyed, and operations have expanded to target naval mine warehouses and manufacturing facilities across Iran. Iran has deployed fewer than 10 actual mines so far, suggesting a calibrated rather than maximum-effort mining campaign." },
+        "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-12-2026" },
+        "citations":   { "L": [
+          { "S": "https://x.com/CENTCOM/status/2032124369162379513" }
+        ] }
+      }
+    }
+  ],
+  "ambiguous": []
+}

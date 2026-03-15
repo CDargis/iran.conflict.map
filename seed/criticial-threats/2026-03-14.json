@@ -1,0 +1,419 @@
+{
+  "new": [
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "357" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "CENTCOM Large-Scale Strikes on Kharg Island — 90+ Military Targets: Naval Mine Storage, Missile Storage, Airport, Air Defense, Matla ul Fajr Radar" },
+          "location":    { "S": "Kharg Island, Bushehr Province, Persian Gulf, Iran" },
+          "lat":         { "N": "29.2450" },
+          "lng":         { "N": "50.3230" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US Central Command" },
+          "severity":    { "S": "critical" },
+          "description": { "S": "CENTCOM announced large-scale precision strikes on Kharg Island on March 13 that destroyed over 90 Iranian military targets, including naval mine storage facilities, missile storage facilities, Kharg Airport, the Kharg Air Defense Complex, and the Matla ul Fajr long-range early warning radar (detection range up to 500km). Trump confirmed strikes targeted military installations only, but explicitly warned that oil infrastructure could be targeted if Iran continues disrupting Strait of Hormuz shipping. Kharg Island handles approximately 90 percent of Iran's oil exports; this strike is the most strategically significant US action of the campaign outside of Iran's mainland, directly threatening Iran's primary oil export hub." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-march-14-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/CENTCOM/status/2032777791247155482" },
+            { "S": "https://x.com/DOWResponse/status/2032591643694739823" },
+            { "S": "https://x.com/Stinky915846091/status/2032648914805858670" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "358" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-14" },
+          "title":       { "S": "Second Strike on Jey Industrial Zone, Esfahan Province — Drone Manufacturing (March 14)" },
+          "location":    { "S": "Jey Industrial Zone, Esfahan Province, Iran" },
+          "lat":         { "N": "32.5500" },
+          "lng":         { "N": "51.9000" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "The combined force struck the Jey Industrial Zone in Esfahan Province on March 14, following an earlier strike on March 6 (ID 191 — IDF Shokouhiyeh/Jey area) and March 11 (ID 305 — Jey industrial site). The zone contains facilities linked to Iranian drone manufacturing and defense industrial activities; Kimia Part Sivan Company — US-sanctioned for supporting the IRGC Quds Force — is located here." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-march-14-2026" },
+          "citations":   { "L": [
+            { "S": "https://t.me/farsna/419902" },
+            { "S": "https://x.com/TheGoodISIS/status/2031446747143352752?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "359" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-14" },
+          "title":       { "S": "IDF Strikes Iranian Space Research Center, Tehran City" },
+          "location":    { "S": "Iranian Space Research Center, Tehran City, Iran" },
+          "lat":         { "N": "35.7500" },
+          "lng":         { "N": "51.4500" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The IDF struck the Iranian Space Research Center in Tehran City on March 14. The center is a subsidiary of the Iranian Space Agency operating under the Ministry of Information and Communications Technology, US-sanctioned since September 2019 for supporting Iran's space launch vehicle (SLV) program. The US Treasury has identified the center as having worked with the Shahid Hemmat Industrial Group (liquid-fueled ballistic missile manufacturer). The DIA has assessed Iran's SLV program could enable intercontinental ballistic missile development by 2035; this strike targets the long-range strike capability development pathway." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-march-14-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IranIntl/status/2032778332991865176?s=20" },
+            { "S": "https://x.com/IDFFarsi/status/2032776185445302296" },
+            { "S": "https://2017-2021.state.gov/new-sanctions-designations-on-irans-space-program/" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "360" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-14" },
+          "title":       { "S": "IDF Strikes Air Defense Production Sites West of Karaj, Alborz Province + Western Tehran (March 14)" },
+          "location":    { "S": "West of Karaj, Alborz Province and western Tehran, Iran" },
+          "lat":         { "N": "35.8400" },
+          "lng":         { "N": "50.9000" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The IDF reported on March 14 that it struck sites used to produce air defense systems west of Karaj, Alborz Province, and in western Tehran. Hegseth's declaration on March 13 that 'Iran has no air defenses' and these production facility strikes together represent an effort to ensure Iran cannot reconstitute its air defense network." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-march-14-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IDFFarsi/status/2032776185445302296" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "361" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "Strikes on Artesh 7th Tactical Airbase Shiraz + IRGC Navy Barracks Shiraz + Naval Base Sirjan (March 13–14)" },
+          "location":    { "S": "Shiraz, Fars Province and Sirjan, Kerman Province, Iran" },
+          "lat":         { "N": "29.6200" },
+          "lng":         { "N": "52.5700" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The combined force struck three additional military bases on March 13–14: the Artesh Air Force 7th Tactical Airbase in Shiraz, Fars Province; the IRGC Navy Shahid Asari Nejad Barracks in Shiraz; and a naval base in Sirjan, Kerman Province. The Sirjan naval base is a new target — inland naval/missile storage in southeastern Iran. The 4th Artesh Ground Forces Aviation Base in Esfahan Province was also re-struck (first strike ID 237)." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-march-14-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/Vahid/status/2032623293224615953" },
+            { "S": "https://x.com/Vahid/status/2032843889917166039" },
+            { "S": "https://x.com/zarGEOINT/status/2032846675568382001" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "362" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-14" },
+          "title":       { "S": "Strikes on LEC Stations 108 (Navab) + 148 (Enghelab), Tehran City; Intelligence Office Sarpol-e Zahab (March 6 Confirmed)" },
+          "location":    { "S": "Navab and Enghelab neighborhoods, Tehran City, Iran; Sarpol-e Zahab, Kermanshah Province" },
+          "lat":         { "N": "35.6892" },
+          "lng":         { "N": "51.3890" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "The combined force struck LEC Station 108 in the Navab neighborhood and LEC Station 148 in the Enghelab neighborhood of Tehran City on March 14. Iranian security forces previously used both these stations to suppress protest activity during the December 2025–January 2026 protests. Satellite imagery from March 6 also separately confirmed the combined force destroyed an intelligence office in Sarpol-e Zahab, Kermanshah Province (date of strike approximately March 6)." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-march-14-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/Vahid/status/2032833635032678669" },
+            { "S": "https://x.com/Vahid/status/2032853967521096031" },
+            { "S": "https://x.com/zarGEOINT/status/2032856942490616116?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "363" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "IDF Kills Khatam ol Anbia Intelligence Officials Nassab + Shariat — Third Successive Kill of This Position (March 13)" },
+          "location":    { "S": "Iran (location unspecified)" },
+          "lat":         { "N": "35.6892" },
+          "lng":         { "N": "51.3890" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "critical" },
+          "description": { "S": "The IDF confirmed on March 14 that it killed Abdollah Jalali Nassab and Amir Shariat on March 13. Both had been appointed to replace Khatam ol Anbia Central Headquarters Intelligence Chief Saleh Asadi, who was killed on February 28. The Khatam ol Anbia Central Headquarters oversees and coordinates all Iranian military activities as the main operational command and control authority. This marks the third successive kill of the Khatam ol Anbia intelligence leadership — the same pattern seen with the Supreme Leader Military Office Chief (Shirazi killed Feb 28, Babaeiyan replaced and killed March 7)." },
+          "casualties":  { "M": { "confirmed": { "N": "2" }, "estimated": { "N": "2" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-march-14-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IDFFarsi/status/2032853331199053890?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "364" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-14" },
+          "title":       { "S": "Iran 7 Missile Barrages at Israel — Cluster Munition Wounds 3 in Eilat + Central Israel Impact (March 13–14)" },
+          "location":    { "S": "Eilat and central Israel" },
+          "lat":         { "N": "29.5577" },
+          "lng":         { "N": "34.9519" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Iran launched seven missile barrages at Israel between 3:00 PM ET on March 13 and 3:00 PM ET on March 14. A cluster munition impacted in Eilat, wounding three people including a child. A separate cluster munition also impacted in central Israel. The IDF reports Hezbollah has launched an average of approximately 100 rockets per day at Israel since March 2." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "3" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-march-14-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/FaytuksNetwork/status/2032816588286513602" },
+            { "S": "https://x.com/manniefabian/status/2032833045401682143?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "365" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "Iran Drone Attacks Citibank Buildings in Dubai + Manama — Retaliation for Bank Sepah Strike (March 13)" },
+          "location":    { "S": "Dubai, UAE and Manama, Bahrain" },
+          "lat":         { "N": "25.2048" },
+          "lng":         { "N": "55.2708" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "high" },
+          "description": { "S": "Iran conducted drone attacks targeting Citibank buildings in Dubai, UAE and Manama, Bahrain on March 13. Iranian Foreign Minister Araghchi stated Iran responded 'in kind' to the combined force's strike on a Bank Sepah building on March 11. This is the first confirmed deliberate Iranian targeting of a US financial institution's foreign facilities, representing a new category of Iranian retaliation — tit-for-tat financial infrastructure targeting." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-march-14-2026" },
+          "citations":   { "L": [
+            { "S": "https://t.me/Tasnimnews/396875" },
+            { "S": "https://www.youtube.com/watch?v=lHjjRgpvXO4" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "366" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-14" },
+          "title":       { "S": "Iranian Drone Attack on Fujairah Port, UAE — Intercepted; Debris Fire Suspends Oil Operations (March 14)" },
+          "location":    { "S": "Fujairah Port, Fujairah Emirate, UAE" },
+          "lat":         { "N": "25.1288" },
+          "lng":         { "N": "56.3447" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "high" },
+          "description": { "S": "Unspecified industry sources told Western media on March 14 that Iran conducted a drone attack targeting Fujairah Port. Emirati air defenses intercepted the drone, but falling debris caused a fire at the port that forced the suspension of oil operations. Fujairah is the UAE's primary east coast port and a major global bunkering hub on the Gulf of Oman, outside the Strait of Hormuz — its targeting marks Iran's first attack on UAE's external Gulf of Oman energy infrastructure." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-march-14-2026" },
+          "citations":   { "L": [
+            { "S": "https://www.reuters.com/world/middle-east/fire-occurred-uaes-fujairah-after-debris-fell-during-interception-drone-no-2026-03-14/" },
+            { "S": "https://www.bloomberg.com/news/articles/2026-03-14/some-fujairah-oil-operations-suspended-after-drone-attack-fire" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "367" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-14" },
+          "title":       { "S": "Hezbollah 43 Attacks (Record High) — 7 Rocket Attacks on Northern Israel; Tank Engagements; Taybeh IDF Shelling; Drone South of Haifa (March 13–14)" },
+          "location":    { "S": "Northern Israel and southern Lebanon" },
+          "lat":         { "N": "33.0700" },
+          "lng":         { "N": "35.3500" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Lebanese Hezbollah" },
+          "severity":    { "S": "critical" },
+          "description": { "S": "Hezbollah claimed 43 attacks between 3:00 PM ET on March 13 and 3:00 PM ET on March 14 — the highest in any 24-hour period since February 28. Attacks included seven rocket barrages at northern Israeli communities; a drone attack on an IDF rehabilitation and maintenance center south of Haifa; attacks on two Israeli Merkava tanks at Jal al Alam; eight rocket attacks targeting Israeli forces in southern Lebanon; and Hezbollah shelling of Israeli soldiers in Taybeh, Marjaayoun District, causing unspecified IDF casualties. Rockets from Lebanon fell in open areas in Krayot with no casualties. The IDF confirmed Hezbollah has averaged approximately 100 rockets per day targeting Israel since March 2." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "5" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-march-14-2026" },
+          "citations":   { "L": [
+            { "S": "https://t.me/mmirleb/11075" },
+            { "S": "https://t.me/mmirleb/11101" },
+            { "S": "https://t.me/mmirleb/11133" },
+            { "S": "https://t.me/mmirleb/11104" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "368" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-12" },
+          "title":       { "S": "IDF Kills Hezbollah Communications Unit Commander + IRGC Quds Force Palestine Corps Member Hisham Abdul Karim Yassin, Beirut (March 12)" },
+          "location":    { "S": "Beirut, Lebanon" },
+          "lat":         { "N": "33.8938" },
+          "lng":         { "N": "35.5018" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "critical" },
+          "description": { "S": "Israeli strikes in Beirut on March 12 killed Hisham Abdul Karim Yassin, Hezbollah's communications unit commander and IRGC Quds Force Palestine Corps member. The IDF stated Yassin was responsible for rebuilding Hezbollah's capabilities and deepening Iran's presence in Lebanon. Yassin is the fifth IRGC Quds Force commander and the third Palestine Corps commander the IDF has killed since February 28 — the Palestine Corps is the IRGC unit that coordinates with Palestinian militant groups and manages intelligence on Israeli targets." },
+          "casualties":  { "M": { "confirmed": { "N": "1" }, "estimated": { "N": "1" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-march-14-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/AvichayAdraee/status/2032818929807016408" },
+            { "S": "https://x.com/ariel_oseran/status/2032818189671747688" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "369" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-14" },
+          "title":       { "S": "IDF Strikes Hezbollah Missile Depot East of Mjadel, Tyre District, Lebanon (March 14)" },
+          "location":    { "S": "East of Mjadel, Tyre District, southern Lebanon" },
+          "lat":         { "N": "33.2000" },
+          "lng":         { "N": "35.3300" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "OSINT-geolocated footage confirmed the IDF struck a Hezbollah missile depot east of Mjadel in the Tyre District of southern Lebanon on March 14. The IDF has now struck 200 Hezbollah missile launchers and confirmed 110 Hezbollah headquarters destroyed since February 28." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-march-14-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/Stinky915846091/status/2032837569562488939?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "370" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-14" },
+          "title":       { "S": "Combined Force Strikes Kill 3 Kataib Hezbollah (Incl. Missile Commander) + 1 Badr Organization Missile Commander, Central Baghdad (March 14)" },
+          "location":    { "S": "Central Baghdad (Karrada area), Baghdad Province, Iraq" },
+          "lat":         { "N": "33.3157" },
+          "lng":         { "N": "44.3922" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "critical" },
+          "description": { "S": "The combined force conducted targeted strikes against Kataib Hezbollah members in central Baghdad on March 14, killing three Kataib Hezbollah members including a missile commander, and a Badr Organization member who oversaw missile attacks. This is the deepest combined force strike into Baghdad proper — the Karrada area is a central Baghdad neighborhood — and the first strike specifically killing identified missile command personnel within Baghdad City limits. Kataib Hezbollah claimed responsibility for the US Embassy drone attack the same night." },
+          "casualties":  { "M": { "confirmed": { "N": "4" }, "estimated": { "N": "4" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-march-14-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/LawkGhafuri/status/2032899080586723562" },
+            { "S": "https://t.me/centerkaf/5592" },
+            { "S": "https://t.me/centerkaf/5594" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "371" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-13" },
+          "title":       { "S": "Combined Force Strikes 18th PMF Brigade al Qaim + Kataib Sayyid al Shuhada 'Cultural Centers' Ninewa + 52nd PMF Brigade Sites Salah al Din (March 13–14)" },
+          "location":    { "S": "Al Qaim (Anbar), Ninewa Province, and eastern Salah al Din Province, Iraq" },
+          "lat":         { "N": "34.4500" },
+          "lng":         { "N": "40.9700" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "The combined force struck the 18th PMF Brigade base in al Qaim, Anbar Province on March 13. Drone strikes also targeted two Kataib Sayyid al Shuhada 'cultural centers' in Ninewa Province on March 13–14. Four 52nd PMF Brigade (Badr Organization) sites in eastern Salah al Din Province were struck on March 14, wounding one PMF fighter." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "1" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-march-14-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/Tammuz_Intel/status/2032556417165480100" },
+            { "S": "https://x.com/Tammuz_Intel/status/2032583378562588765" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "372" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-14" },
+          "title":       { "S": "KATAIB HEZBOLLAH DRONES HIT US EMBASSY BAGHDAD ROOF — Fire Damages Satellite Communications System (March 13–14)" },
+          "location":    { "S": "US Embassy, Green Zone, Baghdad, Iraq" },
+          "lat":         { "N": "33.3157" },
+          "lng":         { "N": "44.3922" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Kataib Hezbollah" },
+          "severity":    { "S": "critical" },
+          "description": { "S": "Two Kataib Hezbollah drones hit the US Embassy in Baghdad overnight on March 13–14, causing a fire on the embassy's roof that damaged a satellite communications system. The New York Times reported Kataib Hezbollah claimed responsibility. The US Embassy in Baghdad issued an emergency alert on March 14 urging all US citizens to leave Iraq immediately due to repeated Iranian-backed militia attacks against US citizens and interests. This is the first time in the current conflict that drones have physically struck and damaged the US Embassy building itself." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-march-14-2026" },
+          "citations":   { "L": [
+            { "S": "https://www.cnn.com/world/live-news/iran-war-us-israel-trump-03-14-26?post-id=cmmqg7xe600003b6ssp69tk40" },
+            { "S": "https://www.nytimes.com/live/2026/03/14/world/iran-war-trump-oil-israel/here-is-the-latest?smid=url-share" },
+            { "S": "https://x.com/USEmbBaghdad/status/2032865661869797409" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "373" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-14" },
+          "title":       { "S": "Drone Attack on Lanaz Oil Refinery, Erbil — Fire + Shutdown; Drone Attack on UAE Consulate Erbil — 2 Security Personnel Injured (March 14)" },
+          "location":    { "S": "Erbil City, Erbil Province, Iraqi Kurdistan" },
+          "lat":         { "N": "36.1901" },
+          "lng":         { "N": "44.0091" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Iranian-backed Iraqi Militias (unidentified)" },
+          "severity":    { "S": "high" },
+          "description": { "S": "Unspecified actors struck the Lanaz oil refinery in Erbil, Iraqi Kurdistan on March 14, causing a fire that forced the refinery to shut down. Separately, unspecified actors struck the UAE consulate in Erbil on March 14, injuring two security personnel. No groups have claimed responsibility for either attack. Both attacks follow the March 10 drone attack on the UAE consulate in Erbil (ID 297). The consecutive attacks on Erbil's oil infrastructure and Gulf state diplomatic facilities suggest a coordinated pattern of economic and diplomatic pressure targeting Iraqi Kurdistan." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "2" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-march-14-2026" },
+          "citations":   { "L": [
+            { "S": "https://shafaq.com/ar/%D9%83%D9%88%D8%B1%D8%AF%D8%B3%D8%AA%D8%A7%D9%86%D9%8A%D8%A7%D8%AA/%D8%A8%D8%B9%D8%AF-%D8%A7%D8%B3%D8%AA%D9%87%D8%AF%D8%A7%D9%81%D9%87%D8%A7-%D8%AA%D8%B9%D9%84%D9%8A%D9%82-%D8%A7%D9%84%D8%B9%D9%85%D9%84-%D8%A8%D9%85%D8%B5%D9%81%D8%A7%D8%A9-%D9%86%D9%81%D8%B7%D9%8A%D8%A9-%D9%81%D9%8A-%D8%A3%D8%B1%D8%A8%D9%8A%D9%84" },
+            { "S": "https://www.kurdistan24.net/en/story/900477/uae-says-two-security-personnel-injured-in-attack-on-consulate-in-erbil" }
+          ] }
+        }
+      }
+    }
+  ],
+  "updates": [],
+  "ambiguous": []
+}

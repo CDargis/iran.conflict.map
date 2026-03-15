@@ -1,0 +1,783 @@
+{
+  "new": [
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "154" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "IDF Wave of ~200 Targets — Dozens of Missile Launchers, Western and Central Iran" },
+          "location":    { "S": "Western and central Iran (multiple provinces)" },
+          "lat":         { "N": "33.0000" },
+          "lng":         { "N": "49.0000" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The IDF reported on March 5 that Israeli aircraft struck approximately 200 targets in western and central Iran, including dozens of ballistic missile launchers. The IDF stated that Israeli pilots had conducted approximately 2,500 strikes using over 6,000 munitions since February 28, and had destroyed around 80 percent of Iran's air defense systems and rendered over 300 ballistic missile launchers inoperable. CENTCOM confirmed Iranian ballistic missile attacks had decreased 90 percent and drone attacks 83 percent since the war began." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IDFFarsi/status/2029561800484626550?s=20" },
+            { "S": "https://x.com/idfonline/status/2029642367343448371?s=20" },
+            { "S": "https://x.com/DeptofWar/status/2029680387576803499" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "155" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-04" },
+          "title":       { "S": "Strike on Iranian Air Defense System, Esfahan Province" },
+          "location":    { "S": "Esfahan Province, Iran" },
+          "lat":         { "N": "32.6546" },
+          "lng":         { "N": "51.6680" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Israeli aircraft struck an Iranian air defense system in Esfahan Province on March 4 as part of the ongoing campaign to maintain air superiority over Iran. The IDF reported it had by March 5 destroyed around 80 percent of Iran's air defense systems since the campaign began." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/idfonline/status/2029415003355251122?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "156" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Third Strike on Kish Island Radar Infrastructure" },
+          "location":    { "S": "Kish Island, Hormozgan Province, Iran" },
+          "lat":         { "N": "26.5333" },
+          "lng":         { "N": "53.9800" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "low" },
+          "description": { "S": "The combined force targeted radar systems near Kish Island in the Persian Gulf on March 5, the third such strike on radar infrastructure at this location since the campaign began on February 28 (prior strikes were on February 28 and March 3)." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/Vahid/status/2029584971933851890?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "157" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Strike on Artesh Shahid Farashahi Ammunition Depot, Manzariyeh, Qom Province" },
+          "location":    { "S": "Artesh Shahid Farashahi Ammunition Depot, Manzariyeh, Qom Province, Iran" },
+          "lat":         { "N": "34.8500" },
+          "lng":         { "N": "50.8500" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The combined force struck hangars and bunkers in a restricted area of the Artesh Shahid Farashahi ammunition depot in Manzariyeh, Qom Province, as part of the campaign to degrade Iranian military logistics and weapons storage infrastructure." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://t.me/BenTzionM/7001" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "158" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Strikes on Imam Reza Unit and Motahari Basij Base, Tehran (Internal Security)" },
+          "location":    { "S": "Tehran City, Iran" },
+          "lat":         { "N": "35.7200" },
+          "lng":         { "N": "51.1500" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "OSINT analysts reported combined force airstrikes on March 5 that targeted and damaged two key bases for the IRGC Ground Forces Sarallah Headquarters: the Mohammad Rasulullah Security Branch's Imam Reza Unit in Tehran's northwestern suburbs, and the 7th Tehran Municipality Region's Motahari Basij Resistance Regional Base in central Tehran. Basij security units are trained to suppress urban protests under IRGC direction." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/Shayan86/status/2029606206860308760" },
+            { "S": "https://x.com/IranIntl/status/2029591387826528291" },
+            { "S": "https://x.com/zarGEOINT/status/2029634882696077492?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "159" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Strike on IRGC Base, Parand, Southwestern Tehran Province" },
+          "location":    { "S": "Parand, Tehran Province, Iran" },
+          "lat":         { "N": "35.4800" },
+          "lng":         { "N": "50.8800" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "An OSINT analyst confirmed airstrikes targeting an IRGC base in Parand town in southwestern Tehran Province on March 5. CTP-ISW was unable to confirm the specific base location." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/Vahid/status/2029590768009052317" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "160" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Strikes on IRGC Bases, Harsin and Ravansar, Kermanshah Province" },
+          "location":    { "S": "Harsin and Ravansar, Kermanshah Province, Iran" },
+          "lat":         { "N": "34.2700" },
+          "lng":         { "N": "47.5800" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "OSINT analysts reported that the combined force struck at least two IRGC Ground Forces bases in Harsin and Ravansar, Kermanshah Province, in northwestern Iran on March 5." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/hey_itsmyturn/status/2029604754871959757?s=20" },
+            { "S": "https://x.com/IranIntl/status/2029599161683673548?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "161" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Strikes on IRGC Intelligence Building and Nabi Akram Operational Division, Kermanshah City" },
+          "location":    { "S": "Kermanshah City, Kermanshah Province, Iran" },
+          "lat":         { "N": "34.3142" },
+          "lng":         { "N": "47.0650" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Commercially available imagery and an Israeli OSINT account confirmed combined force airstrikes targeting an IRGC Intelligence Building and the IRGC Ground Forces Nabi Akram Operational Division in Kermanshah City on March 5. The Nabi Akram Division had previously been struck on February 28 (air defense systems at its base)." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/hey_itsmyturn/status/2029448066214834365?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "162" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-04" },
+          "title":       { "S": "Strike on IRGC Ground Forces 15th Khordad Base, Baneh, Kurdistan Province" },
+          "location":    { "S": "Baneh, Kurdistan Province, Iran" },
+          "lat":         { "N": "35.9986" },
+          "lng":         { "N": "45.8864" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "OSINT analysts confirmed on March 5 that combined force airstrikes on March 4 targeted IRGC sites in Baneh, Kurdistan Province, and struck the IRGC Ground Forces 15th Khordad Base specifically." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/Shayan86/status/2029556592186720753?s=20" },
+            { "S": "https://x.com/WillUnderhill23/status/2029640749612937405?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "163" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Strike on IRGC-Used Civilian Sports Complex, Kashan, Esfahan Province" },
+          "location":    { "S": "Kashan, Esfahan Province, Iran" },
+          "lat":         { "N": "33.9850" },
+          "lng":         { "N": "51.4400" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "OSINT analysts published footage of airstrikes in Kashan, Esfahan Province on March 5. Citizens in the footage claimed the target was a civilian sports complex that the IRGC had been using for military purposes." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/Vahid/status/2029598878140379586" },
+            { "S": "https://x.com/hey_itsmyturn/status/2029612261015240746?s=20" }
+          ] },
+          "disputed":    { "BOOL": true }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "164" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Strikes on LEC Command Centers in Qom and Shahriar, and Police Stations in Tehran" },
+          "location":    { "S": "Qom, Shahriar (near Tehran), and Tehran City, Iran" },
+          "lat":         { "N": "35.5000" },
+          "lng":         { "N": "51.1500" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Iranian diaspora media and OSINT analysts posted footage on March 5 confirming airstrikes on LEC command centers in Qom and Shahriar, as well as two local police stations in northern Tehran City and in southern Tehran Province. Personnel from these stations were reportedly involved in suppressing protesters during the December 2025–January 2026 protest wave." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IranIntl/status/2029588227976224970" },
+            { "S": "https://x.com/Shayan86/status/2029565669658746991" },
+            { "S": "https://x.com/hey_itsmyturn/status/2029654989908406726?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "165" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Satellite-Confirmed Damage — LEC West Azerbaijan Province HQ, Urmia" },
+          "location":    { "S": "LEC West Azerbaijan Province Headquarters, Urmia, West Azerbaijan Province, Iran" },
+          "lat":         { "N": "37.5527" },
+          "lng":         { "N": "45.0762" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Commercially available satellite imagery confirmed damage to the LEC West Azerbaijan Province headquarters in Urmia. This builds on a series of strikes against LEC and IRGC infrastructure in Urmia since March 1." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IranIntl/status/2029620521051082814?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "166" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "LEC Police Stations Struck, Kermanshah City and Esfahan City" },
+          "location":    { "S": "Kermanshah City and Esfahan City, Iran" },
+          "lat":         { "N": "34.3142" },
+          "lng":         { "N": "47.0650" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "low" },
+          "description": { "S": "OSINT analysts reported on March 5 that combined force airstrikes damaged local police stations in Kermanshah City in recent days and in Esfahan City on March 5. These strikes continued the systematic targeting of Iran's local law enforcement infrastructure." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IranIntl/status/2029555857638244455?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "167" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Satellite-Confirmed Damage — IRGC 3rd Hazrat-e Mehdi Ranger Brigade Base, Khuzestan Province" },
+          "location":    { "S": "IRGC 3rd Hazrat-e Mehdi Ranger Brigade Base, Khuzestan Province, Iran" },
+          "lat":         { "N": "31.3300" },
+          "lng":         { "N": "48.6900" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Commercially available satellite imagery from March 5 showed airstrike damage at the IRGC 3rd Hazrat-e Mehdi Ranger Brigade base in Khuzestan Province, southwestern Iran. The 3rd Hazrat-e Mehdi is a rapid response force under the IRGC Ground Forces." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/hey_itsmyturn/status/2028981136915902891?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "168" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Strike on IRIB Broadcast Station / Radio Repeater, Tabriz" },
+          "location":    { "S": "Tabriz, East Azerbaijan Province, Iran" },
+          "lat":         { "N": "38.0800" },
+          "lng":         { "N": "46.2919" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "An Israeli OSINT analyst assessed that airstrikes in Tabriz on March 5 targeted either an Islamic Republic of Iran Broadcasting (IRIB) broadcast station or a radio repeater. The combined force has targeted at least four IRIB facilities across Iran since the campaign began as part of an effort to degrade the regime's propaganda distribution." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/hey_itsmyturn/status/2029612966916628902?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "169" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-04" },
+          "title":       { "S": "Satellite-Confirmed Damage — Bandar Abbas Military Port (Drone Storage, Dry Docks, Submarine Facility)" },
+          "location":    { "S": "Bandar Abbas Military Port, Hormozgan Province, Iran" },
+          "lat":         { "N": "27.1832" },
+          "lng":         { "N": "56.2666" },
+          "type":        { "S": "naval" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "high" },
+          "description": { "S": "Commercially available satellite imagery from March 4 confirmed multiple strikes at the Bandar Abbas Military Port, including damage to an IRGC Navy drone storage facility at the 1st Saheb ol Zaman Regional base (previously struck during the June 2025 war), damage to the Artesh Navy Factory dry docks, and damage to an unidentified building adjacent to Iranian submarine docks. Three Kilo-class submarines that had been visible at the docks in pre-conflict imagery were no longer visible; CENTCOM had confirmed striking Iranian submarines in the first 48 hours of the campaign." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://www.dia.mil/portals/110/images/news/military_powers_publications/iran_military_power_lr.pdf" },
+            { "S": "https://x.com/CENTCOM/status/2028571844320624951" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "170" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Iran Drone Strikes on Camp Buehring, Kuwait (March 5)" },
+          "location":    { "S": "Camp Buehring, northwestern Kuwait" },
+          "lat":         { "N": "29.5667" },
+          "lng":         { "N": "47.3833" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Islamic Republic of Iran Army (Artesh)" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "The Iranian Artesh and Iranian state media claimed drone strikes against US forces at Camp Buehring, Kuwait, on March 5. An Iranian drone had previously struck Camp Buehring on March 1 without reported casualties." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IranNuances/status/2029533767455449344?s=20" },
+            { "S": "https://t.me/defapress_ir/50299" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "171" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Iranian Artesh Drone Strikes on US Base, Erbil, Iraq" },
+          "location":    { "S": "Erbil Province, Iraq" },
+          "lat":         { "N": "36.1901" },
+          "lng":         { "N": "44.0091" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Islamic Republic of Iran Army (Artesh)" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "The Iranian Artesh launched drone strikes targeting a US base in Erbil, Iraq, on March 5, according to Iranian media. The exact target is unclear but likely refers to either the US base at Erbil International Airport or al Harir Airbase, both of which have been previously struck." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://t.me/Tasnimnews/392926" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "172" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Drone Strike on Sarsang Oil Field Power Generator, Duhok Province, Iraq" },
+          "location":    { "S": "Sarsang Oil Field, Duhok Province, Iraqi Kurdistan" },
+          "lat":         { "N": "36.9500" },
+          "lng":         { "N": "43.7000" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps / Iranian-backed militias" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "A likely Iranian or Iranian-backed militia drone struck a power generator at the US-operated Sarsang oil field in Duhok Province, Iraqi Kurdistan, on March 5, causing a fire and forcing the facility to close temporarily. HKN Energy, a US company, operates the Sarsang Oilfield." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://www.rudawarabia.net/arabic/kurdistan/0503202610" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "173" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-04" },
+          "title":       { "S": "Iran Ballistic Missile Strike on al Udeid Airbase, Qatar" },
+          "location":    { "S": "Al Udeid Airbase, Qatar" },
+          "lat":         { "N": "25.1173" },
+          "lng":         { "N": "51.3147" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Iran struck al Udeid Airbase, Qatar — the largest US military base in the Middle East — with a ballistic missile on March 4, causing no casualties per Qatar's Defense Ministry." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/MOD_Qatar/status/2028945288782635139" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "174" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Iran Missile Barrages at Israel — 8 Barrages (March 4–5), Impacts in Moshav Bareket and Likely Tel Aviv" },
+          "location":    { "S": "Central Israel (Moshav Bareket, Tel Aviv area)" },
+          "lat":         { "N": "32.0853" },
+          "lng":         { "N": "34.7818" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Iran launched at least eight missile barrages targeting northern and central Israel since the March 4 data cutoff. One ballistic missile landed in Moshav Bareket in central Israel with no casualties; a second missile during the eighth barrage likely landed in Tel Aviv but was unconfirmed at the data cutoff. One barrage included what appeared to be a cluster munition warhead. Israeli media reported Iranian ballistic missiles have struck Israel 13 times since February 28. The IDF indicated it expects Iranian ballistic fire to stop soon as remaining launchers are destroyed." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/idfonline/status/2028941025914568900" },
+            { "S": "https://x.com/BNews_Network/status/2029482917592801357" },
+            { "S": "https://x.com/Osint613/status/2029665600230891957" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "175" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Iran Ballistic Missile Strikes on BAPCO Refinery, Bahrain (Fire)" },
+          "location":    { "S": "Bahrain Petroleum Company (BAPCO) Refinery, Ma'ameer, Bahrain" },
+          "lat":         { "N": "26.2000" },
+          "lng":         { "N": "50.5300" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "high" },
+          "description": { "S": "At least two Iranian ballistic missiles struck the Bahrain Petroleum Company's refinery near Ma'ameer, Bahrain on March 5, starting a fire at the facility." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/Faytuks/status/2029597951967015230" },
+            { "S": "https://x.com/no_itsmyturn/status/2029591140505166096" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "176" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Iran Missile/Drone Strike on Doha Area, Qatar" },
+          "location":    { "S": "Doha, Qatar" },
+          "lat":         { "N": "25.2854" },
+          "lng":         { "N": "51.5310" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "An Iranian ballistic missile or drone struck an undetermined area of Doha, Qatar on March 5. Qatar had fully shut down gas liquefaction on March 4 and will not return to normal production for at least a month." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/vcdgf555/status/2029493320377106440" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "177" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-04" },
+          "title":       { "S": "Saudi Arabia Intercepts 3 Iranian Cruise Missiles and 1 Drone (March 4)" },
+          "location":    { "S": "Saudi Arabia" },
+          "lat":         { "N": "24.0000" },
+          "lng":         { "N": "45.0000" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "low" },
+          "description": { "S": "Saudi Arabia intercepted three Iranian cruise missiles and one Iranian drone on March 4. No damage or casualties were reported from the interceptions." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/FaytuksNetwork/status/2029332213876043940" },
+            { "S": "https://x.com/sentdefender/status/2029334101300228270" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "178" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-04" },
+          "title":       { "S": "IRGC USV Attack on Sonangol Namibe Crude Tanker, Northern Persian Gulf" },
+          "location":    { "S": "Northern Persian Gulf, ~30 nautical miles SE of Mubarak al Kabeer, Kuwait" },
+          "lat":         { "N": "29.2000" },
+          "lng":         { "N": "48.5000" },
+          "type":        { "S": "naval" },
+          "target_type": { "S": "maritime" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "high" },
+          "description": { "S": "UKMTO reported on March 4 that the Bahamas-flagged crude tanker Sonangol Namibe experienced a large explosion on its port side approximately 30 nautical miles southeast of Mubarak al Kabeer, Kuwait. The crew reported seeing a small craft leave the area after the explosion; initial assessments indicated an Iranian USV attack. The vessel suffered a hull breach but no fires and no crew injuries. The IRGC Navy claimed a 'missile strike' on a 'US tanker' in the northern Persian Gulf, likely referring to this incident. This is the northernmost attack on a commercial vessel in the Persian Gulf since the conflict began." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/UK_MTO/status/2029350596923265339" },
+            { "S": "https://www.reuters.com/world/americas/crude-tanker-sonangol-namibes-hull-likely-breached-after-blast-near-iraq-port-2026-03-05/" },
+            { "S": "https://t.me/defapress_ir/50251" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "179" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "IDF 80+ Hezbollah Strikes — Southern Lebanon and Beirut, Including Unit 127 Command Center (March 4–5)" },
+          "location":    { "S": "Southern Lebanon and Beirut, Lebanon" },
+          "lat":         { "N": "33.2700" },
+          "lng":         { "N": "35.4500" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The IDF struck over 80 Hezbollah targets in the past day as of March 5. Strikes targeted fighters, rocket launchers, command centers — including a Hezbollah Unit 127 command center — in southern Lebanon and Beirut. The IDF reported a cumulative total of over 320 Hezbollah targets struck in Lebanon since February 28. The IDF also issued evacuation warnings for Beirut's southern suburbs and several Bekaa Valley villages, signaling imminent strikes in Hezbollah's core strongholds." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/manniefabian/status/2029474568021201308" },
+            { "S": "https://x.com/idfonline/status/2029487622301642897" },
+            { "S": "https://x.com/AvichayAdraee/status/2029618776262529357?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "180" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "IDF Kills Hezbollah Fire/Artillery Commander Zaid Ali Jamaa, Southern Lebanon" },
+          "location":    { "S": "Southern Lebanon" },
+          "lat":         { "N": "33.1800" },
+          "lng":         { "N": "35.5700" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The IDF confirmed killing Zaid Ali Jamaa, a Hezbollah fire and artillery commander in southern Lebanon responsible for launching rockets, missiles, and drones at Israel. Jamaa had previously served as the Hezbollah Khiam sector commander and participated in fighting in Syria alongside the Assad regime." },
+          "casualties":  { "M": { "confirmed": { "N": "1" }, "estimated": { "N": "1" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IAFsite/status/2029632202871570847?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "181" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "IDF Navy Strike Kills Hamas Commander Wasim Attallah Ali, Tripoli, Lebanon (First Strike in Tripoli)" },
+          "location":    { "S": "Tripoli, North Governorate, Lebanon" },
+          "lat":         { "N": "34.4367" },
+          "lng":         { "N": "35.8497" },
+          "type":        { "S": "naval" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The IDF Navy struck and killed Wasim Attallah Ali, a Hamas commander responsible for training and exercises for Hamas's military wing in Lebanon, in Tripoli on March 5. This is the first IDF strike in Tripoli since the war started on February 28." },
+          "casualties":  { "M": { "confirmed": { "N": "1" }, "estimated": { "N": "1" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IDF/status/2029574965977120895" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "182" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Hezbollah 6 Attacks on IDF Positions — Jabal Balat, Markaba, Yaara Barracks, Naftali Base (March 5)" },
+          "location":    { "S": "Jabal Balat (Tyre District), Markaba (Marjaayoun District), Yaara and Naftali Base, northern Israel" },
+          "lat":         { "N": "33.1500" },
+          "lng":         { "N": "35.4000" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Lebanese Hezbollah" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Hezbollah claimed six attacks targeting IDF positions since the March 5 morning cutoff: a guided missile and two rocket barrages at IDF forces in Jabal Balat (Tyre District) and Markaba (Marjaayoun District) in southern Lebanon, and two separate attacks on the IDF Yaara barracks and Naftali Base in northern Israel. Hezbollah also deployed its Radwan Force special operations unit to southern Lebanon to block Israeli tank advances shortly after its first attack against Israel on March 2." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://t.me/mmirleb/10267" },
+            { "S": "https://t.me/mmirleb/10270" },
+            { "S": "https://t.me/mmirleb/10278" },
+            { "S": "https://www.reuters.com/business/aerospace-defense/hezbollah-elite-fighters-return-south-lebanon-fight-israeli-troops-lebanese-2026-03-05/" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "183" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-05" },
+          "title":       { "S": "Iran Drone Strikes on Iraqi Kurdish Militia HQ (March 5)" },
+          "location":    { "S": "Erbil Province, Iraqi Kurdistan" },
+          "lat":         { "N": "36.1901" },
+          "lng":         { "N": "44.0091" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Regime-affiliated media reported on March 5 that Iranian forces struck the headquarters of an Iraqi Kurdish militia in Erbil Province. Iranian forces have continued to strike Kurdish bases in Iraqi Kurdistan since the war began on February 28, amid reports that Kurdish groups were preparing cross-border operations into Iran." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://t.me/Nournews_ir/334643" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "184" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-04" },
+          "title":       { "S": "Islamic Resistance of Iraq — 29 Drone/Missile Attacks on Enemy Bases (March 4)" },
+          "location":    { "S": "Iraq and broader region (unspecified bases)" },
+          "lat":         { "N": "33.3152" },
+          "lng":         { "N": "44.3661" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Islamic Resistance of Iraq" },
+          "severity":    { "S": "low" },
+          "description": { "S": "The Islamic Resistance of Iraq claimed on March 4 that it conducted 29 unspecified operations with dozens of missiles and drones targeting 'enemy' bases in Iraq and the region. No confirmed impacts were independently verified." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://t.me/ElamAlmoqawama/1561" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "185" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-03" },
+          "title":       { "S": "Unknown Forces Airstrike and Gunfire Incident, Anbar Province Near Saudi Border — 1 Iraqi Soldier Killed" },
+          "location":    { "S": "Anbar Province, Iraq (near Saudi border)" },
+          "lat":         { "N": "30.5000" },
+          "lng":         { "N": "40.5000" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Unknown" },
+          "severity":    { "S": "low" },
+          "description": { "S": "Iraqi media reported that unspecified forces landed in Anbar Province near the Saudi border on March 3. The Iraqi Joint Operations Command confirmed on March 4 that unknown forces conducted an airstrike and fired on the Iraqi 41st Brigade unit that responded, killing one Iraqi soldier, injuring two others, and damaging two military vehicles. No actor claimed responsibility; the deputy JOC commander said the Iraqi government asked the US-led coalition for clarification." },
+          "casualties":  { "M": { "confirmed": { "N": "1" }, "estimated": { "N": "1" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/SecMedCell/status/2029129222942232849" }
+          ] },
+          "disputed":    { "BOOL": true }
+        }
+      }
+    }
+  ],
+  "updates": [
+    {
+      "lookup": {
+        "id": "104",
+        "date": "2026-03-03",
+        "location": "Parchin Military Complex, southeast of Tehran, Tehran Province, Iran",
+        "actor": "US-Israel Combined Force"
+      },
+      "changes": {
+        "description": { "S": "The combined force struck an underground facility at the Parchin Military Complex southeast of Tehran on March 3. Satellite imagery from March 4 confirmed a second strike on the complex, damaging several buildings. Parchin has been used to develop and manufacture advanced munitions including drones and missiles, and played a key role in Iran's pre-2003 nuclear weapons program including high-explosive testing for nuclear devices. The complex houses the Taleghan 2 facility, which Iran recently hardened with a 'sarcophagus' structure." },
+        "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-5-2026" },
+        "citations":   { "L": [
+          { "S": "https://x.com/Vahid/status/2029600023650963459" },
+          { "S": "https://t.me/BenTzionM/6959" }
+        ] }
+      }
+    }
+  ],
+  "ambiguous": []
+}

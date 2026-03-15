@@ -1,0 +1,484 @@
+{
+  "new": [
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "281" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-10" },
+          "title":       { "S": "CENTCOM Destroys 16 Iranian Minelayers Near Strait of Hormuz" },
+          "location":    { "S": "Strait of Hormuz / northern Persian Gulf, Iran" },
+          "lat":         { "N": "26.5700" },
+          "lng":         { "N": "56.2500" },
+          "type":        { "S": "naval" },
+          "target_type": { "S": "maritime" },
+          "actor":       { "S": "US Central Command" },
+          "severity":    { "S": "critical" },
+          "description": { "S": "CENTCOM reported on March 10 that US forces destroyed 16 Iranian minelayers near the Strait of Hormuz. CBS News reported Iran may be deploying naval mines using small craft capable of carrying up to three mines each. President Trump publicly demanded Iran remove any mines 'immediately' and threatened military consequences 'at a level never seen before.' The destruction of minelayers marks the first US kinetic action targeting Iran's mining effort — part of a broader Iranian maritime disruption campaign as direct drone/missile attacks wane. Iran last mined the Strait during the Iran-Iraq War. Only 3 tankers from Iran's ghost fleet crossed the Strait between March 2–10, down from 24 in the prior week." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/CENTCOM/status/2031489675760640370?s=20" },
+            { "S": "https://www.cbsnews.com/news/iran-mines-strait-of-hormuz/" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "282" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-09" },
+          "title":       { "S": "IDF 170+ Munitions: IRGC Quds Force Tehran + Missile Production/Storage Esfahan + Air Defense Esfahan + Military Infrastructure Shiraz" },
+          "location":    { "S": "Tehran City, Esfahan City, and Shiraz City, Iran" },
+          "lat":         { "N": "32.6600" },
+          "lng":         { "N": "51.6800" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The IDF confirmed IAF fighter jets dropped more than 170 munitions on March 9 targeting: the IRGC Quds Force in Tehran City; a missile production and storage site plus several air defense systems in Esfahan City; and unspecified military infrastructure in Shiraz City." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/idfonline/status/2031086087607660975?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "283" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-10" },
+          "title":       { "S": "Hidden Missile Launcher Struck in Shiraz Industrial Area" },
+          "location":    { "S": "Shiraz industrial area, Fars Province, Iran" },
+          "lat":         { "N": "29.5918" },
+          "lng":         { "N": "52.5837" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Anti-regime media reported on March 10 that an airstrike targeted a hidden missile launcher in Shiraz's industrial area. This is consistent with the campaign's pattern of striking concealed launchers in non-obvious dual-use civilian locations." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IranIntl/status/2031349528280932581?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "284" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-07" },
+          "title":       { "S": "Satellite BDA: Shahid Sattari Rapid Reaction Air Defense Site, Ghani Abad, SE Tehran — Radars + Hawk Batteries Destroyed" },
+          "location":    { "S": "Shahid Sattari Rapid Reaction Air Defense Site, Ghani Abad, southeast of Tehran City, Tehran Province, Iran" },
+          "lat":         { "N": "35.5800" },
+          "lng":         { "N": "51.6500" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "high" },
+          "description": { "S": "An Israeli OSINT analyst confirmed via March 10 satellite imagery that previous combined force airstrikes destroyed several radars and Hawk missile batteries at the Shahid Sattari Rapid Reaction Air Defense site in Ghani Abad, southeast of Tehran. Alma separately confirmed damage to at least six support structures and two radar emplacements (satellite imagery dated March 7). This site covers key Iranian military facilities including the Khojir missile production complex and Parchin weapons complex. Israel previously targeted this site in October 2024, destroying three S-300 systems." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://t.me/BenTzionM/7078" },
+            { "S": "https://x.com/Israel_Alma_org/status/2030313314727731354?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "285" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-09" },
+          "title":       { "S": "Strike on Shahid Hemmat Industrial Group, West Tehran — Liquid-Fueled Ballistic Missile Production" },
+          "location":    { "S": "Shahid Hemmat Industrial Group facility, west of Tehran City, Tehran Province, Iran" },
+          "lat":         { "N": "35.7000" },
+          "lng":         { "N": "51.2000" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "critical" },
+          "description": { "S": "An OSINT analyst reported that combined force airstrikes on March 9 targeted the Shahid Hemmat Industrial Group facility west of Tehran City. The Shahid Hemmat Industrial Group is a subsidiary of MODAFL's Aerospace Industries Organization responsible for Iran's liquid-fueled ballistic missile production, including the Shahab series. It is the primary manufacturer of Iran's liquid-fueled ballistic missiles." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/ThetiMapping/status/2031136083245936888?s=20" },
+            { "S": "https://www.iranwatch.org/iranian-entities/shahid-hemmat-industrial-group-shig" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "286" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-06" },
+          "title":       { "S": "Strike on Chemical Industry Complex, Shokuhiyeh Industrial Town, Qom Province (Geolocated March 10)" },
+          "location":    { "S": "Shokuhiyeh Industrial Town, Qom Province, Iran" },
+          "lat":         { "N": "34.5553" },
+          "lng":         { "N": "50.8391" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "An OSINT analyst geolocated IAF airstrikes on March 6 to a chemical industry complex in Shokuhiyeh Industrial Town, Qom Province. The specific use of the complex was not confirmed, though its presence in an industrial zone linked to defense industrial clusters is consistent with missile or drone propellant production targeting." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/hey_itsmyturn/status/2031245067269103944?s=20" },
+            { "S": "https://x.com/manniefabian/status/2029882075642229119?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "287" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-10" },
+          "title":       { "S": "Confirmed Killed: AFGS Basij Chief Brig. Gen. Asadollah Badfar" },
+          "location":    { "S": "Iran (location unspecified)" },
+          "lat":         { "N": "35.6892" },
+          "lng":         { "N": "51.3890" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "critical" },
+          "description": { "S": "Anti-regime media confirmed on March 10 that combined force airstrikes killed Armed Forces General Staff (AFGS) Basij Chief Brigadier General Asadollah Badfar. Iranian media had not confirmed Badfar's death as of the CTP-ISW data cutoff. As AFGS Basij Chief, Badfar was the senior coordination officer between the AFGS and the Basij paramilitary organization — responsible for integrating the Basij into Iran's overall military command structure." },
+          "casualties":  { "M": { "confirmed": { "N": "1" }, "estimated": { "N": "1" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IranIntl/status/2031323589249507682?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "288" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-10" },
+          "title":       { "S": "Funeral Batch — 7 Senior Iranian Commanders Confirmed Killed: Hassanzadeh, Tajik, Darrebaghi, Motlagh, Rezaian, Helali, Askari" },
+          "location":    { "S": "Iran (various locations)" },
+          "lat":         { "N": "35.6892" },
+          "lng":         { "N": "51.3890" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "critical" },
+          "description": { "S": "Iranian media announced funerals on March 10 for seven senior commanders killed in combined force airstrikes since February 28: (1) Brig. Gen. Hassan Hassanzadeh — IRGC Mohammad Rasoul Ollah Unit Commander for Greater Tehran (IRGC Ground Forces internal security, Sarallah HQ); (2) Brig. Gen. Hassan Ali Tajik — AFGS Logistics head; (3) Brig. Gen. Mohsen Darrebaghi — AFGS Logistics and Industrial Research deputy; (4) Brig. Gen. Hosseini Motlagh — AFGS Plans and Operations head; (5) Brig. Gen. Gholamreza Rezaian — LEC Intelligence Organization head; (6) Brig. Gen. Khalil Helali — LEC Public Places head (responsible for inspections of public establishments); (7) Brig. Gen. Davoud Askari — unspecified position. Combined with the Badfar confirmation (ID 287), this brings the total number of newly confirmed senior Iranian generals killed to 8 in this batch announcement. The IDF has reported 1,900 Iranian commanders and soldiers killed since February 28." },
+          "casualties":  { "M": { "confirmed": { "N": "7" }, "estimated": { "N": "7" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://t.me/mehrnews/358460" },
+            { "S": "https://www.aa.com.tr/en/middle-east/4-top-iranian-military-officials-killed-in-us-israeli-strikes/3844750" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "289" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-10" },
+          "title":       { "S": "IDF Strikes Tabriz, East Azerbaijan: LEC Special Forces + LEC Provincial HQ + Police CID + Intelligence Ministry + Basij + 6 Police Buildings" },
+          "location":    { "S": "Tabriz, East Azerbaijan Province, Iran" },
+          "lat":         { "N": "38.0800" },
+          "lng":         { "N": "46.2919" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The IDF reported on March 10 that the combined force struck an LEC Special Forces Unit, the LEC Provincial Command headquarters, a police criminal investigation building, the Intelligence Ministry building, and a Basij compound in Tabriz, East Azerbaijan Province. Regime-affiliated media reported an additional six police buildings in East Azerbaijan were also struck. LEC Special Forces Units are Iran's elite anti-riot police. This is the first major strike package against internal security infrastructure in Iran's northwestern provinces." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/idfonline/status/2031442397897306364" },
+            { "S": "https://t.me/Nournews_ir/336638" },
+            { "S": "https://x.com/ariel_oseran/status/2031403139396505971" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "290" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-10" },
+          "title":       { "S": "IDF Dismantles LEC and Basij in Ilam Province — LEC Provincial HQ + Intel Ministry + Basij Compound + LEC Special Forces" },
+          "location":    { "S": "Ilam Province, Iran" },
+          "lat":         { "N": "33.6374" },
+          "lng":         { "N": "46.4227" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "command" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The IDF announced on March 10 that it struck the LEC Provincial Command headquarters, the Intelligence Ministry building, a Basij compound, and an LEC Special Forces Unit in Ilam Province. The IDF stated it had 'dismantled most of the central assets' of the LEC and Basij in Ilam Province. This follows strikes on LEC sites in Abdanan (Ilam Province) on March 8 and an intelligence office in Darreh Shahr (Ilam Province) on March 9." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IDF/status/2031417660974497819" },
+            { "S": "https://x.com/manniefabian/status/2031414691478540785" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "291" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-10" },
+          "title":       { "S": "Strikes on Basij Unit HQ + IRGC Force HQ, Kermanshah Province" },
+          "location":    { "S": "Kermanshah Province, Iran" },
+          "lat":         { "N": "34.3277" },
+          "lng":         { "N": "47.0780" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Anti-regime media and OSINT accounts reported the combined force struck a Basij unit headquarters and an IRGC force headquarters in Kermanshah Province on March 10, continuing the western Iran internal security infrastructure campaign." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/IranIntl/status/2031382120032088351" },
+            { "S": "https://x.com/zarGEOINT/status/2031438906227355682?s=20" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "292" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-10" },
+          "title":       { "S": "Iran 7+ Missile Barrages at Israel — 1 Lands in Open Area, Beit Shemesh, No Casualties (March 9–10)" },
+          "location":    { "S": "Beit Shemesh, Jerusalem District, central Israel" },
+          "lat":         { "N": "31.7523" },
+          "lng":         { "N": "34.9874" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Iran launched at least seven missile barrages at Israel between 3:00 PM ET on March 9 and 3:00 PM ET on March 10. One Iranian ballistic missile landed in an open area of Beit Shemesh and caused no casualties. Defense Secretary Hegseth stated on March 10 that Iran fired its lowest number of missiles since the conflict began in the previous 24 hours. The IDF estimates Iran has fired approximately 300 missiles at Israel since February 28 — roughly half the total fired during the June 2025 12-Day War — with approximately half carrying cluster munition warheads." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/idfonline/status/2031091884207030417?s=20" },
+            { "S": "https://x.com/manniefabian/status/2031393558733688930" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "293" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-10" },
+          "title":       { "S": "Iran Attacks UAE — 9 Ballistic Missiles + 35 Drones; 9 Drone Impacts Kill 2 (March 10)" },
+          "location":    { "S": "United Arab Emirates" },
+          "lat":         { "N": "24.4539" },
+          "lng":         { "N": "54.3773" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The Emirati Defense Ministry reported Iran launched nine ballistic missiles and 35 drones at the UAE on March 10. Nine drone impacts were recorded, killing two people. Iranian drone launch rates targeting the UAE have declined from roughly 100 per day early in the campaign to fewer than 50 per day since March 9, reflecting combined force strikes on Iranian launch sites. The ballistic missile rate has remained relatively consistent at an average of around 13 per day since March 1." },
+          "casualties":  { "M": { "confirmed": { "N": "2" }, "estimated": { "N": "2" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/modgovae/status/2031360680260153718/photo/1" },
+            { "S": "https://apnews.com/live/iran-war-israel-trump--03-10-2026#0000019c-d7ff-d847-ab9c-dfff57550000" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "294" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-10" },
+          "title":       { "S": "Iran Launches at Bahrain, Qatar, Saudi Arabia, Kuwait — All Intercepted (March 10)" },
+          "location":    { "S": "Gulf states (Bahrain, Qatar, Saudi Arabia, Kuwait)" },
+          "lat":         { "N": "25.9304" },
+          "lng":         { "N": "50.6378" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Islamic Revolutionary Guard Corps" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "Iran launched drones and ballistic missiles targeting Bahrain, Qatar, Saudi Arabia, and Kuwait between 8:00 AM and 3:00 PM ET on March 10. The respective defense ministries reported that air defense systems intercepted all projectiles with no impacts." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/modgovksa/status/2031472181201260549?s=20" },
+            { "S": "https://x.com/KuwaitArmyGHQ/status/2031475975276372360" },
+            { "S": "https://x.com/MOD_Qatar/status/2031404661614199239" },
+            { "S": "https://x.com/BDF_Bahrain/status/2031470084594581772" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "295" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-10" },
+          "title":       { "S": "Combined Force Strikes PMF near al Qaim — 18th PMF Brigade (Saraya Talia al Khurasani), 5 Wounded" },
+          "location":    { "S": "Al Qaim, Anbar Province, Iraq" },
+          "lat":         { "N": "34.4500" },
+          "lng":         { "N": "40.9700" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "The combined force conducted multiple rounds of airstrikes targeting PMF headquarters near al Qaim, Anbar Province on March 10. Strikes on the 18th PMF Brigade (affiliated with Saraya Talia al Khurasani) wounded 5 brigade members. The combined force had also struck the 18th PMF Brigade headquarters in the same area on March 9. Separate strikes targeted unidentified locations on the Syria-Iraq border in Anbar Province." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "5" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://shafaq.com/ar/%D8%A3%D9%85%D9%80%D9%86/%D9%82%D8%B5%D9%81-%D8%AC%D9%88%D9%8A-%D8%AC%D8%AF%D9%8A%D8%AF-%D9%8A%D8%B3%D8%AA%D9%87%D8%AF%D9%81-%D8%A7%D9%84%D8%AD%D8%B4%D8%AF-%D8%A7%D9%84%D8%B4%D8%B9%D8%A8%D9%8A-%D8%BA%D8%B1%D8%A8%D9%8A-%D8%A7%D9%84%D8%B9%D8%B1%D8%A7%D9%82" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "296" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-10" },
+          "title":       { "S": "Combined Force Strikes 40th PMF Brigade HQ Near Kirkuk — 4 Kataib al Imam Ali Members Killed" },
+          "location":    { "S": "Near Kirkuk City, Kirkuk Province, Iraq" },
+          "lat":         { "N": "35.4681" },
+          "lng":         { "N": "44.3922" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US-Israel Combined Force" },
+          "severity":    { "S": "high" },
+          "description": { "S": "Combined force strikes targeting the 40th PMF Brigade headquarters near Kirkuk City, Kirkuk Province on March 10 killed at least four Kataib al Imam Ali members. Kataib al Imam Ali controls the 40th PMF Brigade. This is the first recorded combined force strike in Kirkuk Province during the current conflict." },
+          "casualties":  { "M": { "confirmed": { "N": "4" }, "estimated": { "N": "4" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/LizHurra/status/2031304263473725921" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "297" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-10" },
+          "title":       { "S": "Militia Drone Attack on UAE Consulate, Erbil (March 10)" },
+          "location":    { "S": "Erbil City, Erbil Province, Iraqi Kurdistan" },
+          "lat":         { "N": "36.1901" },
+          "lng":         { "N": "44.0091" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Iranian-backed Iraqi Militias (unidentified)" },
+          "severity":    { "S": "high" },
+          "description": { "S": "An OSINT account reported on March 10 that unidentified Iraqi militias conducted a drone attack targeting the UAE consulate in Erbil. Saudi Arabia condemned the attack. This marks the first recorded militia attack on a Gulf state diplomatic mission in Iraqi Kurdistan during the current conflict." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://x.com/no_itsmyturn/status/2031366087065972840" },
+            { "S": "https://x.com/KSAmofaEN/status/2031330005637116302" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "298" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-10" },
+          "title":       { "S": "Hezbollah 29 Attacks — Southern Lebanon IDF Positions + Defense Industrial Site SE of Acre (March 9–10)" },
+          "location":    { "S": "Southern Lebanon (Tal al Hamamis, Wadi al Asafir, Khallet al Mahafir) and northern Israel (Acre area)" },
+          "lat":         { "N": "33.1500" },
+          "lng":         { "N": "35.3500" },
+          "type":        { "S": "missile" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Lebanese Hezbollah" },
+          "severity":    { "S": "high" },
+          "description": { "S": "Hezbollah claimed 29 attacks between 3:00 PM ET on March 9 and 3:00 PM ET on March 10 — the highest single-day count since the conflict began on February 28. Attacks included rockets targeting IDF forces in Tal al Hamamis, Wadi al Asafir, and Khallet al Mahafir (Marjaayoun District), two Israeli military positions on the Israel-Lebanon border, one Israeli military base in northern Israel, and a defense industrial site southeast of Acre. Israeli security officials warned Hezbollah is expanding attacks to 'wear down' the IDF and draw attention away from Iran." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://t.me/mmirleb/10686" },
+            { "S": "https://t.me/mmirleb/10705" },
+            { "S": "https://t.me/mmirleb/10708" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "299" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-10" },
+          "title":       { "S": "Hezbollah Shells Syrian Town of Serghaya on Lebanon-Syria Border" },
+          "location":    { "S": "Serghaya, Rif Dimashq Province, Syria (Lebanon-Syria border)" },
+          "lat":         { "N": "33.7667" },
+          "lng":         { "N": "36.1667" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Lebanese Hezbollah" },
+          "severity":    { "S": "high" },
+          "description": { "S": "The Syrian Army reported on March 10 that Hezbollah fighters shelled the Syrian town of Serghaya, Rif Dimashq Province, on the Lebanon-Syria border, and that Hezbollah reinforcements have arrived in the border area. The Syrian Army stated it is monitoring the situation and is in contact with the Lebanese Armed Forces. Lebanese President Aoun and Syrian President al Shara spoke by phone to coordinate border control. Serghaya has been a repeated site of Syrian interdiction of Hezbollah weapons smuggling in recent months." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://sana.sy/en/syria/2301565/" }
+          ] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id":          { "S": "300" },
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-09" },
+          "title":       { "S": "IDF 7th Armored Brigade (36th Division) Raids Southern Lebanon — Hezbollah Fighters Killed, Radwan Command Post Seized" },
+          "location":    { "S": "Southern Lebanon" },
+          "lat":         { "N": "33.2000" },
+          "lng":         { "N": "35.5500" },
+          "type":        { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Israel Defense Forces" },
+          "severity":    { "S": "high" },
+          "description": { "S": "IDF 36th Division soldiers (7th Armored Brigade) conducted raids in southern Lebanon on March 9, killing Hezbollah fighters who had entered a building near IDF forces, raiding a weapons depot, and seizing a Hezbollah Radwan Force command post. The 769th Regional Brigade (91st Division) also directed airstrikes against a Hezbollah cell at a checkpoint. Israeli Defense Minister Katz reported 650,000 Lebanese civilians have evacuated from Beirut's southern suburbs and 500,000 from southern Lebanon following IDF evacuation warnings." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "5" } } },
+          "source_url":  { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-10-2026" },
+          "citations":   { "L": [
+            { "S": "https://www.idf.il/333523" },
+            { "S": "https://x.com/idfonline/status/2030933349712228629?s=20" }
+          ] }
+        }
+      }
+    }
+  ],
+  "updates": [],
+  "ambiguous": []
+}
