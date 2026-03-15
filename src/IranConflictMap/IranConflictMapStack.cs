@@ -226,7 +226,8 @@ public class IranConflictMapStack : Stack
         // ── EventBridge Schedule — 9 PM Central (03:00 UTC next day) ─────────
         var syncRule = new Rule(this, "SyncSchedule", new RuleProps
         {
-            Schedule = Schedule.Cron(new CronOptions { Hour = "3", Minute = "0" })
+            Schedule = Schedule.Cron(new CronOptions { Hour = "3", Minute = "0" }),
+            Enabled  = false
         });
         syncRule.AddTarget(new Amazon.CDK.AWS.Events.Targets.LambdaFunction(syncLambda));
 
