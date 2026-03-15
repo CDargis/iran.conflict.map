@@ -818,6 +818,8 @@ function popupHTML(s){
   const tc=TARGET_CFG[s.target_type]?.color||'#c8392b';
   const tlbl=TARGET_CFG[s.target_type]?.label||s.target_type;
   const albl=TYPE_CFG[s.type]?.label||s.type;
+  const ac=actorColor(s.actor)||'var(--dim)';
+  const sc=SEV_COLOR[s.severity]||'var(--dim)';
   const allCitations=[...new Set([...(s.citations||[]),(s.source_url||'')])].filter(Boolean);
   const sourcesHTML=allCitations.length
     ?`<div class="popup-sources"><span class="popup-sources-label">SOURCES</span>${allCitations.map((u,i)=>
@@ -830,11 +832,14 @@ function popupHTML(s){
   if(s.update_log?.length) s.update_log.forEach(u=>provLines.push(`Updated ${fmtProv(u.at)}${u.source_url?` · <a href="${u.source_url}" target="_blank" rel="noopener">${domain(u.source_url)}</a>`:''}${u.fields?.length?` (${u.fields.join(', ')})`:''}`)
   );
   const provHTML=provLines.length?`<div class="popup-provenance">${provLines.join('<br>')}</div>`:'';
-  return `<div class="popup-type" style="color:${tc}">${tlbl} — ${s.actor}</div>
+  return `<div style="border-left:3px solid ${ac};padding-left:7px;margin-bottom:4px">
+    <div class="popup-type" style="color:${tc}">${tlbl}</div>
+    <div style="font-size:10px;font-weight:600;color:${ac}">${s.actor}</div>
+    </div>
     <div class="popup-title">${s.title}</div>
     <div class="popup-date">${s.date} · ${s.location}</div>
     <div class="popup-desc">${s.description}</div>
-    <div style="margin-top:6px;font-size:9px;color:var(--dim)">${albl} &nbsp;·&nbsp; severity: <span style="color:${{low:'var(--dim)',medium:'var(--amber)',high:'var(--accent)',critical:'#ff4444'}[s.severity]||'var(--dim)'}">${s.severity||'—'}</span></div>
+    <div style="margin-top:6px;font-size:9px;color:var(--dim)">${albl} &nbsp;·&nbsp; severity: <span style="color:${sc}">${s.severity||'—'}</span></div>
     ${s.disputed?`<div style="margin-top:5px;font-size:9px;color:var(--amber)">⚠ Disputed — attribution or details contested</div>`:''}
     ${s.casualties?.confirmed>0||s.casualties?.estimated>0
       ?`<div class="popup-cas">Casualties — confirmed: <span>${s.casualties.confirmed}</span> · est. <span>${s.casualties.estimated}</span></div>`:''}
@@ -1003,14 +1008,22 @@ function applyFilters(data){
 }
 
 /* ── RENDER ── */
+const SEV_COLOR={low:'var(--dim)',medium:'var(--amber)',high:'var(--accent)',critical:'#ff4444'};
 function feedHTML(data){
-  return [...data].sort((a,b)=>b.date.localeCompare(a.date)).map(s=>`
-    <div class="strike-item target-${s.target_type}" data-id="${s.id}" onclick="focusStrike(${s.id})">
-      <div class="strike-date">${s.date}</div>
+  return [...data].sort((a,b)=>b.date.localeCompare(a.date)).map(s=>{
+    const ac=actorColor(s.actor)||'var(--dim)';
+    const sc=SEV_COLOR[s.severity]||'var(--dim)';
+    return `
+    <div class="strike-item target-${s.target_type}" data-id="${s.id}" onclick="focusStrike(${s.id})" style="border-left:3px solid ${ac}">
+      <div class="strike-date" style="display:flex;align-items:center;gap:6px">
+        <span>${s.date}</span>
+        <span style="font-size:8px;font-weight:700;color:${sc};text-transform:uppercase;letter-spacing:.05em">${s.severity||''}</span>
+      </div>
       <div class="strike-title">${s.title}</div>
       <div class="strike-loc">${s.location}</div>
       <span class="strike-tag">${TARGET_CFG[s.target_type]?.label||s.target_type}</span>${s.disputed?'<span class="disputed-badge">⚠ Disputed</span>':''}
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 function statsHTML(data){
   const ct={strike:0,missile:0,drone:0,naval:0};
