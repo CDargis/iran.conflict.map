@@ -2,6 +2,20 @@
 
 Admin scripting console. Run from the repo root with AWS credentials in the environment.
 
+## AWS Credentials
+
+The tool uses the default AWS credential chain. If you get an EC2 metadata error, pass your profile explicitly:
+
+```
+AWS_PROFILE=your-profile dotnet run --project src/IranConflictMap.Tools -- <command>
+```
+
+Or with explicit keys:
+
+```
+AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_DEFAULT_REGION=us-east-1 dotnet run --project src/IranConflictMap.Tools -- <command>
+```
+
 ```
 dotnet run --project src/IranConflictMap.Tools -- <command>
 ```
