@@ -201,6 +201,7 @@ public class IranConflictMapStack : Stack
             }),
             Environment = new Dictionary<string, string>
             {
+                ["STRIKES_TABLE"]        = strikesTable.TableName,
                 ["SYNCS_TABLE"]          = syncsTable.TableName,
                 ["SSM_PREFIX"]           = "/iran-conflict-map",
                 ["PROCESSOR_QUEUE_URL"]  = processorQueue.QueueUrl
@@ -209,6 +210,7 @@ public class IranConflictMapStack : Stack
             MemorySize = 512
         });
 
+        strikesTable.GrantReadData(syncLambda);
         syncsTable.GrantReadWriteData(syncLambda);
         processorQueue.GrantSendMessages(syncLambda);
 
