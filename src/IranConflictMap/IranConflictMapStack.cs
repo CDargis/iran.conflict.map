@@ -334,9 +334,9 @@ public class IranConflictMapStack : Stack
                     },
                     ["object"] = new Dictionary<string, object>
                     {
-                        ["key"] = new Dictionary<string, object>
+                        ["key"] = new object[]
                         {
-                            ["prefix"] = new[] { "inbox/" }
+                            new Dictionary<string, string> { ["prefix"] = "inbox/" }
                         }
                     }
                 }
