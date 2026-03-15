@@ -192,7 +192,17 @@ public class IranConflictMapStack : Stack
         {
             BucketName        = "iran-conflict-map-email",
             BlockPublicAccess = BlockPublicAccess.BLOCK_ALL,
-            RemovalPolicy     = RemovalPolicy.RETAIN
+            RemovalPolicy     = RemovalPolicy.RETAIN,
+            LifecycleRules    = new[]
+            {
+                new LifecycleRule
+                {
+                    Id         = "ExpireProcessedEmails",
+                    Prefix     = "processed/",
+                    Expiration = Duration.Days(60),
+                    Enabled    = true
+                }
+            }
         });
 
         // SES needs permission to deliver to this bucket
