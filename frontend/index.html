@@ -164,6 +164,9 @@
     .popup-sources-label { font-size: 8px; letter-spacing: .14em; color: var(--dim); text-transform: uppercase; flex-shrink: 0; margin-right: 2px; }
     .popup-cite { font-size: 12px; color: var(--blue); text-decoration: none; white-space: nowrap; }
     .popup-cite:hover { text-decoration: underline; color: #fff; }
+    .popup-provenance { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 9px; color: var(--dim); line-height: 1.8; }
+    .popup-provenance a { color: var(--dim); text-decoration: underline; text-underline-offset: 2px; }
+    .popup-provenance a:hover { color: var(--text); }
 
     /* overlays */
     #coords {
@@ -821,6 +824,12 @@ function popupHTML(s){
         `<a href="${u}" target="_blank" rel="noopener" class="popup-cite">&#x24${(i+1).toString(16).padStart(2,'0')} ${domain(u)}</a>`
       ).join('')}</div>`
     :'';
+  const fmtProv=iso=>{const d=new Date(iso);return`${MONTH_ABBR[d.getMonth()]} ${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')`;};
+  let provLines=[];
+  if(s.created_at) provLines.push(`Added ${fmtProv(s.created_at)}${s.created_source_url?` · <a href="${s.created_source_url}" target="_blank" rel="noopener">${domain(s.created_source_url)}</a>`:''}`);
+  if(s.update_log?.length) s.update_log.forEach(u=>provLines.push(`Updated ${fmtProv(u.at)}${u.source_url?` · <a href="${u.source_url}" target="_blank" rel="noopener">${domain(u.source_url)}</a>`:''}${u.fields?.length?` (${u.fields.join(', ')})`:''}`)
+  );
+  const provHTML=provLines.length?`<div class="popup-provenance">${provLines.join('<br>')}</div>`:'';
   return `<div class="popup-type" style="color:${tc}">${tlbl} — ${s.actor}</div>
     <div class="popup-title">${s.title}</div>
     <div class="popup-date">${s.date} · ${s.location}</div>
@@ -829,7 +838,8 @@ function popupHTML(s){
     ${s.disputed?`<div style="margin-top:5px;font-size:9px;color:var(--amber)">⚠ Disputed — attribution or details contested</div>`:''}
     ${s.casualties?.confirmed>0||s.casualties?.estimated>0
       ?`<div class="popup-cas">Casualties — confirmed: <span>${s.casualties.confirmed}</span> · est. <span>${s.casualties.estimated}</span></div>`:''}
-    ${sourcesHTML}`;
+    ${sourcesHTML}
+    ${provHTML}`;
 }
 function focusStrike(id){
   if(activeId&&markers[activeId]){
