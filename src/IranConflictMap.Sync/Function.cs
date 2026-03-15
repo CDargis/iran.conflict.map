@@ -367,7 +367,8 @@ public class Function
     {
         try
         {
-            using var req = new HttpRequestMessage(HttpMethod.Head, url);
+            // Use GET — HubSpot tracking links don't redirect on HEAD requests
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
             var res = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
             var finalUrl = res.RequestMessage?.RequestUri?.ToString();
             ctx.Logger.LogLine($"[sync] redirect resolved → {finalUrl}");
