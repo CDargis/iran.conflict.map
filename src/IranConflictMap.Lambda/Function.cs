@@ -385,8 +385,9 @@ public class Function
 
         await _sqs.SendMessageAsync(new SendMessageRequest
         {
-            QueueUrl = DeadLetterQueueUrl,
-            MessageBody = body,
+            QueueUrl       = DeadLetterQueueUrl,
+            MessageBody    = body,
+            MessageGroupId = "dlq",
             MessageAttributes = new Dictionary<string, MessageAttributeValue>
             {
                 ["reason"] = new() { DataType = "String", StringValue = reason }
