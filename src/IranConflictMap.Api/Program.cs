@@ -18,28 +18,51 @@ List<object>? syncCache = null;
 var syncCacheExpiry = DateTime.MinValue;
 
 // ── GET /api/strikes ───────────────────────────────────────────────────────────
-app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo) =>
+app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo, string? date) =>
 {
-    if (strikeCache is not null && DateTime.UtcNow < strikeCacheExpiry)
+    // Date-filtered requests bypass cache
+    if (date == null && strikeCache is not null && DateTime.UtcNow < strikeCacheExpiry)
         return Results.Ok(strikeCache);
 
     var tableName = Environment.GetEnvironmentVariable("STRIKES_TABLE") ?? "strikes";
     var indexName = Environment.GetEnvironmentVariable("STRIKES_GSI")   ?? "entity-date-index";
 
-    var response = await dynamo.QueryAsync(new QueryRequest
-    {
-        TableName                 = tableName,
-        IndexName                 = indexName,
-        KeyConditionExpression    = "entity = :e AND #d >= :from",
-        ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date" },
-        ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-        {
-            [":e"]    = new AttributeValue { S = "strike" },
-            [":from"] = new AttributeValue { S = "2026-02-27" }
-        }
-    });
+    QueryRequest query;
 
-    strikeCache = response.Items.Select(item => (object)new
+    if (date != null)
+    {
+        query = new QueryRequest
+        {
+            TableName                 = tableName,
+            IndexName                 = indexName,
+            KeyConditionExpression    = "entity = :e AND #d = :date",
+            ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date" },
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":e"]    = new AttributeValue { S = "strike" },
+                [":date"] = new AttributeValue { S = date }
+            }
+        };
+    }
+    else
+    {
+        query = new QueryRequest
+        {
+            TableName                 = tableName,
+            IndexName                 = indexName,
+            KeyConditionExpression    = "entity = :e AND #d >= :from",
+            ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date" },
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":e"]    = new AttributeValue { S = "strike" },
+                [":from"] = new AttributeValue { S = "2026-02-27" }
+            }
+        };
+    }
+
+    var response = await dynamo.QueryAsync(query);
+
+    var items = response.Items.Select(item => (object)new
     {
         id          = item["id"].S,
         date        = item["date"].S,
@@ -60,8 +83,13 @@ app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo) =>
         }
     }).ToList();
 
-    strikeCacheExpiry = DateTime.UtcNow.AddMinutes(5);
-    return Results.Ok(strikeCache);
+    if (date == null)
+    {
+        strikeCache = items;
+        strikeCacheExpiry = DateTime.UtcNow.AddMinutes(5);
+    }
+
+    return Results.Ok(items);
 });
 
 // ── GET /api/syncs ─────────────────────────────────────────────────────────────
@@ -87,12 +115,14 @@ app.MapGet("/api/syncs", async (IAmazonDynamoDB dynamo) =>
 
     syncCache = response.Items.Select(item => (object)new
     {
-        id              = item["id"].S,
-        timestamp       = item["timestamp"].S,
-        last_synced     = item.ContainsKey("last_synced") ? item["last_synced"].S : "",
-        new_event_count = int.Parse(item["new_event_count"].N),
-        has_edits       = item.ContainsKey("has_edits") && item["has_edits"].BOOL,
-        status          = item["status"].S
+        id                = item["id"].S,
+        timestamp         = item["timestamp"].S,
+        status            = item["status"].S,
+        new_event_count   = item.ContainsKey("new_event_count")  ? int.Parse(item["new_event_count"].N)  : 0,
+        update_count      = item.ContainsKey("update_count")     ? int.Parse(item["update_count"].N)     : 0,
+        dead_letter_count = item.ContainsKey("dead_letter_count")? int.Parse(item["dead_letter_count"].N): 0,
+        report_url        = item.ContainsKey("report_url")       ? item["report_url"].S                  : "",
+        error_message     = item.ContainsKey("error_message")    ? item["error_message"].S               : ""
     }).ToList();
 
     syncCacheExpiry = DateTime.UtcNow.AddMinutes(5);

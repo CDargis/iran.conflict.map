@@ -86,7 +86,10 @@
       border-bottom: 1px solid var(--border);
       display: flex; align-items: center;
       padding: 0 12px; gap: 6px; z-index: 800;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
     }
+    #filterbar::-webkit-scrollbar { display: none; }
+    #filterbar { scrollbar-width: none; }
     .actor-filter-label {
       font-size: 8px; letter-spacing: .14em; color: var(--dim);
       text-transform: uppercase; margin-right: 4px; white-space: nowrap;
@@ -539,7 +542,7 @@
     }
     .time-slider-wrap { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .time-date-row {
-      display: flex; justify-content: space-between;
+      display: flex; justify-content: center;
       font-size: 9px; color: var(--accent); letter-spacing: .08em; padding: 0 1px;
     }
     .time-track-wrap { position: relative; height: 18px; display: flex; align-items: center; }
@@ -664,17 +667,14 @@
 </div>
 
 <div id="timebar">
-  <span class="timebar-label">DATE<br>RANGE</span>
+  <span class="timebar-label">DATE</span>
   <div class="time-slider-wrap">
     <div class="time-date-row">
-      <span id="lbl-from">—</span>
-      <span id="lbl-to">—</span>
+      <span id="lbl-date">—</span>
     </div>
     <div class="time-track-wrap">
       <div class="time-track-bg"></div>
-      <div class="time-track-fill" id="time-fill"></div>
-      <input type="range" id="range-start" min="0" max="100" value="0">
-      <input type="range" id="range-end" min="0" max="100" value="100">
+      <input type="range" id="range-day" min="0" max="100" value="100">
     </div>
   </div>
   <span class="timebar-hint" id="timebar-hint">◀ DRAG ▶</span>
@@ -853,51 +853,47 @@ function focusStrike(id){
 /* ── TIME SLIDER ── */
 const MONTH_ABB=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 function fmtDate(d){return `${MONTH_ABB[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2,'0')}`;}
-function getDateRange(){
-  if(!minDate) return [null,null];
-  const rs=document.getElementById('range-start');
-  const re=document.getElementById('range-end');
-  const from=new Date(minDate.getTime()+rs.value*86400000);
-  const to=new Date(minDate.getTime()+re.value*86400000);
-  to.setUTCHours(23,59,59,999);
-  return [from,to];
+let sortedDates=[];
+let dayDebounceTimer=null;
+
+function getSelectedDate(){
+  const rd=document.getElementById('range-day');
+  return sortedDates[+rd.value]||null;
 }
-function updateTimeLabels(){
-  const [from,to]=getDateRange();
-  if(from) document.getElementById('lbl-from').textContent=fmtDate(from);
-  if(to)   document.getElementById('lbl-to').textContent=fmtDate(to);
-}
-function updateTimeFill(){
-  const rs=document.getElementById('range-start');
-  const re=document.getElementById('range-end');
-  const fill=document.getElementById('time-fill');
-  const total=+rs.max-+rs.min||1;
-  const l=(+rs.value-+rs.min)/total*100;
-  const r=(+re.value-+rs.min)/total*100;
-  fill.style.left=l+'%';
-  fill.style.width=(r-l)+'%';
-}
+
 function initTimeSlider(data){
-  const sorted=[...data].sort((a,b)=>a.date.localeCompare(b.date));
-  minDate=new Date(sorted[0].date+'T00:00:00Z');
-  maxDate=new Date(sorted[sorted.length-1].date+'T00:00:00Z');
-  const totalDays=Math.round((maxDate-minDate)/86400000);
-  const rs=document.getElementById('range-start');
-  const re=document.getElementById('range-end');
-  rs.min=0; rs.max=totalDays; rs.value=0;
-  re.min=0; re.max=totalDays; re.value=totalDays;
-  updateTimeLabels();
-  updateTimeFill();
-  [rs,re].forEach(input=>{
-    input.addEventListener('input',function(){
-      if(input===rs && +rs.value>+re.value) rs.value=re.value;
-      if(input===re && +re.value<+rs.value) re.value=rs.value;
-      updateTimeLabels();
-      updateTimeFill();
-      applyFilters();
-      document.getElementById('timebar-hint').classList.add('used');
-    });
+  sortedDates=[...new Set(data.map(s=>s.date))].sort();
+  const rd=document.getElementById('range-day');
+  rd.min=0; rd.max=sortedDates.length-1; rd.value=sortedDates.length-1;
+  document.getElementById('lbl-date').textContent=fmtDate(new Date(sortedDates[rd.value]+'T00:00:00Z'));
+  rd.addEventListener('input',function(){
+    const dateStr=sortedDates[+rd.value];
+    document.getElementById('lbl-date').textContent=fmtDate(new Date(dateStr+'T00:00:00Z'));
+    document.getElementById('timebar-hint').classList.add('used');
+    clearTimeout(dayDebounceTimer);
+    dayDebounceTimer=setTimeout(()=>fetchDayStrikes(dateStr),300);
   });
+}
+
+function fetchDayStrikes(dateStr){
+  fetch(`/api/strikes?date=${dateStr}`)
+    .then(r=>r.ok?r.json():[])
+    .then(data=>renderDay(data))
+    .catch(()=>renderDay([]));
+}
+
+function renderDay(data){
+  // Clear existing markers
+  Object.values(markers).forEach(({m})=>m.remove());
+  markers={};
+  // Add new markers
+  data.forEach(s=>{
+    const m=L.marker([s.lat,s.lng],{icon:makeIcon(s.target_type,s.severity,false,s.disputed)})
+      .bindPopup(popupHTML(s),{maxWidth:300});
+    m.on('click',()=>focusStrike(s.id));
+    markers[s.id]={m,s};
+  });
+  applyFilters(data);
 }
 
 /* ── ACTOR FILTERS ── */
@@ -939,27 +935,19 @@ function initActorFilters(data){
   });
 }
 
-function applyFilters(){
-  const [fromDate,toDate]=getDateRange();
+function applyFilters(data){
+  const currentData=data||Object.values(markers).map(({s})=>s);
   let visible=0;
   Object.values(markers).forEach(({m,s})=>{
-    const d=new Date(s.date+'T00:00:00Z');
-    const show=activeActors.has(s.actor)
-      &&(!fromDate||d>=fromDate)
-      &&(!toDate  ||d<=toDate);
+    const show=activeActors.has(s.actor);
     if(show){m.addTo(map);visible++;}
     else m.remove();
   });
-  document.querySelectorAll('.strike-item').forEach(el=>{
-    const id=parseInt(el.dataset.id);
-    const s=markers[id]?.s;
-    if(!s){el.style.display='none';return;}
-    const d=new Date(s.date+'T00:00:00Z');
-    const show=activeActors.has(s.actor)
-      &&(!fromDate||d>=fromDate)
-      &&(!toDate  ||d<=toDate);
-    el.style.display=show?'':'none';
-  });
+  const visibleData=currentData.filter(s=>activeActors.has(s.actor));
+  document.getElementById('desktop-feed').innerHTML=feedHTML(visibleData);
+  document.getElementById('mobile-feed').innerHTML=feedHTML(visibleData);
+  document.getElementById('desktop-stats').innerHTML=statsHTML(visibleData);
+  document.getElementById('mobile-stats').innerHTML=statsHTML(visibleData);
   document.getElementById('event-badge').textContent=`${visible} events`;
   document.getElementById('desktop-count').textContent=`${visible} events`;
 }
@@ -989,26 +977,25 @@ function legendHTML(){
 }
 function render(data){
   const sync=new Date().toISOString().slice(0,16).replace('T',' ')+' UTC';
-  document.getElementById('mobile-feed').innerHTML   = feedHTML(data);
-  document.getElementById('mobile-stats').innerHTML  = statsHTML(data);
   document.getElementById('mobile-legend').innerHTML = legendHTML();
   document.getElementById('sync-mobile').textContent = sync;
-  document.getElementById('desktop-feed').innerHTML   = feedHTML(data);
-  document.getElementById('desktop-stats').innerHTML  = statsHTML(data);
   document.getElementById('desktop-legend').innerHTML = legendHTML();
   document.getElementById('sync-desktop').textContent = sync;
   document.getElementById('ticker-text').innerHTML =
     TICKERS.map(t=>`◆ ${t}`).join(' <span style="margin:0 16px;color:var(--accent)">|</span> ');
   allStrikes=data;
   initActorFilters(data);
-  data.forEach(s=>{
+  initTimeSlider(data);
+  // Show latest day on initial load
+  const latestDate=sortedDates[sortedDates.length-1];
+  const latestDay=data.filter(s=>s.date===latestDate);
+  latestDay.forEach(s=>{
     const m=L.marker([s.lat,s.lng],{icon:makeIcon(s.target_type,s.severity,false,s.disputed)})
       .bindPopup(popupHTML(s),{maxWidth:300});
     m.on('click',()=>focusStrike(s.id));
     markers[s.id]={m,s};
   });
-  initTimeSlider(data);
-  applyFilters();
+  applyFilters(latestDay);
 }
 
 /* ── BOTTOM SHEET (mobile) ── */
@@ -1080,13 +1067,24 @@ function syncLogHTML(syncs){
   return syncs.map(s=>{
     const ts=fmtSyncTs(s.timestamp);
     let resultClass='none', resultText='no changes';
-    if(s.status==='error'){resultClass='error';resultText='error';}
-    else if(s.new_event_count>0){resultClass='new';resultText=`+${s.new_event_count} event${s.new_event_count>1?'s':''}` ;}
-    const edits=s.has_edits?'<span class="sync-edits">⚠ edits detected</span>':'';
+    if(s.status==='error'||s.status==='claude_error'||s.status==='fetch_error'||s.status==='no_url'||s.status==='no_email'){
+      resultClass='error';resultText=s.status.replace(/_/g,' ');
+    } else if(s.status==='partial'){
+      resultClass='error';
+      const parts=[];
+      if(s.new_event_count>0) parts.push(`+${s.new_event_count}`);
+      if(s.dead_letter_count>0) parts.push(`⚠ ${s.dead_letter_count} DLQ`);
+      resultText=parts.join(' / ')||'partial';
+    } else if(s.new_event_count>0||s.update_count>0){
+      resultClass='new';
+      const parts=[];
+      if(s.new_event_count>0) parts.push(`+${s.new_event_count} event${s.new_event_count>1?'s':''}`);
+      if(s.update_count>0) parts.push(`${s.update_count} update${s.update_count>1?'s':''}`);
+      resultText=parts.join(' / ');
+    }
     return `<div class="sync-entry">
       <span class="sync-ts">${ts}</span>
       <span class="sync-result ${resultClass}">${resultText}</span>
-      ${edits}
     </div>`;
   }).join('');
 }
