@@ -110,10 +110,11 @@ public class IranConflictMapStack : Stack
         // ── SQS Queues ────────────────────────────────────────────────────────
         var deadLetterQueue = new Queue(this, "DeadLetterQueue", new QueueProps
         {
-            QueueName         = "iran-conflict-map-dlq.fifo",
-            Fifo              = true,
-            RetentionPeriod   = Duration.Days(14),
-            VisibilityTimeout = Duration.Seconds(30)
+            QueueName                 = "iran-conflict-map-dlq.fifo",
+            Fifo                      = true,
+            ContentBasedDeduplication = true,
+            RetentionPeriod           = Duration.Days(14),
+            VisibilityTimeout         = Duration.Seconds(30)
         });
 
         var processorQueue = new Queue(this, "ProcessorQueue", new QueueProps
