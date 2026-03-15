@@ -418,8 +418,8 @@ public class Function
 
         var requestBody = JsonSerializer.Serialize(new
         {
-            model      = "claude-haiku-4-5-20251001",
-            max_tokens = 8192,
+            model      = "claude-sonnet-4-6",
+            max_tokens = 16000,
             system     = SystemPrompt,
             messages   = new[] { new { role = "user", content = userMessage } }
         });
