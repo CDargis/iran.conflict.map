@@ -73,7 +73,11 @@ app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo, string? date) =>
         {
             confirmed = int.Parse(item["casualties"].M["confirmed"].N),
             estimated = int.Parse(item["casualties"].M["estimated"].N),
-        }
+        },
+        source_url  = item.ContainsKey("source_url") ? item["source_url"].S : "",
+        citations   = item.ContainsKey("citations")
+            ? item["citations"].L.Select(c => c.S).Where(c => !string.IsNullOrEmpty(c)).ToList()
+            : new List<string>()
     }).ToList();
 
     strikeCache[cacheKey] = (items, DateTime.UtcNow.AddMinutes(5));

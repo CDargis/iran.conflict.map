@@ -181,6 +181,10 @@
     .popup-desc  { margin-top: 8px; font-size: 10px; line-height: 1.7; border-top: 1px solid var(--border); padding-top: 8px; color: #9ab0bc; }
     .popup-cas   { margin-top: 6px; font-size: 10px; }
     .popup-cas span { color: var(--accent); }
+    .popup-sources { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; }
+    .popup-sources-label { font-size: 8px; letter-spacing: .14em; color: var(--dim); text-transform: uppercase; flex-shrink: 0; margin-right: 2px; }
+    .popup-cite { font-size: 9px; color: var(--blue); text-decoration: none; white-space: nowrap; }
+    .popup-cite:hover { text-decoration: underline; color: #fff; }
 
     /* overlays */
     #coords {
@@ -849,10 +853,17 @@ function makeIcon(type,severity='low',hi=false,disputed=false){
       ${pulse?`<circle cx="${size/2}" cy="${size/2}" r="${size/2-1}" fill="none" stroke="${c}" stroke-width="1" opacity=".3"><animate attributeName="r" from="${size/2-1}" to="${size/2+6}" dur="${dur}" repeatCount="indefinite"/><animate attributeName="opacity" from=".3" to="0" dur="${dur}" repeatCount="indefinite"/></circle>`:''}
     </svg>`});
 }
+function domain(url){try{return new URL(url).hostname.replace(/^www\./,'');}catch{return url;}}
 function popupHTML(s){
   const tc=TARGET_CFG[s.target_type]?.color||'#c8392b';
   const tlbl=TARGET_CFG[s.target_type]?.label||s.target_type;
   const albl=TYPE_CFG[s.type]?.label||s.type;
+  const allCitations=[...new Set([...(s.citations||[]),(s.source_url||'')])].filter(Boolean);
+  const sourcesHTML=allCitations.length
+    ?`<div class="popup-sources"><span class="popup-sources-label">SOURCES</span>${allCitations.map((u,i)=>
+        `<a href="${u}" target="_blank" rel="noopener" class="popup-cite">&#x24${(i+1).toString(16).padStart(2,'0')} ${domain(u)}</a>`
+      ).join('')}</div>`
+    :'';
   return `<div class="popup-type" style="color:${tc}">${tlbl} — ${s.actor}</div>
     <div class="popup-title">${s.title}</div>
     <div class="popup-date">${s.date} · ${s.location}</div>
@@ -860,7 +871,8 @@ function popupHTML(s){
     <div style="margin-top:6px;font-size:9px;color:var(--dim)">METHOD: ${albl} &nbsp;·&nbsp; SEVERITY: <span style="color:${{low:'var(--dim)',medium:'var(--amber)',high:'var(--accent)',critical:'#ff4444'}[s.severity]||'var(--dim)'}">${(s.severity||'—').toUpperCase()}</span></div>
     ${s.disputed?`<div style="margin-top:5px;font-size:9px;color:var(--amber);letter-spacing:.08em">⚠ DISPUTED — attribution or details contested</div>`:''}
     ${s.casualties?.confirmed>0||s.casualties?.estimated>0
-      ?`<div class="popup-cas">KIA CONFIRMED: <span>${s.casualties.confirmed}</span> · EST: <span>${s.casualties.estimated}</span></div>`:''}`;
+      ?`<div class="popup-cas">KIA CONFIRMED: <span>${s.casualties.confirmed}</span> · EST: <span>${s.casualties.estimated}</span></div>`:''}
+    ${sourcesHTML}`;
 }
 function focusStrike(id){
   if(activeId&&markers[activeId]){
