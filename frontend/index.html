@@ -935,14 +935,39 @@ function renderDay(data){
 
 /* ── ACTOR FILTERS ── */
 const ACTOR_COLORS={
-  'US':          '#4a9eda',
-  'Israel':      '#a8d8ea',
-  'Iran':        '#2ecc71',
+  'US Central Command':              '#4a9eda',
+  'US-Israel Combined Force':        '#7eb8d4',
+  'Israel Defense Forces':           '#a8d8ea',
+  'Islamic Revolutionary Guard Corps':'#2ecc71',
+  'Lebanese Hezbollah':              '#27ae60',
+  'Iranian-backed Iraqi Militias':   '#f39c12',
+  'Kataib Hezbollah':                '#e67e22',
+};
+const ACTOR_SHORT={
+  'US Central Command':              'CENTCOM',
+  'US-Israel Combined Force':        'US · IDF',
+  'Israel Defense Forces':           'IDF',
+  'Islamic Revolutionary Guard Corps':'IRGC',
+  'Lebanese Hezbollah':              'Hezbollah',
+  'Iranian-backed Iraqi Militias':   'Iraqi Militias',
+  'Kataib Hezbollah':                'Kataib HZB',
 };
 const FALLBACK_PALETTE=['#c0392b','#8e44ad','#16a085','#d35400','#2980b9','#f39c12','#27ae60'];
 let activeActors=new Set();
 
-function actorLabel(actor){ return actor.toUpperCase(); }
+function actorLabel(actor){
+  // Use exact match first, then prefix match, then truncate
+  if(ACTOR_SHORT[actor]) return ACTOR_SHORT[actor].toUpperCase();
+  const prefix=Object.keys(ACTOR_SHORT).find(k=>actor.startsWith(k));
+  if(prefix) return ACTOR_SHORT[prefix].toUpperCase();
+  return actor.length>18?actor.slice(0,17).trimEnd()+'…':actor.toUpperCase();
+}
+
+function actorColor(actor){
+  if(ACTOR_COLORS[actor]) return ACTOR_COLORS[actor];
+  const prefix=Object.keys(ACTOR_COLORS).find(k=>actor.startsWith(k));
+  return prefix?ACTOR_COLORS[prefix]:null;
+}
 
 function initActorFilters(data){
   const actors=[...new Set(data.map(s=>s.actor))].sort();
@@ -951,7 +976,7 @@ function initActorFilters(data){
   activeActors=new Set(actors);
   let fallbackIdx=0;
   actors.forEach(actor=>{
-    const color=ACTOR_COLORS[actor]||(FALLBACK_PALETTE[fallbackIdx++%FALLBACK_PALETTE.length]);
+    const color=actorColor(actor)||(FALLBACK_PALETTE[fallbackIdx++%FALLBACK_PALETTE.length]);
     const btn=document.createElement('button');
     btn.className='actor-btn active';
     btn.dataset.actor=actor;
@@ -1021,11 +1046,11 @@ function render(data){
   document.getElementById('ticker-text').innerHTML =
     TICKERS.map(t=>`◆ ${t}`).join(' <span style="margin:0 16px;color:var(--accent)">|</span> ');
   allStrikes=data;
-  initActorFilters(data);
   initTimeSlider(data);
   // Show latest day on initial load
   const latestDate=sortedDates[sortedDates.length-1];
   const latestDay=data.filter(s=>s.date===latestDate);
+  initActorFilters(latestDay);
   markerLayer.clearLayers();
   markers={};
   latestDay.forEach(s=>{
