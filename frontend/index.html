@@ -7,7 +7,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <style>
@@ -22,7 +22,7 @@
       --text:     #cfc3b0;
       --dim:      #736860;
       --mono:     'IBM Plex Mono', monospace;
-      --sans:     'Playfair Display', serif;
+      --sans:     'Libre Baskerville', serif;
       --header-h: 44px;
       --filter-h: 34px;
       --time-h:   52px;
@@ -49,7 +49,7 @@
       padding: 0 16px; z-index: 800; gap: 10px;
     }
     .title-main {
-      font-family: var(--sans); font-weight: 700; font-style: italic;
+      font-family: var(--sans); font-weight: 700;
       font-size: 17px; color: #fff; letter-spacing: 0;
     }
     .title-sub { font-size: 10px; color: var(--dim); letter-spacing: .04em; font-family: var(--mono); }
@@ -155,14 +155,14 @@
       height: 28px !important;
     }
     .popup-type  { font-size: 9px; letter-spacing: .06em; color: var(--dim); }
-    .popup-title { font-family: var(--sans); font-weight: 700; font-style: italic; font-size: 16px; color: #fff; margin: 4px 0 2px; line-height: 1.25; }
+    .popup-title { font-family: var(--sans); font-weight: 700; font-size: 16px; color: #fff; margin: 4px 0 2px; line-height: 1.25; }
     .popup-date  { font-size: 9px; color: var(--dim); }
     .popup-desc  { margin-top: 8px; font-size: 10px; line-height: 1.7; border-top: 1px solid var(--border); padding-top: 8px; color: #9ab0bc; }
     .popup-cas   { margin-top: 6px; font-size: 10px; }
     .popup-cas span { color: var(--accent); }
     .popup-sources { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; }
     .popup-sources-label { font-size: 8px; letter-spacing: .14em; color: var(--dim); text-transform: uppercase; flex-shrink: 0; margin-right: 2px; }
-    .popup-cite { font-size: 9px; color: var(--blue); text-decoration: none; white-space: nowrap; }
+    .popup-cite { font-size: 12px; color: var(--blue); text-decoration: none; white-space: nowrap; }
     .popup-cite:hover { text-decoration: underline; color: #fff; }
 
     /* overlays */
