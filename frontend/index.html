@@ -26,7 +26,7 @@
       --header-h: 44px;
       --filter-h: 34px;
       --time-h:   52px;
-      --bar-h:    28px;
+      --bar-h:    0px;
       --peek:     120px;
     }
 
@@ -503,19 +503,9 @@
 
       #desktop-center { flex: 1; }
 
-      #statusbar {
-        display: flex !important;
-        position: fixed; bottom: 0; left: 0; right: 0;
-        height: var(--bar-h); z-index: 800;
-        background: var(--panel); border-top: 1px solid var(--border);
-        align-items: center; justify-content: space-between;
-        padding: 0 14px; font-size: 9px; color: var(--dim);
-        letter-spacing: .07em; overflow: hidden;
-      }
     }
 
     #desktop-shell { display: none; }
-    #statusbar     { display: none; }
 
     /* ── TIME SLIDER ── */
     #timebar {
@@ -641,9 +631,6 @@
     }
     @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
 
-    #ticker { overflow: hidden; flex: 1; margin: 0 20px; }
-    .ticker-inner { display: inline-block; animation: ticker 50s linear infinite; white-space: nowrap; }
-    @keyframes ticker { 0% { transform: translateX(60vw); } 100% { transform: translateX(-100%); } }
   </style>
 </head>
 <body>
@@ -727,11 +714,6 @@
   </aside>
 </div>
 
-<footer id="statusbar">
-  <span>conflictmap.chrisdargis.com</span>
-  <div id="ticker"><span class="ticker-inner" id="ticker-text"></span></div>
-  <span id="desktop-count">— events</span>
-</footer>
 
 <!-- bottom sheet (mobile) -->
 <div id="sheet" class="snap-closed">
@@ -793,16 +775,6 @@ const TARGET_CFG = {
   transport: {color:'#1abc9c', label:'Transportation'},
   civilian:  {color:'#95a5a6', label:'Civilian'},
 };
-const TICKERS = [
-  "US CENTCOM maintains elevated readiness across AOR",
-  "IRGC naval exercises reported in northern Persian Gulf",
-  "Israeli air defense on heightened alert",
-  "UN Security Council emergency session scheduled",
-  "Commercial shipping rerouting around Strait of Hormuz",
-  "Iran FM: 'All options available' in response to continued strikes",
-  "USS Gerald R. Ford CSG repositioned to Eastern Mediterranean",
-];
-
 /* ── MAP ── */
 const map = L.map('map',{center:[28,48],zoom:5,zoomControl:true});
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
@@ -1049,8 +1021,6 @@ function render(data){
   document.getElementById('sync-mobile').textContent = sync;
   document.getElementById('desktop-legend').innerHTML = legendHTML();
   document.getElementById('sync-desktop').textContent = sync;
-  document.getElementById('ticker-text').innerHTML =
-    TICKERS.map(t=>`◆ ${t}`).join(' <span style="margin:0 16px;color:var(--accent)">|</span> ');
   allStrikes=data;
   initTimeSlider(data);
   // Show latest day on initial load
