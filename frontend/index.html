@@ -1131,7 +1131,7 @@ function syncLogHTML(syncs){
   return syncs.map(s=>{
     const ts=fmtSyncTs(s.timestamp);
     let resultClass='none', resultText='no changes';
-    if(s.status==='error'||s.status==='claude_error'||s.status==='fetch_error'||s.status==='no_url'||s.status==='no_email'){
+    if(s.status==='error'||s.status==='claude_error'||s.status==='fetch_error'||s.status==='no_url'||s.status==='no_email'||s.status==='no_events'){
       resultClass='error';resultText=s.status.replace(/_/g,' ');
     } else if(s.status==='partial'){
       resultClass='error';

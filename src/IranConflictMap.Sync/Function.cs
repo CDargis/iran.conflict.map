@@ -37,11 +37,10 @@ public class Function
     private static readonly string InboxPrefix       = Env("EMAIL_INBOX_PREFIX",  "inbox/");
     private static readonly string OtherPrefix       = Env("EMAIL_OTHER_PREFIX",  "other/");
 
-    // Filter: only process emails matching both of these
+    // Filter: sender + (subject OR body) must contain "Iran" and "Update"
     private const string ExpectedSender   = "criticalthreats@aei.org";
-    // Subject must contain both words, not necessarily adjacent (handles "Iran Update", "Iran War Update", etc.)
-    private const string ExpectedSubject1 = "Iran";
-    private const string ExpectedSubject2 = "Update";
+    private const string ExpectedKeyword1 = "Iran";
+    private const string ExpectedKeyword2 = "Update";
 
     // ── Extraction system prompt ──────────────────────────────────────────────
     private const string SystemPrompt = """
@@ -114,83 +113,112 @@ public class Function
             var (anthropicKey, lastSynced) = await ReadSsmParams();
             context.Logger.LogLine($"[sync] last_synced={lastSynced}");
 
-            // ── 1. Find CTP-ISW email in inbox ────────────────────────────────
-            var (emailKey, emailMessage) = await FindCtpEmail(context);
-            if (emailKey == null || emailMessage == null)
+            // ── 1. Find all CTP-ISW emails in inbox ───────────────────────────
+            var emails = await FindAllCtpEmails(context);
+            if (emails.Count == 0)
             {
                 context.Logger.LogLine("[sync] no CTP-ISW email found in inbox");
                 await WriteSyncRecord(runId, "no_email", 0, 0, 0, null, null);
                 return "no_email";
             }
-            context.Logger.LogLine($"[sync] processing: subject='{emailMessage.Subject}'");
+            context.Logger.LogLine($"[sync] found {emails.Count} CTP-ISW email(s) to process");
 
-            // ── 2. Extract and resolve report URL ─────────────────────────────
-            var htmlBody   = emailMessage.HtmlBody ?? "";
-            var hubspotUrl = ExtractHubspotLink(htmlBody, context);
-            if (hubspotUrl == null)
+            var totalNew    = 0;
+            var totalUpdate = 0;
+            var totalAmbig  = 0;
+            var processed   = 0;
+
+            foreach (var (emailKey, emailMessage) in emails)
             {
-                context.Logger.LogLine("[sync] no Iran War Update link found in email");
-                await WriteSyncRecord(runId, "no_url", 0, 0, 0,
-                    "Could not find Iran War Update link in email body", null);
-                return "no_url";
+                var emailRunId = emails.Count == 1 ? runId : $"{runId}#{processed}";
+                context.Logger.LogLine($"[sync] processing [{processed + 1}/{emails.Count}]: subject='{emailMessage.Subject}'");
+
+                // ── 2. Extract and resolve report URL ─────────────────────────
+                var htmlBody   = emailMessage.HtmlBody ?? "";
+                var hubspotUrl = ExtractHubspotLink(htmlBody, context);
+                if (hubspotUrl == null)
+                {
+                    context.Logger.LogLine("[sync] no Iran Update link found in email");
+                    await WriteSyncRecord(emailRunId, "no_url", 0, 0, 0,
+                        "Could not find Iran Update link in email body", null);
+                    await MoveS3Object(emailKey, "processed/" + emailKey[InboxPrefix.Length..], context);
+                    processed++;
+                    continue;
+                }
+
+                var reportUrl = await FollowRedirect(hubspotUrl, context);
+                if (reportUrl == null || !reportUrl.Contains("criticalthreats.org/analysis/", StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Logger.LogLine($"[sync] redirect did not lead to criticalthreats.org/analysis: {reportUrl}");
+                    await WriteSyncRecord(emailRunId, "no_url", 0, 0, 0,
+                        $"Link did not redirect to a criticalthreats.org report (got: {reportUrl})", null);
+                    await MoveS3Object(emailKey, "processed/" + emailKey[InboxPrefix.Length..], context);
+                    processed++;
+                    continue;
+                }
+                context.Logger.LogLine($"[sync] report URL: {reportUrl}");
+
+                // ── 3. Fetch report page ───────────────────────────────────────
+                var reportText = await FetchReportPage(reportUrl, context);
+                if (string.IsNullOrWhiteSpace(reportText))
+                {
+                    context.Logger.LogLine("[sync] report page returned empty content");
+                    await WriteSyncRecord(emailRunId, "fetch_error", 0, 0, 0,
+                        $"Empty or failed response fetching {reportUrl}", reportUrl);
+                    processed++;
+                    continue;
+                }
+
+                // ── 4. Call Claude Haiku ───────────────────────────────────────
+                var nextId = await GetNextId();
+                context.Logger.LogLine($"[sync] calling Claude, nextId={nextId}");
+
+                var claudeJson = await CallClaude(reportText, reportUrl, lastSynced, nextId, anthropicKey, context);
+                if (claudeJson == null)
+                {
+                    context.Logger.LogLine("[sync] Claude returned no usable response");
+                    await WriteSyncRecord(emailRunId, "claude_error", 0, 0, 0,
+                        "Claude returned empty or malformed JSON — possible wrong page fetched or JS-rendered content", reportUrl);
+                    processed++;
+                    continue;
+                }
+
+                // ── 5. Push to processor SQS ──────────────────────────────────
+                await _sqs.SendMessageAsync(new SendMessageRequest
+                {
+                    QueueUrl    = ProcessorQueueUrl,
+                    MessageBody = claudeJson
+                });
+                context.Logger.LogLine("[sync] Claude response pushed to SQS");
+
+                // ── 6. Move email to processed ────────────────────────────────
+                await MoveS3Object(emailKey, "processed/" + emailKey[InboxPrefix.Length..], context);
+
+                // ── 7. Write sync record ──────────────────────────────────────
+                var doc         = JsonDocument.Parse(claudeJson);
+                var newCount    = doc.RootElement.TryGetProperty("new",       out var nArr) ? nArr.GetArrayLength() : 0;
+                var updateCount = doc.RootElement.TryGetProperty("updates",   out var uArr) ? uArr.GetArrayLength() : 0;
+                var ambigCount  = doc.RootElement.TryGetProperty("ambiguous", out var aArr) ? aArr.GetArrayLength() : 0;
+
+                totalNew    += newCount;
+                totalUpdate += updateCount;
+                totalAmbig  += ambigCount;
+
+                // Flag if Claude returned valid JSON but extracted nothing at all — possible JS-render or wrong page
+                var syncStatus = (newCount + updateCount + ambigCount) == 0 ? "no_events" : "success";
+                if (syncStatus == "no_events")
+                    context.Logger.LogLine("[sync] warning: Claude returned valid JSON but no events — possible JS-rendered page or empty report");
+
+                await WriteSyncRecord(emailRunId, syncStatus, newCount, updateCount, ambigCount,
+                    syncStatus == "no_events" ? "Claude returned no events — report page may be JS-rendered or have no new events" : null,
+                    reportUrl);
+                await UpdateSsmParam($"{SsmPrefix}/last_synced", DateTime.UtcNow.ToString("yyyy-MM-dd"));
+                context.Logger.LogLine($"[sync] email {processed + 1} done — status={syncStatus} new={newCount} updates={updateCount} ambiguous={ambigCount}");
+                processed++;
             }
 
-            var reportUrl = await FollowRedirect(hubspotUrl, context);
-            if (reportUrl == null || !reportUrl.Contains("criticalthreats.org/analysis/", StringComparison.OrdinalIgnoreCase))
-            {
-                context.Logger.LogLine($"[sync] redirect did not lead to criticalthreats.org/analysis: {reportUrl}");
-                await WriteSyncRecord(runId, "no_url", 0, 0, 0,
-                    $"Link did not redirect to a criticalthreats.org report (got: {reportUrl})", null);
-                return "no_url";
-            }
-            context.Logger.LogLine($"[sync] report URL: {reportUrl}");
-
-            // ── 3. Fetch report page ──────────────────────────────────────────
-            var reportText = await FetchReportPage(reportUrl, context);
-            if (string.IsNullOrWhiteSpace(reportText))
-            {
-                context.Logger.LogLine("[sync] report page returned empty content");
-                await WriteSyncRecord(runId, "fetch_error", 0, 0, 0,
-                    $"Empty or failed response fetching {reportUrl}", reportUrl);
-                return "fetch_error";
-            }
-
-            // ── 4. Call Claude Haiku ──────────────────────────────────────────
-            var nextId = await GetNextId();
-            context.Logger.LogLine($"[sync] calling Claude, nextId={nextId}");
-
-            var claudeJson = await CallClaude(reportText, reportUrl, lastSynced, nextId, anthropicKey, context);
-            if (claudeJson == null)
-            {
-                context.Logger.LogLine("[sync] Claude returned no usable response");
-                await WriteSyncRecord(runId, "claude_error", 0, 0, 0,
-                    "Claude returned empty or malformed JSON — possible wrong page fetched or JS-rendered content", reportUrl);
-                return "claude_error";
-            }
-
-            // ── 5. Push to processor SQS ──────────────────────────────────────
-            await _sqs.SendMessageAsync(new SendMessageRequest
-            {
-                QueueUrl    = ProcessorQueueUrl,
-                MessageBody = claudeJson
-            });
-            context.Logger.LogLine("[sync] Claude response pushed to SQS");
-
-            // ── 6. Move email to processed ────────────────────────────────────
-            var processedKey = "processed/" + emailKey[InboxPrefix.Length..];
-            await MoveS3Object(emailKey, processedKey, context);
-
-            // ── 7. Write sync record ──────────────────────────────────────────
-            var doc         = JsonDocument.Parse(claudeJson);
-            var newCount    = doc.RootElement.TryGetProperty("new",       out var nArr) ? nArr.GetArrayLength() : 0;
-            var updateCount = doc.RootElement.TryGetProperty("updates",   out var uArr) ? uArr.GetArrayLength() : 0;
-            var ambigCount  = doc.RootElement.TryGetProperty("ambiguous", out var aArr) ? aArr.GetArrayLength() : 0;
-
-            await WriteSyncRecord(runId, "success", newCount, updateCount, ambigCount, null, reportUrl);
-            await UpdateSsmParam($"{SsmPrefix}/last_synced", DateTime.UtcNow.ToString("yyyy-MM-dd"));
-
-            context.Logger.LogLine($"[sync] done — new={newCount} updates={updateCount} ambiguous={ambigCount}");
-            return $"success:{newCount}";
+            context.Logger.LogLine($"[sync] all done — processed={processed} new={totalNew} updates={totalUpdate} ambiguous={totalAmbig}");
+            return $"success:{totalNew}";
         }
         catch (Exception ex)
         {
@@ -203,7 +231,7 @@ public class Function
 
     // ── S3 Email Reading ─────────────────────────────────────────────────────
 
-    private async Task<(string? key, MimeMessage? message)> FindCtpEmail(ILambdaContext ctx)
+    private async Task<List<(string key, MimeMessage message)>> FindAllCtpEmails(ILambdaContext ctx)
     {
         var listResp = await _s3.ListObjectsV2Async(new ListObjectsV2Request
         {
@@ -218,28 +246,58 @@ public class Function
 
         ctx.Logger.LogLine($"[sync] {objects.Count} objects in inbox");
 
+        var matches = new List<(string key, MimeMessage message)>();
+
         foreach (var obj in objects)
         {
             var message = await ReadMimeMessage(obj.Key, ctx);
             if (message == null) continue;
 
-            var from    = message.From.Mailboxes.FirstOrDefault()?.Address ?? "";
-            var subject = message.Subject ?? "";
-
-            if (from.Equals(ExpectedSender, StringComparison.OrdinalIgnoreCase) &&
-                subject.Contains(ExpectedSubject1, StringComparison.OrdinalIgnoreCase) &&
-                subject.Contains(ExpectedSubject2, StringComparison.OrdinalIgnoreCase))
+            var (isMatch, reason) = IsCtpIswEmail(message);
+            if (isMatch)
             {
-                ctx.Logger.LogLine($"[sync] matched CTP email: {obj.Key}");
-                return (obj.Key, message);
+                ctx.Logger.LogLine($"[sync] matched ({reason}): {obj.Key}");
+                matches.Add((obj.Key, message));
             }
-
-            // Not a CTP-ISW report email — move out of inbox to keep it clean
-            ctx.Logger.LogLine($"[sync] skipping: from={from} subject={subject[..Math.Min(subject.Length, 60)]}");
-            await MoveS3Object(obj.Key, OtherPrefix + obj.Key[InboxPrefix.Length..], ctx);
+            else
+            {
+                var from    = message.From.Mailboxes.FirstOrDefault()?.Address ?? "(unknown)";
+                var subject = message.Subject ?? "";
+                ctx.Logger.LogLine($"[sync] skipping: from={from} subject={subject[..Math.Min(subject.Length, 60)]}");
+                await MoveS3Object(obj.Key, OtherPrefix + obj.Key[InboxPrefix.Length..], ctx);
+            }
         }
 
-        return (null, null);
+        // Return oldest-first so updates are applied in chronological order
+        matches.Reverse();
+        return matches;
+    }
+
+    /// <summary>
+    /// Returns (true, reason) if the message is a CTP-ISW Iran daily update.
+    /// Primary: sender + subject contains "Iran" and "Update".
+    /// Fallback: sender + body text contains "Iran" and "Update" (in case subject format changes).
+    /// </summary>
+    private static (bool match, string reason) IsCtpIswEmail(MimeMessage message)
+    {
+        var from    = message.From.Mailboxes.FirstOrDefault()?.Address ?? "";
+        var subject = message.Subject ?? "";
+
+        if (!from.Equals(ExpectedSender, StringComparison.OrdinalIgnoreCase))
+            return (false, "");
+
+        // Primary: subject contains "Iran" AND "Update"
+        if (subject.Contains(ExpectedKeyword1, StringComparison.OrdinalIgnoreCase) &&
+            subject.Contains(ExpectedKeyword2, StringComparison.OrdinalIgnoreCase))
+            return (true, "sender+subject");
+
+        // Fallback: body text contains "Iran" AND "Update"
+        var body = message.TextBody ?? Regex.Replace(message.HtmlBody ?? "", @"<[^>]+>", " ");
+        if (body.Contains(ExpectedKeyword1, StringComparison.OrdinalIgnoreCase) &&
+            body.Contains(ExpectedKeyword2, StringComparison.OrdinalIgnoreCase))
+            return (true, "sender+body");
+
+        return (false, "");
     }
 
     private async Task<MimeMessage?> ReadMimeMessage(string key, ILambdaContext ctx)
