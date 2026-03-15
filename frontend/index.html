@@ -804,6 +804,8 @@ setInterval(tick,1000);tick();
 
 /* ── MARKERS ── */
 let markers={},activeId=null,allStrikes=[],minDate=null,maxDate=null;
+const markerLayer=L.layerGroup().addTo(map);
+let fetchAbortController=null;
 const SEVERITY_SIZE={low:14,medium:18,high:22,critical:28};
 function makeIcon(type,severity='low',hi=false,disputed=false){
   const c=TARGET_CFG[type]?.color||'#c8392b';
@@ -876,17 +878,18 @@ function initTimeSlider(data){
 }
 
 function fetchDayStrikes(dateStr){
-  fetch(`/api/strikes?date=${dateStr}`)
+  if(fetchAbortController) fetchAbortController.abort();
+  fetchAbortController=new AbortController();
+  const signal=fetchAbortController.signal;
+  fetch(`/api/strikes?date=${dateStr}`,{signal})
     .then(r=>r.ok?r.json():[])
     .then(data=>renderDay(data))
-    .catch(()=>renderDay([]));
+    .catch(err=>{ if(err.name!=='AbortError') renderDay([]); });
 }
 
 function renderDay(data){
-  // Clear existing markers
-  Object.values(markers).forEach(({m})=>m.remove());
+  markerLayer.clearLayers();
   markers={};
-  // Add new markers
   data.forEach(s=>{
     const m=L.marker([s.lat,s.lng],{icon:makeIcon(s.target_type,s.severity,false,s.disputed)})
       .bindPopup(popupHTML(s),{maxWidth:300});
@@ -940,7 +943,7 @@ function applyFilters(data){
   let visible=0;
   Object.values(markers).forEach(({m,s})=>{
     const show=activeActors.has(s.actor);
-    if(show){m.addTo(map);visible++;}
+    if(show){m.addTo(markerLayer);visible++;}
     else m.remove();
   });
   const visibleData=currentData.filter(s=>activeActors.has(s.actor));
@@ -989,6 +992,8 @@ function render(data){
   // Show latest day on initial load
   const latestDate=sortedDates[sortedDates.length-1];
   const latestDay=data.filter(s=>s.date===latestDate);
+  markerLayer.clearLayers();
+  markers={};
   latestDay.forEach(s=>{
     const m=L.marker([s.lat,s.lng],{icon:makeIcon(s.target_type,s.severity,false,s.disputed)})
       .bindPopup(popupHTML(s),{maxWidth:300});
