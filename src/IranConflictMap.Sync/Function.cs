@@ -38,8 +38,8 @@ public class Function
     private static readonly string OtherPrefix       = Env("EMAIL_OTHER_PREFIX",  "other/");
 
     // Filter: only process emails matching both of these
-    private const string ExpectedSender  = "publications@aei.org";
-    private const string ExpectedSubject = "Iran War Update";
+    private const string ExpectedSender  = "aei.org";
+    private const string ExpectedSubject = "Iran Update";
 
     // ── Extraction system prompt ──────────────────────────────────────────────
     private const string SystemPrompt = """
@@ -272,7 +272,7 @@ public class Function
         {
             var href = m.Groups[1].Value;
             var text = Regex.Replace(m.Groups[2].Value, @"<[^>]+>", "").Trim();
-            if (text.Contains("Iran War Update", StringComparison.OrdinalIgnoreCase))
+            if (text.Contains("Iran Update", StringComparison.OrdinalIgnoreCase))
             {
                 ctx.Logger.LogLine($"[sync] primary match: '{text[..Math.Min(text.Length, 80)]}'");
                 return href;
