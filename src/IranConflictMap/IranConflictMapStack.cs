@@ -348,7 +348,8 @@ public class IranConflictMapStack : Stack
             Sources             = new[] { Source.Asset(frontendPath) },
             DestinationBucket   = bucket,
             Distribution        = distribution,
-            DistributionPaths   = new[] { "/*" }
+            DistributionPaths   = new[] { "/*" },
+            CacheControl        = new[] { CacheControl.NoCache() }
         });
 
         // ── Outputs ────────────────────────────────────────────────────────

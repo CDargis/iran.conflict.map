@@ -805,7 +805,7 @@ setInterval(tick,1000);tick();
 /* ── MARKERS ── */
 let markers={},activeId=null,allStrikes=[],minDate=null,maxDate=null;
 const markerLayer=L.layerGroup().addTo(map);
-let fetchAbortController=null;
+let fetchAbortController=null,currentFetchDate=null;
 const SEVERITY_SIZE={low:14,medium:18,high:22,critical:28};
 function makeIcon(type,severity='low',hi=false,disputed=false){
   const c=TARGET_CFG[type]?.color||'#c8392b';
@@ -881,9 +881,10 @@ function fetchDayStrikes(dateStr){
   if(fetchAbortController) fetchAbortController.abort();
   fetchAbortController=new AbortController();
   const signal=fetchAbortController.signal;
+  currentFetchDate=dateStr;
   fetch(`/api/strikes?date=${dateStr}`,{signal})
     .then(r=>r.ok?r.json():[])
-    .then(data=>renderDay(data))
+    .then(data=>{ if(currentFetchDate===dateStr) renderDay(data); })
     .catch(err=>{ if(err.name!=='AbortError') renderDay([]); });
 }
 
