@@ -9,6 +9,7 @@ using Amazon.CDK.AWS.Events;
 using Amazon.CDK.AWS.Events.Targets;
 using Amazon.CDK.AWS.IAM;
 using Amazon.CDK.AWS.Lambda.EventSources;
+using Amazon.CDK.AWS.Logs;
 using Amazon.CDK.AWS.Route53;
 using Amazon.CDK.AWS.Route53.Targets;
 using Amazon.CDK.AWS.S3;
@@ -84,8 +85,9 @@ public class IranConflictMapStack : Stack
                 ["STRIKES_TABLE"] = strikesTable.TableName,
                 ["STRIKES_GSI"]   = "entity-date-index"
             },
-            Timeout    = Duration.Seconds(15),
-            MemorySize = 256
+            Timeout      = Duration.Seconds(15),
+            MemorySize   = 256,
+            LogRetention = RetentionDays.FOURTEEN_DAYS
         });
 
         // ── DynamoDB Syncs Table ───────────────────────────────────────────────
@@ -146,8 +148,9 @@ public class IranConflictMapStack : Stack
                 ["STRIKES_GSI"]          = "entity-date-index",
                 ["DEAD_LETTER_QUEUE_URL"] = deadLetterQueue.QueueUrl
             },
-            Timeout    = Duration.Minutes(5),
-            MemorySize = 512
+            Timeout      = Duration.Minutes(5),
+            MemorySize   = 512,
+            LogRetention = RetentionDays.FOURTEEN_DAYS
         });
 
         processorLambda.AddEventSource(new SqsEventSource(processorQueue, new SqsEventSourceProps
@@ -278,8 +281,9 @@ public class IranConflictMapStack : Stack
                 ["EMAIL_INBOX_PREFIX"]  = "inbox/",
                 ["EMAIL_OTHER_PREFIX"]  = "other/"
             },
-            Timeout    = Duration.Minutes(5),
-            MemorySize = 512
+            Timeout      = Duration.Minutes(5),
+            MemorySize   = 512,
+            LogRetention = RetentionDays.FOURTEEN_DAYS
         });
 
         strikesTable.GrantReadData(syncLambda);

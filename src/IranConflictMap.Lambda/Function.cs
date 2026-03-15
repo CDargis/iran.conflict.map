@@ -42,7 +42,7 @@ public class Function
 
             try
             {
-                var payload = JsonSerializer.Deserialize<ClaudePayload>(record.Body)
+                var payload = JsonSerializer.Deserialize<SyncEnvelope>(record.Body)
                     ?? throw new Exception("Failed to deserialize SQS message body");
 
                 var newCount = 0;
@@ -52,12 +52,12 @@ public class Function
 
                 if (payload.New is { Count: > 0 })
                 {
-                    newCount = await ProcessNewEvents(payload.New, context);
+                    newCount = await ProcessNewEvents(payload.New, payload.SourceUrl, payload.SyncedAt, context);
                 }
 
                 if (payload.Updates is { Count: > 0 })
                 {
-                    (updateApplied, updateDeadLettered) = await ProcessUpdates(payload.Updates, context);
+                    (updateApplied, updateDeadLettered) = await ProcessUpdates(payload.Updates, payload.SourceUrl, payload.SyncedAt, context);
                 }
 
                 if (payload.Ambiguous is { Count: > 0 })
@@ -86,7 +86,7 @@ public class Function
 
     // ── New Events ──────────────────────────────────────────────────────────────
 
-    private async Task<int> ProcessNewEvents(List<NewEvent> newEvents, ILambdaContext context)
+    private async Task<int> ProcessNewEvents(List<NewEvent> newEvents, string? sourceUrl, string? syncedAt, ILambdaContext context)
     {
         var nextId = await GetNextId();
         var items = new List<Dictionary<string, AttributeValue>>();
@@ -98,6 +98,12 @@ public class Function
             // Override the ID with our auto-incremented value
             item["id"] = new AttributeValue { S = nextId.ToString() };
             nextId++;
+
+            // Audit fields
+            if (!string.IsNullOrEmpty(syncedAt))
+                item["created_at"] = new AttributeValue { S = syncedAt };
+            if (!string.IsNullOrEmpty(sourceUrl))
+                item["created_source_url"] = new AttributeValue { S = sourceUrl };
 
             items.Add(item);
         }
@@ -131,7 +137,7 @@ public class Function
 
     // ── Updates ─────────────────────────────────────────────────────────────────
 
-    private async Task<(int applied, int deadLettered)> ProcessUpdates(List<UpdateEvent> updates, ILambdaContext context)
+    private async Task<(int applied, int deadLettered)> ProcessUpdates(List<UpdateEvent> updates, string? sourceUrl, string? syncedAt, ILambdaContext context)
     {
         var applied = 0;
         var deadLettered = 0;
@@ -169,7 +175,7 @@ public class Function
                     continue;
                 }
 
-                await ApplyUpdate(existingId, getResp.Item, update.Changes, context);
+                await ApplyUpdate(existingId, getResp.Item, update.Changes, sourceUrl, syncedAt, context);
                 applied++;
             }
             else
@@ -225,7 +231,7 @@ public class Function
 
                 var existing = queryResp.Items[0];
                 existingId = existing["id"].S;
-                await ApplyUpdate(existingId, existing, update.Changes, context);
+                await ApplyUpdate(existingId, existing, update.Changes, sourceUrl, syncedAt, context);
                 applied++;
             }
         }
@@ -234,7 +240,7 @@ public class Function
     }
 
     private async Task ApplyUpdate(string id, Dictionary<string, AttributeValue> existing,
-        Dictionary<string, JsonElement> changes, ILambdaContext context)
+        Dictionary<string, JsonElement> changes, string? sourceUrl, string? syncedAt, ILambdaContext context)
     {
         var updates = new Dictionary<string, AttributeValueUpdate>();
 
@@ -277,6 +283,31 @@ public class Function
                     Value = ToDynamoAttributeValue(value)
                 };
             }
+        }
+
+        // Append audit entry to update_log
+        if (!string.IsNullOrEmpty(syncedAt))
+        {
+            var logEntry = new AttributeValue
+            {
+                M = new Dictionary<string, AttributeValue>
+                {
+                    ["at"]     = new AttributeValue { S = syncedAt },
+                    ["fields"] = new AttributeValue { SS = updates.Keys.ToList() }
+                }
+            };
+            if (!string.IsNullOrEmpty(sourceUrl))
+                logEntry.M["source_url"] = new AttributeValue { S = sourceUrl };
+
+            var existingLog = existing.TryGetValue("update_log", out var ul) && ul.L != null
+                ? ul.L.ToList()
+                : new List<AttributeValue>();
+            existingLog.Add(logEntry);
+            updates["update_log"] = new AttributeValueUpdate
+            {
+                Action = AttributeAction.PUT,
+                Value  = new AttributeValue { L = existingLog }
+            };
         }
 
         if (updates.Count > 0)
@@ -435,8 +466,14 @@ public class Function
 
 // ── Message DTOs ────────────────────────────────────────────────────────────
 
-public class ClaudePayload
+public class SyncEnvelope
 {
+    [System.Text.Json.Serialization.JsonPropertyName("source_url")]
+    public string? SourceUrl { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("synced_at")]
+    public string? SyncedAt { get; set; }
+
     [System.Text.Json.Serialization.JsonPropertyName("new")]
     public List<NewEvent>? New { get; set; }
 

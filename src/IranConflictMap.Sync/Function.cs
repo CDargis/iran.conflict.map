@@ -186,11 +186,22 @@ public class Function
                     continue;
                 }
 
-                // ── 5. Push to processor SQS ──────────────────────────────────
+                // ── 5. Wrap with audit metadata and push to processor SQS ────
+                var syncedAt  = DateTime.UtcNow.ToString("o");
+                var claudeDoc = JsonDocument.Parse(claudeJson).RootElement;
+                var envelope  = JsonSerializer.Serialize(new
+                {
+                    source_url = reportUrl,
+                    synced_at  = syncedAt,
+                    @new       = claudeDoc.TryGetProperty("new",       out var n) ? n : (JsonElement?)null,
+                    updates    = claudeDoc.TryGetProperty("updates",   out var u) ? u : (JsonElement?)null,
+                    ambiguous  = claudeDoc.TryGetProperty("ambiguous", out var a) ? a : (JsonElement?)null
+                });
+
                 await _sqs.SendMessageAsync(new SendMessageRequest
                 {
                     QueueUrl    = ProcessorQueueUrl,
-                    MessageBody = claudeJson
+                    MessageBody = envelope
                 });
                 context.Logger.LogLine("[sync] Claude response pushed to SQS");
 
@@ -198,10 +209,9 @@ public class Function
                 await MoveS3Object(emailKey, "processed/" + emailKey[InboxPrefix.Length..], context);
 
                 // ── 7. Write sync record ──────────────────────────────────────
-                var doc         = JsonDocument.Parse(claudeJson);
-                var newCount    = doc.RootElement.TryGetProperty("new",       out var nArr) ? nArr.GetArrayLength() : 0;
-                var updateCount = doc.RootElement.TryGetProperty("updates",   out var uArr) ? uArr.GetArrayLength() : 0;
-                var ambigCount  = doc.RootElement.TryGetProperty("ambiguous", out var aArr) ? aArr.GetArrayLength() : 0;
+                var newCount    = claudeDoc.TryGetProperty("new",       out var nArr) ? nArr.GetArrayLength() : 0;
+                var updateCount = claudeDoc.TryGetProperty("updates",   out var uArr) ? uArr.GetArrayLength() : 0;
+                var ambigCount  = claudeDoc.TryGetProperty("ambiguous", out var aArr) ? aArr.GetArrayLength() : 0;
 
                 totalNew    += newCount;
                 totalUpdate += updateCount;
