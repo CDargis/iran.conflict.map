@@ -381,16 +381,25 @@
     }
 
     .sync-entry {
-      display: flex; align-items: baseline; gap: 8px;
       padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.04);
       font-size: 10px;
     }
     .sync-entry:last-child { border-bottom: none; }
+    .sync-entry-row { display: flex; align-items: baseline; gap: 8px; }
+    .sync-entry.expandable .sync-entry-row { cursor: pointer; }
+    .sync-entry.expandable .sync-entry-row:hover .sync-result { text-decoration: underline; text-underline-offset: 2px; }
     .sync-ts   { color: var(--dim); flex-shrink: 0; letter-spacing: .04em; }
     .sync-result { color: var(--text); flex: 1; }
     .sync-result.new   { color: var(--green); }
     .sync-result.error { color: var(--accent); }
     .sync-result.none  { color: var(--dim); }
+    .sync-error-detail {
+      display: none; margin-top: 4px; padding: 6px 8px;
+      background: rgba(200,57,43,.08); border-left: 2px solid var(--accent);
+      font-size: 9px; color: var(--text); line-height: 1.6;
+      word-break: break-word; white-space: pre-wrap;
+    }
+    .sync-entry.open .sync-error-detail { display: block; }
     .sync-edits { color: var(--amber); font-size: 9px; }
 
     .disputed-badge {
@@ -1146,9 +1155,12 @@ function syncLogHTML(syncs){
       if(s.update_count>0) parts.push(`${s.update_count} update${s.update_count>1?'s':''}`);
       resultText=parts.join(' / ');
     }
-    return `<div class="sync-entry">
-      <span class="sync-ts">${ts}</span>
-      <span class="sync-result ${resultClass}">${resultText}</span>
+    const hasDetail=!!(s.error_message);
+    return `<div class="sync-entry${hasDetail?' expandable':''}">
+      <div class="sync-entry-row"${hasDetail?' onclick="this.closest(\'.sync-entry\').classList.toggle(\'open\')"':''}>
+        <span class="sync-ts">${ts}</span>
+        <span class="sync-result ${resultClass}">${resultText}${hasDetail?' ▾':''}</span>
+      </div>${hasDetail?`<div class="sync-error-detail">${s.error_message}</div>`:''}
     </div>`;
   }).join('');
 }
