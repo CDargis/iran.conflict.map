@@ -102,20 +102,30 @@ public class Function
             items.Add(item);
         }
 
-        // BatchWriteItem in chunks of 25
+        var firstId = nextId - items.Count;
+
+        // BatchWriteItem in chunks of 25; retry unprocessed items
         for (var i = 0; i < items.Count; i += 25)
         {
             var batch = items.Skip(i).Take(25)
                 .Select(item => new WriteRequest { PutRequest = new PutRequest { Item = item } })
                 .ToList();
 
-            await _dynamo.BatchWriteItemAsync(new BatchWriteItemRequest
+            var remaining = new Dictionary<string, List<WriteRequest>> { [StrikesTable] = batch };
+            var attempts = 0;
+            while (remaining.Count > 0 && attempts++ < 5)
             {
-                RequestItems = new Dictionary<string, List<WriteRequest>> { [StrikesTable] = batch }
-            });
+                var resp = await _dynamo.BatchWriteItemAsync(new BatchWriteItemRequest { RequestItems = remaining });
+                remaining = resp.UnprocessedItems;
+                if (remaining.Count > 0)
+                    await Task.Delay(200 * attempts);
+            }
+
+            if (remaining.Count > 0)
+                context.Logger.LogLine($"[processor] warning: {remaining.Values.Sum(r => r.Count)} items still unprocessed after retries");
         }
 
-        context.Logger.LogLine($"[processor] wrote {items.Count} new events (IDs {items.Count - newEvents.Count + nextId}..{nextId - 1})");
+        context.Logger.LogLine($"[processor] wrote {items.Count} new events (IDs {firstId}..{nextId - 1})");
         return items.Count;
     }
 
