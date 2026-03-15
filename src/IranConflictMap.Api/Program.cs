@@ -109,6 +109,8 @@ app.MapGet("/api/syncs", async (IAmazonDynamoDB dynamo) =>
         new_event_count   = item.ContainsKey("new_event_count")  ? int.Parse(item["new_event_count"].N)  : 0,
         update_count      = item.ContainsKey("update_count")     ? int.Parse(item["update_count"].N)     : 0,
         dead_letter_count = item.ContainsKey("dead_letter_count")? int.Parse(item["dead_letter_count"].N): 0,
+        has_edits         = item.ContainsKey("has_edits")        && item["has_edits"].BOOL,
+        last_synced       = item.ContainsKey("last_synced")      ? item["last_synced"].S                 : "",
         report_url        = item.ContainsKey("report_url")       ? item["report_url"].S                  : "",
         error_message     = item.ContainsKey("error_message")    ? item["error_message"].S               : ""
     }).ToList();

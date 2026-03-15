@@ -1156,10 +1156,13 @@ function syncLogHTML(syncs){
       resultText=parts.join(' / ');
     }
     const hasDetail=!!(s.error_message);
+    const editsBadge=s.has_edits?'<span class="sync-edits">⚠ edits</span>':'';
+    const syncedThru=s.last_synced?`<span style="color:var(--dim);font-size:9px">thru ${s.last_synced}</span>`:'';
     return `<div class="sync-entry${hasDetail?' expandable':''}">
       <div class="sync-entry-row"${hasDetail?' onclick="this.closest(\'.sync-entry\').classList.toggle(\'open\')"':''}>
         <span class="sync-ts">${ts}</span>
         <span class="sync-result ${resultClass}">${resultText}${hasDetail?' ▾':''}</span>
+        ${editsBadge}${syncedThru}
       </div>${hasDetail?`<div class="sync-error-detail">${s.error_message}</div>`:''}
     </div>`;
   }).join('');
