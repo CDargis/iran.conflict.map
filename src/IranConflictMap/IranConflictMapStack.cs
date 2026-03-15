@@ -87,7 +87,7 @@ public class IranConflictMapStack : Stack
             },
             Timeout      = Duration.Seconds(15),
             MemorySize   = 256,
-            LogRetention = RetentionDays.FOURTEEN_DAYS
+            LogRetention = RetentionDays.TWO_WEEKS
         });
 
         // ── DynamoDB Syncs Table ───────────────────────────────────────────────
@@ -150,7 +150,7 @@ public class IranConflictMapStack : Stack
             },
             Timeout      = Duration.Minutes(5),
             MemorySize   = 512,
-            LogRetention = RetentionDays.FOURTEEN_DAYS
+            LogRetention = RetentionDays.TWO_WEEKS
         });
 
         processorLambda.AddEventSource(new SqsEventSource(processorQueue, new SqsEventSourceProps
@@ -283,7 +283,7 @@ public class IranConflictMapStack : Stack
             },
             Timeout      = Duration.Minutes(5),
             MemorySize   = 512,
-            LogRetention = RetentionDays.FOURTEEN_DAYS
+            LogRetention = RetentionDays.TWO_WEEKS
         });
 
         strikesTable.GrantReadData(syncLambda);
