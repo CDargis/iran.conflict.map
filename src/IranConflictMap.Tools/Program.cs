@@ -1,15 +1,23 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using Amazon.Runtime;
+using Amazon.Runtime.CredentialManagement;
+using Amazon.SQS;
+using Amazon.SQS.Model;
 using System.Text.Json;
+
+// ── Global flags ─────────────────────────────────────────────────────────────
+var profile  = GetFlag(ref args, "--profile") ?? "default";
+var region   = GetFlag(ref args, "--region")  ?? "us-east-1";
 
 var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(StringComparer.OrdinalIgnoreCase)
 {
-    ["reseed"] = ("Clear strikes table and reseed from seed files (skips last date)", Reseed)
+    ["reseed"] = ("Clear strikes table and reseed via SQS (skips last seed date)", Reseed)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
 {
-    Console.WriteLine("Usage: dotnet run -- <command> [options]");
+    Console.WriteLine("Usage: dotnet run -- [--profile <profile>] [--region <region>] <command> [options]");
     Console.WriteLine();
     Console.WriteLine("Commands:");
     foreach (var (name, (desc, _)) in commands)
@@ -28,116 +36,162 @@ await cmd.run(args[1..]);
 // ── reseed ───────────────────────────────────────────────────────────────────
 async Task Reseed(string[] opts)
 {
-    var tableName = "strikes";
-    var skipLast  = true;   // skip the most recent seed date — will be written by sync
+    const string tableName   = "strikes";
+    const string queueName   = "iran-conflict-map-processor";
 
-    // Allow overriding the seed directory
     var seedDir = opts.Length > 0 ? opts[0]
-        : FindSeedDir() ?? throw new Exception("Could not locate seed/criticial-threats directory. Pass path as first argument.");
+        : FindSeedDir() ?? throw new Exception("Could not locate seed/criticial-threats. Pass path as first argument.");
 
     var files = Directory.GetFiles(seedDir, "*.json").OrderBy(f => f).ToList();
     if (files.Count == 0) throw new Exception($"No seed files found in {seedDir}");
 
-    if (skipLast)
-    {
-        var skipped = Path.GetFileName(files[^1]);
-        files = files[..^1];
-        Console.WriteLine($"Skipping last seed file: {skipped} (will be written by sync)");
-    }
-
+    // Skip last date — will be written by sync pipeline
+    var skipped = Path.GetFileName(files[^1]);
+    files = files[..^1];
+    Console.WriteLine($"Skipping last seed file: {skipped} (will be written by sync)");
     Console.WriteLine($"Seed files to load: {files.Count}");
     foreach (var f in files) Console.WriteLine($"  {Path.GetFileName(f)}");
     Console.WriteLine();
 
-    var dynamo = new AmazonDynamoDBClient();
+    var dynamo = BuildDynamoClient();
+    var sqs    = BuildSqsClient();
 
-    // ── 1. Clear the table ───────────────────────────────────────────────────
+    // ── 1. Get queue URL ─────────────────────────────────────────────────────
+    var queueUrl = (await sqs.GetQueueUrlAsync(queueName)).QueueUrl;
+    Console.WriteLine($"Queue: {queueUrl}");
+    Console.WriteLine();
+
+    // ── 2. Clear the table ───────────────────────────────────────────────────
     Console.Write("Scanning table for existing items... ");
     var allKeys = new List<Dictionary<string, AttributeValue>>();
-    string? lastKey = null;
+    Dictionary<string, AttributeValue>? lastEvaluatedKey = null;
     do
     {
         var scan = await dynamo.ScanAsync(new ScanRequest
         {
             TableName            = tableName,
             ProjectionExpression = "id",
-            ExclusiveStartKey    = lastKey == null ? null : new Dictionary<string, AttributeValue>
-            {
-                ["id"] = new AttributeValue { S = lastKey }
-            }
+            ExclusiveStartKey    = lastEvaluatedKey
         });
         allKeys.AddRange(scan.Items.Select(i => new Dictionary<string, AttributeValue> { ["id"] = i["id"] }));
-        lastKey = scan.LastEvaluatedKey?.GetValueOrDefault("id")?.S;
-    } while (lastKey != null);
+        lastEvaluatedKey = scan.LastEvaluatedKey?.Count > 0 ? scan.LastEvaluatedKey : null;
+    } while (lastEvaluatedKey != null);
 
     Console.WriteLine($"{allKeys.Count} items found.");
 
     if (allKeys.Count > 0)
     {
         Console.Write("Deleting... ");
-        await BatchWrite(dynamo, tableName, allKeys.Select(k => new WriteRequest
-        {
-            DeleteRequest = new DeleteRequest { Key = k }
-        }).ToList());
+        await BatchDelete(dynamo, tableName, allKeys);
         Console.WriteLine("done.");
     }
 
-    // ── 2. Load and write seed data ──────────────────────────────────────────
-    var totalWritten = 0;
+    // ── 3. Send seed files to SQS ────────────────────────────────────────────
+    Console.WriteLine();
+    var totalMessages = 0;
 
     foreach (var file in files)
     {
         var json = await File.ReadAllTextAsync(file);
         var doc  = JsonDocument.Parse(json);
 
-        if (!doc.RootElement.TryGetProperty("new", out var newArr) || newArr.ValueKind != JsonValueKind.Array)
+        // Wrap in SyncEnvelope and forward verbatim — Processor Lambda handles new/updates/ambiguous
+        doc.RootElement.TryGetProperty("new",       out var newArr);
+        doc.RootElement.TryGetProperty("updates",   out var updatesArr);
+        doc.RootElement.TryGetProperty("ambiguous", out var ambiguousArr);
+
+        var hasContent = (newArr.ValueKind       == JsonValueKind.Array && newArr.GetArrayLength()       > 0)
+                      || (updatesArr.ValueKind   == JsonValueKind.Array && updatesArr.GetArrayLength()   > 0)
+                      || (ambiguousArr.ValueKind == JsonValueKind.Array && ambiguousArr.GetArrayLength() > 0);
+
+        if (!hasContent)
         {
-            Console.WriteLine($"  {Path.GetFileName(file)}: no 'new' array, skipping");
+            Console.WriteLine($"  {Path.GetFileName(file)}: no events/updates/ambiguous, skipping");
             continue;
         }
 
-        var puts = new List<WriteRequest>();
-        foreach (var entry in newArr.EnumerateArray())
+        var envelope = JsonSerializer.Serialize(new
         {
-            var item = entry.GetProperty("PutRequest").GetProperty("Item");
-            puts.Add(new WriteRequest
-            {
-                PutRequest = new PutRequest { Item = ParseDynamoItem(item) }
-            });
-        }
+            source_url = (string?)null,
+            synced_at  = DateTime.UtcNow.ToString("o"),
+            @new       = newArr.ValueKind       == JsonValueKind.Array ? newArr       : (JsonElement?)null,
+            updates    = updatesArr.ValueKind   == JsonValueKind.Array ? updatesArr   : (JsonElement?)null,
+            ambiguous  = ambiguousArr.ValueKind == JsonValueKind.Array ? ambiguousArr : (JsonElement?)null
+        });
 
-        await BatchWrite(dynamo, tableName, puts);
-        Console.WriteLine($"  {Path.GetFileName(file)}: {puts.Count} items written");
-        totalWritten += puts.Count;
+        await sqs.SendMessageAsync(new SendMessageRequest
+        {
+            QueueUrl    = queueUrl,
+            MessageBody = envelope
+        });
+
+        var newCount  = newArr.ValueKind       == JsonValueKind.Array ? newArr.GetArrayLength()       : 0;
+        var updCount  = updatesArr.ValueKind   == JsonValueKind.Array ? updatesArr.GetArrayLength()   : 0;
+        var ambCount  = ambiguousArr.ValueKind == JsonValueKind.Array ? ambiguousArr.GetArrayLength() : 0;
+        Console.WriteLine($"  {Path.GetFileName(file)}: {newCount} new, {updCount} updates, {ambCount} ambiguous — queued");
+        totalMessages++;
+
+        // Small delay to avoid overwhelming the processor
+        await Task.Delay(500);
     }
 
     Console.WriteLine();
-    Console.WriteLine($"Reseed complete. {totalWritten} items written to '{tableName}'.");
+    Console.WriteLine($"Reseed complete. {totalMessages} messages sent to processor queue.");
+    Console.WriteLine("Monitor the processor Lambda logs to confirm writes.");
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── AWS Client Builders ───────────────────────────────────────────────────────
 
-async Task BatchWrite(IAmazonDynamoDB dynamo, string table, List<WriteRequest> requests)
+IAmazonDynamoDB BuildDynamoClient()
 {
+    var endpoint = Amazon.RegionEndpoint.GetBySystemName(region);
+    var chain = new CredentialProfileStoreChain();
+    if (chain.TryGetAWSCredentials(profile, out var creds))
+    {
+        Console.WriteLine($"Using profile '{profile}' in {region}");
+        return new AmazonDynamoDBClient(creds, endpoint);
+    }
+    Console.WriteLine($"Profile '{profile}' not found — using default credential chain in {region}");
+    return new AmazonDynamoDBClient(new AmazonDynamoDBConfig { RegionEndpoint = endpoint });
+}
+
+IAmazonSQS BuildSqsClient()
+{
+    var endpoint = Amazon.RegionEndpoint.GetBySystemName(region);
+    var chain = new CredentialProfileStoreChain();
+    if (chain.TryGetAWSCredentials(profile, out var creds))
+        return new AmazonSQSClient(creds, endpoint);
+    return new AmazonSQSClient(new AmazonSQSConfig { RegionEndpoint = endpoint });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+async Task BatchDelete(IAmazonDynamoDB dynamo, string table, List<Dictionary<string, AttributeValue>> keys)
+{
+    var requests = keys.Select(k => new WriteRequest { DeleteRequest = new DeleteRequest { Key = k } }).ToList();
     for (var i = 0; i < requests.Count; i += 25)
     {
         var remaining = new Dictionary<string, List<WriteRequest>>
         {
             [table] = requests.Skip(i).Take(25).ToList()
         };
-
         var attempts = 0;
         while (remaining.Count > 0 && attempts++ < 5)
         {
             var resp = await dynamo.BatchWriteItemAsync(new BatchWriteItemRequest { RequestItems = remaining });
             remaining = resp.UnprocessedItems;
-            if (remaining.Count > 0)
-                await Task.Delay(200 * attempts);
+            if (remaining.Count > 0) await Task.Delay(200 * attempts);
         }
-
-        if (remaining.Count > 0)
-            Console.WriteLine($"  Warning: {remaining.Values.Sum(r => r.Count)} items still unprocessed after retries");
     }
+}
+
+string? GetFlag(ref string[] a, string flag)
+{
+    var idx = Array.IndexOf(a, flag);
+    if (idx == -1 || idx + 1 >= a.Length) return null;
+    var val = a[idx + 1];
+    a = a.Where((_, i) => i != idx && i != idx + 1).ToArray();
+    return val;
 }
 
 string? FindSeedDir()
@@ -151,46 +205,5 @@ string? FindSeedDir()
         if (parent == null) break;
         dir = parent;
     }
-    return null;
-}
-
-Dictionary<string, AttributeValue> ParseDynamoItem(JsonElement element)
-{
-    var result = new Dictionary<string, AttributeValue>();
-    foreach (var prop in element.EnumerateObject())
-    {
-        var attr = ParseDynamoAttr(prop.Value);
-        if (attr != null) result[prop.Name] = attr;
-    }
-    return result;
-}
-
-AttributeValue? ParseDynamoAttr(JsonElement element)
-{
-    if (element.TryGetProperty("S", out var s))
-    {
-        var str = s.GetString();
-        return string.IsNullOrEmpty(str) ? null : new AttributeValue { S = str };
-    }
-    if (element.TryGetProperty("N", out var n))
-    {
-        var num = n.GetString();
-        return string.IsNullOrEmpty(num) ? null : new AttributeValue { N = num };
-    }
-    if (element.TryGetProperty("BOOL", out var b))
-        return new AttributeValue { BOOL = b.GetBoolean() };
-    if (element.TryGetProperty("M", out var m))
-        return new AttributeValue { M = ParseDynamoItem(m) };
-    if (element.TryGetProperty("L", out var l))
-        return new AttributeValue
-        {
-            L = l.EnumerateArray()
-                 .Select(ParseDynamoAttr)
-                 .Where(a => a != null)
-                 .Select(a => a!)
-                 .ToList()
-        };
-    if (element.TryGetProperty("SS", out var ss))
-        return new AttributeValue { SS = ss.EnumerateArray().Select(x => x.GetString()!).ToList() };
     return null;
 }

@@ -9,6 +9,10 @@
 
   <ItemGroup>
     <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.*" />
+    <PackageReference Include="AWSSDK.SQS" Version="3.7.*" />
+    <PackageReference Include="AWSSDK.SSO" Version="3.7.*" />
+    <PackageReference Include="AWSSDK.SSOOIDC" Version="3.7.*" />
+    <PackageReference Include="AWSSDK.Signin" Version="3.7.*" />
   </ItemGroup>
 
 </Project>

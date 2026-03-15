@@ -444,7 +444,7 @@ public class Function
                 .Where(a => a != null)
                 .Select(a => a!)
                 .ToList();
-            return new AttributeValue { L = list };
+            return list.Count == 0 ? null : new AttributeValue { L = list };
         }
 
         throw new Exception($"Unsupported DynamoDB attribute type: {element.GetRawText()}");
