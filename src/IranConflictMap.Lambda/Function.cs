@@ -180,56 +180,62 @@ public class Function
             }
             else
             {
-                // Query by date + location (+ actor if provided) via entity GSI
-                var date     = GetLookupString(lookup, "date");
-                var location = GetLookupString(lookup, "location");
-                var actor    = GetLookupString(lookup, "actor");
+                // Query by date, then proximity-match by lat/lng
+                var date = GetLookupString(lookup, "date");
+                var lat  = GetLookupDouble(lookup, "lat");
+                var lng  = GetLookupDouble(lookup, "lng");
 
-                if (date == null || location == null)
+                if (date == null || lat == null || lng == null)
                 {
-                    context.Logger.LogLine($"[processor] update missing date/location lookup fields, dead-lettering");
+                    context.Logger.LogLine($"[processor] update missing date/lat/lng lookup fields, dead-lettering");
                     await SendToDeadLetter("update_missing_lookup", JsonSerializer.Serialize(update));
                     deadLettered++;
                     continue;
                 }
-
-                var filterExpr  = actor != null ? "#loc = :location AND actor = :actor" : "#loc = :location";
-                var attrValues  = new Dictionary<string, AttributeValue>
-                {
-                    [":entity"]   = new AttributeValue { S = "strike" },
-                    [":date"]     = new AttributeValue { S = date },
-                    [":location"] = new AttributeValue { S = location }
-                };
-                if (actor != null) attrValues[":actor"] = new AttributeValue { S = actor };
 
                 var queryResp = await _dynamo.QueryAsync(new QueryRequest
                 {
                     TableName                 = StrikesTable,
                     IndexName                 = StrikesGsi,
                     KeyConditionExpression    = "entity = :entity AND #d = :date",
-                    FilterExpression          = filterExpr,
-                    ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date", ["#loc"] = "location" },
-                    ExpressionAttributeValues = attrValues
+                    ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date" },
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                    {
+                        [":entity"] = new AttributeValue { S = "strike" },
+                        [":date"]   = new AttributeValue { S = date }
+                    }
                 });
 
-                if (queryResp.Items.Count == 0)
+                // Find closest event within 10km
+                const double ThresholdKm = 10.0;
+                var closest = queryResp.Items
+                    .Where(i => i.ContainsKey("lat") && i.ContainsKey("lng"))
+                    .Select(i => (item: i, dist: HaversineKm(lat.Value, lng.Value,
+                        double.Parse(i["lat"].N), double.Parse(i["lng"].N))))
+                    .Where(x => x.dist <= ThresholdKm)
+                    .OrderBy(x => x.dist)
+                    .ToList();
+
+                if (closest.Count == 0)
                 {
-                    context.Logger.LogLine($"[processor] update: no match for {date}/{location}/{actor ?? "(any actor)"}, dead-lettering");
+                    context.Logger.LogLine($"[processor] update: no proximity match for {date} ({lat},{lng}), dead-lettering");
                     await SendToDeadLetter("update_no_match", JsonSerializer.Serialize(update));
                     deadLettered++;
                     continue;
                 }
 
-                if (queryResp.Items.Count > 1)
+                if (closest.Count > 1 && closest[1].dist < 1.0)
                 {
-                    context.Logger.LogLine($"[processor] update: {queryResp.Items.Count} matches for {date}/{location}/{actor ?? "(any actor)"}, dead-lettering");
+                    // Two events within 1km of each other — ambiguous
+                    context.Logger.LogLine($"[processor] update: multiple proximity matches within 1km for {date} ({lat},{lng}), dead-lettering");
                     await SendToDeadLetter("update_multiple_matches", JsonSerializer.Serialize(update));
                     deadLettered++;
                     continue;
                 }
 
-                var existing = queryResp.Items[0];
+                var existing = closest[0].item;
                 existingId = existing["id"].S;
+                context.Logger.LogLine($"[processor] update: proximity match id={existingId} dist={closest[0].dist:F2}km");
                 await ApplyUpdate(existingId, existing, update.Changes, sourceUrl, syncedAt, context);
                 applied++;
             }
@@ -448,6 +454,25 @@ public class Function
         }
 
         throw new Exception($"Unsupported DynamoDB attribute type: {element.GetRawText()}");
+    }
+
+    private static double HaversineKm(double lat1, double lon1, double lat2, double lon2)
+    {
+        const double R = 6371;
+        var dLat = (lat2 - lat1) * Math.PI / 180;
+        var dLon = (lon2 - lon1) * Math.PI / 180;
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2)
+              + Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180)
+              * Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+    }
+
+    private static double? GetLookupDouble(Dictionary<string, JsonElement> lookup, string key)
+    {
+        if (!lookup.TryGetValue(key, out var val)) return null;
+        if (val.ValueKind == JsonValueKind.Number) return val.GetDouble();
+        if (val.TryGetProperty("N", out var n) && double.TryParse(n.GetString(), out var d)) return d;
+        return null;
     }
 
     private static string? GetLookupString(Dictionary<string, JsonElement> lookup, string key)
