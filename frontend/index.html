@@ -655,7 +655,10 @@
     <div class="title-sub">US · Iran · Israel — 2026</div>
   </div>
   <div class="top-right">
-    <div id="clock">--:--:--</div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+      <div id="clock">--:--:--</div>
+      <div style="font-size:8px;color:var(--dim);letter-spacing:.05em;text-transform:uppercase">updated Mar 15, 2026</div>
+    </div>
     <div class="status-pill"><div class="pulse"></div>live</div>
   </div>
 </header>
@@ -1021,6 +1024,7 @@ function feedHTML(data){
       </div>
       <div class="strike-title">${s.title}</div>
       <div class="strike-loc">${s.location}</div>
+      <div style="font-size:9px;font-weight:600;color:${ac};margin-top:3px;letter-spacing:.02em">${s.actor||''}</div>
       <span class="strike-tag">${TARGET_CFG[s.target_type]?.label||s.target_type}</span>${s.disputed?'<span class="disputed-badge">⚠ Disputed</span>':''}
     </div>`;
   }).join('');
