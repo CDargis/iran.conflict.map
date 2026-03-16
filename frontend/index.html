@@ -1177,6 +1177,8 @@ document.querySelectorAll('.tab').forEach(tab=>{
   if(new URLSearchParams(location.search).get('admin')==='1'){
     document.getElementById('desktop-sync-btn').style.display='';
     document.getElementById('mobile-sync-btn').style.display='';
+    document.getElementById('desktop-review-section').style.display='';
+    document.getElementById('mobile-review-section').style.display='';
   }
 })();
 
@@ -1279,11 +1281,6 @@ function loadSyncLog(){
       const html=syncLogHTML(data);
       document.getElementById('desktop-sync-log').innerHTML=html;
       document.getElementById('mobile-sync-log').innerHTML=html;
-      // Show review section if authenticated
-      if(localStorage.getItem('sync_key')){
-        document.getElementById('desktop-review-section').style.display='';
-        document.getElementById('mobile-review-section').style.display='';
-      }
     })
     .catch(()=>{});
 }
