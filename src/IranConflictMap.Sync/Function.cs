@@ -152,16 +152,19 @@ public class Function
             }
 
             // ── 3. Push to processor SQS ──────────────────────────────────────
-            var syncedAt  = DateTime.UtcNow.ToString("o");
+            // runId is used as synced_at so the Processor can UpdateItem the same record
             var claudeDoc = JsonDocument.Parse(claudeJson).RootElement;
             var envelope  = JsonSerializer.Serialize(new
             {
                 source_url = reportUrl,
-                synced_at  = syncedAt,
+                synced_at  = runId,
                 @new       = claudeDoc.TryGetProperty("new",       out var n) ? n : (JsonElement?)null,
                 updates    = claudeDoc.TryGetProperty("updates",   out var u) ? u : (JsonElement?)null,
                 ambiguous  = claudeDoc.TryGetProperty("ambiguous", out var a) ? a : (JsonElement?)null
             });
+
+            // Write initial record before pushing — Processor will update counts/status
+            await WriteSyncRecord(runId, "processing", 0, 0, 0, null, reportUrl, urlStrategy);
 
             await _sqs.SendMessageAsync(new SendMessageRequest
             {
@@ -175,21 +178,9 @@ public class Function
             if (!string.IsNullOrEmpty(emailKey))
                 await MoveS3Object(emailKey, "processed/" + emailKey["inbox/".Length..], context);
 
-            // ── 5. Write sync record ──────────────────────────────────────────
-            var newCount    = claudeDoc.TryGetProperty("new",       out var nArr) ? nArr.GetArrayLength() : 0;
-            var updateCount = claudeDoc.TryGetProperty("updates",   out var uArr) ? uArr.GetArrayLength() : 0;
-            var ambigCount  = claudeDoc.TryGetProperty("ambiguous", out var aArr) ? aArr.GetArrayLength() : 0;
-
-            var syncStatus = (newCount + updateCount + ambigCount) == 0 ? "no_events" : "success";
-            if (syncStatus == "no_events")
-                context.Logger.LogLine("[sync] warning: Claude returned valid JSON but no events — possible JS-rendered page or empty report");
-
-            await WriteSyncRecord(runId, syncStatus, newCount, updateCount, ambigCount,
-                syncStatus == "no_events" ? "Claude returned no events — report page may be JS-rendered or have no new events" : null,
-                reportUrl, urlStrategy);
             await UpdateSsmParam($"{SsmPrefix}/last_synced", DateTime.UtcNow.ToString("yyyy-MM-dd"));
 
-            context.Logger.LogLine($"[sync] done — status={syncStatus} new={newCount} updates={updateCount} ambiguous={ambigCount}");
+            context.Logger.LogLine("[sync] done — pushed to processor queue");
         }
         catch (Exception ex)
         {

@@ -37,33 +37,29 @@ public class Function
     {
         foreach (var record in sqsEvent.Records)
         {
-            var runId = DateTime.UtcNow.ToString("o");
             context.Logger.LogLine($"[processor] handling message {record.MessageId}");
+
+            var payload = JsonSerializer.Deserialize<SyncEnvelope>(record.Body)
+                ?? throw new Exception("Failed to deserialize SQS message body");
+
+            // synced_at == runId written by Sync Lambda — use it to update the existing record
+            var syncRecordId = payload.SyncedAt ?? DateTime.UtcNow.ToString("o");
 
             try
             {
-                var payload = JsonSerializer.Deserialize<SyncEnvelope>(record.Body)
-                    ?? throw new Exception("Failed to deserialize SQS message body");
-
                 var newCount = 0;
                 var updateApplied = 0;
                 var updateDeadLettered = 0;
                 var ambiguousCount = 0;
 
                 if (payload.New is { Count: > 0 })
-                {
                     newCount = await ProcessNewEvents(payload.New, payload.SourceUrl, payload.SyncedAt, context);
-                }
 
                 if (payload.Updates is { Count: > 0 })
-                {
                     (updateApplied, updateDeadLettered) = await ProcessUpdates(payload.Updates, payload.SourceUrl, payload.SyncedAt, context);
-                }
 
                 if (payload.Ambiguous is { Count: > 0 })
-                {
                     ambiguousCount = await ProcessAmbiguous(payload.Ambiguous, context);
-                }
 
                 var totalDeadLettered = updateDeadLettered + ambiguousCount;
                 var status = totalDeadLettered > 0 ? "partial" : "success";
@@ -71,14 +67,14 @@ public class Function
                 if (updateDeadLettered > 0) errors.Add($"{updateDeadLettered} updates dead-lettered");
                 if (ambiguousCount > 0) errors.Add($"{ambiguousCount} ambiguous items dead-lettered");
 
-                await WriteSyncRecord(runId, status, newCount, updateApplied, totalDeadLettered,
+                await UpdateSyncRecord(syncRecordId, status, newCount, updateApplied, totalDeadLettered,
                     errors.Count > 0 ? string.Join("; ", errors) : null, context);
                 context.Logger.LogLine($"[processor] done — new={newCount} updates={updateApplied} dead-lettered={totalDeadLettered}");
             }
             catch (Exception ex)
             {
                 context.Logger.LogLine($"[processor] error: {ex}");
-                await WriteSyncRecord(runId, "error", 0, 0, 0, ex.Message, context);
+                await UpdateSyncRecord(syncRecordId, "error", 0, 0, 0, ex.Message, context);
                 throw;
             }
         }
@@ -358,27 +354,31 @@ public class Function
             .Max() + 1;
     }
 
-    private async Task WriteSyncRecord(string id, string status, int newCount, int updateCount,
+    private async Task UpdateSyncRecord(string id, string status, int newCount, int updateCount,
         int deadLetterCount, string? errorMessage, ILambdaContext context)
     {
-        var item = new Dictionary<string, AttributeValue>
+        var updateExpr = "SET #s = :status, new_event_count = :new, update_count = :upd, dead_letter_count = :dlq";
+        var attrValues = new Dictionary<string, AttributeValue>
         {
-            ["id"] = new() { S = id },
-            ["entity"] = new() { S = "sync" },
-            ["timestamp"] = new() { S = id },
-            ["status"] = new() { S = status },
-            ["new_event_count"] = new() { N = newCount.ToString() },
-            ["update_count"] = new() { N = updateCount.ToString() },
-            ["dead_letter_count"] = new() { N = deadLetterCount.ToString() }
+            [":status"] = new() { S = status },
+            [":new"]    = new() { N = newCount.ToString() },
+            [":upd"]    = new() { N = updateCount.ToString() },
+            [":dlq"]    = new() { N = deadLetterCount.ToString() }
         };
 
         if (errorMessage != null)
-            item["error_message"] = new AttributeValue { S = errorMessage.Length > 1000 ? errorMessage[..1000] : errorMessage };
-
-        await _dynamo.PutItemAsync(new PutItemRequest
         {
-            TableName = SyncsTable,
-            Item = item
+            updateExpr += ", error_message = :err";
+            attrValues[":err"] = new() { S = errorMessage.Length > 1000 ? errorMessage[..1000] : errorMessage };
+        }
+
+        await _dynamo.UpdateItemAsync(new UpdateItemRequest
+        {
+            TableName                 = SyncsTable,
+            Key                       = new Dictionary<string, AttributeValue> { ["id"] = new() { S = id } },
+            UpdateExpression          = updateExpr,
+            ExpressionAttributeNames  = new Dictionary<string, string> { ["#s"] = "status" },
+            ExpressionAttributeValues = attrValues
         });
     }
 
