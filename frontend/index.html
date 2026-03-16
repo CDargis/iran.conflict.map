@@ -821,7 +821,7 @@ function popupHTML(s){
   const tc=TARGET_CFG[s.target_type]?.color||'#c8392b';
   const tlbl=TARGET_CFG[s.target_type]?.label||s.target_type;
   const albl=TYPE_CFG[s.type]?.label||s.type;
-  const ac=actorColor(s.actor)||'var(--dim)';
+  const ac=resolvedActorColors[s.actor]||actorColor(s.actor)||'var(--dim)';
   const sc=SEV_COLOR[s.severity]||'var(--dim)';
   const allCitations=[...new Set([...(s.citations||[]),(s.source_url||'')])].filter(Boolean);
   const sourcesHTML=allCitations.length
@@ -950,6 +950,7 @@ const ACTOR_SHORT={
 };
 const FALLBACK_PALETTE=['#c0392b','#8e44ad','#16a085','#d35400','#2980b9','#f39c12','#27ae60'];
 let activeActors=new Set();
+let resolvedActorColors={};
 
 function actorLabel(actor){
   // Use exact match first, then prefix match, then truncate
@@ -973,6 +974,7 @@ function initActorFilters(data){
   let fallbackIdx=0;
   actors.forEach(actor=>{
     const color=actorColor(actor)||(FALLBACK_PALETTE[fallbackIdx++%FALLBACK_PALETTE.length]);
+    resolvedActorColors[actor]=color;
     const btn=document.createElement('button');
     btn.className='actor-btn active';
     btn.dataset.actor=actor;
@@ -1014,7 +1016,7 @@ function applyFilters(data){
 const SEV_COLOR={low:'var(--dim)',medium:'var(--amber)',high:'var(--accent)',critical:'#ff4444'};
 function feedHTML(data){
   return [...data].sort((a,b)=>b.date.localeCompare(a.date)).map(s=>{
-    const ac=actorColor(s.actor)||'var(--dim)';
+    const ac=resolvedActorColors[s.actor]||actorColor(s.actor)||'var(--dim)';
     const sc=SEV_COLOR[s.severity]||'var(--dim)';
     return `
     <div class="strike-item target-${s.target_type}" data-id="${s.id}" onclick="focusStrike(${s.id})" style="border-left:3px solid ${ac}">
