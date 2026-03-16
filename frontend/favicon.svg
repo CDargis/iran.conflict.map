@@ -1,16 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <rect width="32" height="32" rx="3" fill="#13110e"/>
-  <!-- blade -->
-  <path d="M16 2 L13.5 18 L18.5 18 Z" fill="#9b2335"/>
-  <!-- blade fuller -->
-  <line x1="16" y1="3" x2="16" y2="17" stroke="#c0394d" stroke-width="0.75" opacity="0.6"/>
-  <!-- crossguard with pointed ends -->
-  <path d="M7 19.5 L9.5 17.5 L22.5 17.5 L25 19.5 L22.5 21.5 L9.5 21.5 Z" fill="#9b2335"/>
-  <!-- grip -->
-  <rect x="14.5" y="21.5" width="3" height="6" rx="1" fill="#9b2335"/>
-  <!-- grip wrap -->
-  <line x1="14.5" y1="23.5" x2="17.5" y2="23.5" stroke="#13110e" stroke-width="0.75" opacity="0.5"/>
-  <line x1="14.5" y1="25.5" x2="17.5" y2="25.5" stroke="#13110e" stroke-width="0.75" opacity="0.5"/>
-  <!-- pommel -->
-  <circle cx="16" cy="29.5" r="2.5" fill="#9b2335"/>
+  <!-- skull -->
+  <path d="M16 2 C8.5 2 3 8 3 15 C3 20.5 6.5 25 11 26.5 L11 30 L21 30 L21 26.5 C25.5 25 29 20.5 29 15 C29 8 23.5 2 16 2 Z" fill="#4f8fff"/>
+  <!-- eye sockets -->
+  <ellipse cx="11.5" cy="15" rx="3.5" ry="4" fill="#13110e"/>
+  <ellipse cx="20.5" cy="15" rx="3.5" ry="4" fill="#13110e"/>
+  <!-- nose cavity -->
+  <path d="M14.5 21 L17.5 21 L16 23.5 Z" fill="#13110e"/>
+  <!-- teeth dividers -->
+  <rect x="15.25" y="26.5" width="1.5" height="3.5" fill="#13110e"/>
+  <rect x="11"    y="27"   width="1.5" height="3"   fill="#13110e"/>
+  <rect x="19.5"  y="27"   width="1.5" height="3"   fill="#13110e"/>
 </svg>
