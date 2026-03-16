@@ -15,10 +15,11 @@ public class Function
     private readonly IAmazonDynamoDB _dynamo;
     private readonly IAmazonSQS _sqs;
 
-    private static readonly string StrikesTable = Env("STRIKES_TABLE", "strikes");
-    private static readonly string SyncsTable = Env("SYNCS_TABLE", "syncs");
+    private static readonly string StrikesTable      = Env("STRIKES_TABLE",       "strikes");
+    private static readonly string SyncsTable         = Env("SYNCS_TABLE",         "syncs");
     private static readonly string DeadLetterQueueUrl = Env("DEAD_LETTER_QUEUE_URL", "");
-    private static readonly string StrikesGsi = Env("STRIKES_GSI", "entity-date-index");
+    private static readonly string ReviewQueueUrl     = Env("REVIEW_QUEUE_URL",    "");
+    private static readonly string StrikesGsi         = Env("STRIKES_GSI",         "entity-date-index");
 
     public Function()
     {
@@ -50,7 +51,7 @@ public class Function
                 var newCount = 0;
                 var updateApplied = 0;
                 var updateDeadLettered = 0;
-                var ambiguousCount = 0;
+                var reviewCount = 0;
 
                 if (payload.New is { Count: > 0 })
                     newCount = await ProcessNewEvents(payload.New, payload.SourceUrl, payload.SyncedAt, context);
@@ -59,22 +60,21 @@ public class Function
                     (updateApplied, updateDeadLettered) = await ProcessUpdates(payload.Updates, payload.SourceUrl, payload.SyncedAt, context);
 
                 if (payload.Ambiguous is { Count: > 0 })
-                    ambiguousCount = await ProcessAmbiguous(payload.Ambiguous, context);
+                    reviewCount = await ProcessAmbiguous(payload.Ambiguous, payload.SourceUrl, context);
 
-                var totalDeadLettered = updateDeadLettered + ambiguousCount;
-                var status = totalDeadLettered > 0 ? "partial" : "success";
+                var status = updateDeadLettered > 0 ? "partial" : "success";
                 var errors = new List<string>();
                 if (updateDeadLettered > 0) errors.Add($"{updateDeadLettered} updates dead-lettered");
-                if (ambiguousCount > 0) errors.Add($"{ambiguousCount} ambiguous items dead-lettered");
+                if (reviewCount > 0) errors.Add($"{reviewCount} pending review");
 
-                await UpdateSyncRecord(syncRecordId, status, newCount, updateApplied, totalDeadLettered,
+                await UpdateSyncRecord(syncRecordId, status, newCount, updateApplied, updateDeadLettered, reviewCount,
                     errors.Count > 0 ? string.Join("; ", errors) : null, context);
-                context.Logger.LogLine($"[processor] done — new={newCount} updates={updateApplied} dead-lettered={totalDeadLettered}");
+                context.Logger.LogLine($"[processor] done — new={newCount} updates={updateApplied} dead-lettered={updateDeadLettered} review={reviewCount}");
             }
             catch (Exception ex)
             {
                 context.Logger.LogLine($"[processor] error: {ex}");
-                await UpdateSyncRecord(syncRecordId, "error", 0, 0, 0, ex.Message, context);
+                await UpdateSyncRecord(syncRecordId, "error", 0, 0, 0, 0, ex.Message, context);
                 throw;
             }
         }
@@ -328,12 +328,12 @@ public class Function
 
     // ── Ambiguous ───────────────────────────────────────────────────────────────
 
-    private async Task<int> ProcessAmbiguous(List<JsonElement> ambiguous, ILambdaContext context)
+    private async Task<int> ProcessAmbiguous(List<JsonElement> ambiguous, string? sourceUrl, ILambdaContext context)
     {
         foreach (var item in ambiguous)
         {
-            await SendToDeadLetter("ambiguous", item.GetRawText());
-            context.Logger.LogLine($"[processor] sent ambiguous item to dead-letter");
+            await SendToReviewQueue(item, sourceUrl);
+            context.Logger.LogLine("[processor] sent ambiguous item to review queue");
         }
         return ambiguous.Count;
     }
@@ -355,15 +355,20 @@ public class Function
     }
 
     private async Task UpdateSyncRecord(string id, string status, int newCount, int updateCount,
-        int deadLetterCount, string? errorMessage, ILambdaContext context)
+        int deadLetterCount, int reviewCount, string? errorMessage, ILambdaContext context)
     {
-        var updateExpr = "SET #s = :status, new_event_count = :new, update_count = :upd, dead_letter_count = :dlq";
+        // Always set entity/timestamp so this acts as an upsert (handles review-approval envelopes
+        // that arrive without a prior "processing" record written by the Sync Lambda).
+        var updateExpr = "SET #s = :status, new_event_count = :new, update_count = :upd, dead_letter_count = :dlq, review_count = :rev, entity = :entity, #ts = :ts";
         var attrValues = new Dictionary<string, AttributeValue>
         {
             [":status"] = new() { S = status },
             [":new"]    = new() { N = newCount.ToString() },
             [":upd"]    = new() { N = updateCount.ToString() },
-            [":dlq"]    = new() { N = deadLetterCount.ToString() }
+            [":dlq"]    = new() { N = deadLetterCount.ToString() },
+            [":rev"]    = new() { N = reviewCount.ToString() },
+            [":entity"] = new() { S = "sync" },
+            [":ts"]     = new() { S = id }
         };
 
         if (errorMessage != null)
@@ -377,12 +382,29 @@ public class Function
             TableName                 = SyncsTable,
             Key                       = new Dictionary<string, AttributeValue> { ["id"] = new() { S = id } },
             UpdateExpression          = updateExpr,
-            ExpressionAttributeNames  = new Dictionary<string, string> { ["#s"] = "status" },
+            ExpressionAttributeNames  = new Dictionary<string, string> { ["#s"] = "status", ["#ts"] = "timestamp" },
             ExpressionAttributeValues = attrValues
         });
     }
 
     // ── SQS Helpers ─────────────────────────────────────────────────────────────
+
+    private async Task SendToReviewQueue(JsonElement ambiguousItem, string? sourceUrl)
+    {
+        if (string.IsNullOrEmpty(ReviewQueueUrl)) return;
+
+        // Embed source_url so the API can build a SyncEnvelope on approval
+        var body = sourceUrl != null
+            ? JsonSerializer.Serialize(new { source_url = sourceUrl, item = ambiguousItem })
+            : ambiguousItem.GetRawText();
+
+        await _sqs.SendMessageAsync(new SendMessageRequest
+        {
+            QueueUrl       = ReviewQueueUrl,
+            MessageBody    = body,
+            MessageGroupId = "review"
+        });
+    }
 
     private async Task SendToDeadLetter(string reason, string body)
     {

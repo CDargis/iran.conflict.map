@@ -388,6 +388,38 @@
     }
     .sync-entry.open .sync-error-detail { display: block; }
     .sync-edits { color: var(--amber); font-size: 9px; }
+    .sync-review { color: #4f8fff; font-size: 9px; }
+
+    .review-item {
+      padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.06);
+      font-size: 10px;
+    }
+    .review-item:last-child { border-bottom: none; }
+    .review-note {
+      color: var(--dim); font-style: italic; margin-bottom: 5px;
+      line-height: 1.5; word-break: break-word;
+    }
+    .review-event-title { color: var(--text); font-weight: 600; }
+    .review-event-meta  { color: var(--dim); font-size: 9px; margin-top: 2px; }
+    .review-options {
+      display: flex; gap: 6px; margin: 6px 0;
+    }
+    .review-option {
+      flex: 1; padding: 5px 7px;
+      background: rgba(255,255,255,.04); border-radius: 3px;
+      font-size: 9px; color: var(--dim); line-height: 1.5;
+    }
+    .review-option-label { color: var(--text); font-weight: 600; display: block; margin-bottom: 2px; }
+    .review-actions { display: flex; gap: 5px; margin-top: 5px; }
+    .review-btn {
+      flex: 1; padding: 3px 6px; font-size: 9px; cursor: pointer;
+      background: var(--panel); border: 1px solid var(--border);
+      color: var(--text); border-radius: 3px;
+    }
+    .review-btn:hover { border-color: var(--dim); }
+    .review-btn.new    { border-color: var(--green); color: var(--green); }
+    .review-btn.update { border-color: #4f8fff;      color: #4f8fff; }
+    .review-btn.discard{ border-color: var(--accent); color: var(--accent); }
 
     .disputed-badge {
       display: inline-block; margin-top: 5px; margin-left: 5px;
@@ -717,6 +749,13 @@
         <button id="desktop-sync-btn" onclick="triggerSync()" style="display:none;font-size:10px;padding:2px 8px;cursor:pointer;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:3px">Run Now</button>
       </div>
       <div id="desktop-sync-log"><div class="data-note" style="color:var(--dim)">Loading…</div></div>
+      <div id="desktop-review-section" style="display:none">
+        <div class="section-label" style="margin-top:10px;display:flex;justify-content:space-between;align-items:center">
+          Review Queue
+          <button onclick="loadReviewQueue()" style="font-size:10px;padding:2px 8px;cursor:pointer;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:3px">Load</button>
+        </div>
+        <div id="desktop-review-panel"><div class="data-note" style="color:var(--dim)">Click Load to fetch pending items.</div></div>
+      </div>
     </div>
   </aside>
 </div>
@@ -757,6 +796,13 @@
         <button id="mobile-sync-btn" onclick="triggerSync()" style="display:none;font-size:10px;padding:2px 8px;cursor:pointer;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:3px">Run Now</button>
       </div>
       <div id="mobile-sync-log"><div class="data-note" style="color:var(--dim)">Loading…</div></div>
+      <div id="mobile-review-section" style="display:none">
+        <div class="section-label" style="margin-top:10px;display:flex;justify-content:space-between;align-items:center">
+          Review Queue
+          <button onclick="loadReviewQueue()" style="font-size:10px;padding:2px 8px;cursor:pointer;background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:3px">Load</button>
+        </div>
+        <div id="mobile-review-panel"><div class="data-note" style="color:var(--dim)">Click Load to fetch pending items.</div></div>
+      </div>
     </div>
   </div>
 </div>
@@ -1205,6 +1251,7 @@ function syncLogHTML(syncs){
       if(s.update_count>0) parts.push(`${s.update_count} update${s.update_count>1?'s':''}`);
       resultText=parts.join(' / ');
     }
+    const reviewBadge=s.review_count>0?`<span class="sync-review">↷ ${s.review_count} review</span>`:'';
     const hasErrorDetail=!!(s.error_message);
     const hasSuccessDetail=!!(s.report_url)&&(s.status==='success'||s.status==='no_events');
     const hasDetail=hasErrorDetail||hasSuccessDetail;
@@ -1220,7 +1267,7 @@ function syncLogHTML(syncs){
       <div class="sync-entry-row"${hasDetail?' onclick="this.closest(\'.sync-entry\').classList.toggle(\'open\')"':''}>
         <span class="sync-ts">${ts}</span>
         <span class="sync-result ${resultClass}">${resultText}${hasDetail?' ▾':''}</span>
-        ${editsBadge}${syncedThru}
+        ${editsBadge}${reviewBadge}${syncedThru}
       </div>${hasDetail?detailHtml:''}
     </div>`;
   }).join('');
@@ -1232,10 +1279,86 @@ function loadSyncLog(){
       const html=syncLogHTML(data);
       document.getElementById('desktop-sync-log').innerHTML=html;
       document.getElementById('mobile-sync-log').innerHTML=html;
+      // Show review section if authenticated
+      if(localStorage.getItem('sync_key')){
+        document.getElementById('desktop-review-section').style.display='';
+        document.getElementById('mobile-review-section').style.display='';
+      }
     })
     .catch(()=>{});
 }
 loadSyncLog();
+
+/* ── REVIEW QUEUE ── */
+let _reviewItems=[];
+
+function reviewItemHTML(item,i){
+  const asNew=item.as_new?.PutRequest?.Item;
+  const title=asNew?.title?.S||'(unknown title)';
+  const date=asNew?.date?.S||'';
+  const location=asNew?.location?.S||'';
+  const actor=asNew?.actor?.S||'';
+  const severity=asNew?.severity?.S||'';
+  const asUpdate=item.as_update;
+  const updateFields=asUpdate?.changes?Object.keys(asUpdate.changes).join(', '):'—';
+  const updateDate=asUpdate?.lookup?.date||'';
+  const updateLat=asUpdate?.lookup?.lat??'';
+  const updateLng=asUpdate?.lookup?.lng??'';
+  return `<div class="review-item">
+    <div class="review-note">${item.note||'No note provided.'}</div>
+    <div class="review-event-title">${title}</div>
+    <div class="review-event-meta">${date}${location?' · '+location:''}${actor?' · '+actor:''}${severity?' · '+severity:''}</div>
+    <div class="review-options">
+      <div class="review-option"><span class="review-option-label">As New</span>${date}, ${location}</div>
+      <div class="review-option"><span class="review-option-label">As Update</span>fields: ${updateFields}<br>lookup: ${updateDate} (${updateLat}, ${updateLng})</div>
+    </div>
+    <div class="review-actions">
+      <button class="review-btn new"    onclick="resolveReview(${i},'new')">Approve New</button>
+      <button class="review-btn update" onclick="resolveReview(${i},'update')">Approve Update</button>
+      <button class="review-btn discard"onclick="resolveReview(${i},'discard')">Discard</button>
+    </div>
+  </div>`;
+}
+
+async function loadReviewQueue(){
+  const key=localStorage.getItem('sync_key');
+  if(!key){alert('Authenticate via Run Now first.');return;}
+  const panels=[document.getElementById('desktop-review-panel'),document.getElementById('mobile-review-panel')];
+  panels.forEach(p=>{if(p)p.innerHTML='<div class="data-note" style="color:var(--dim)">Loading…</div>';});
+  try{
+    const r=await fetch('/api/review',{headers:{'X-Sync-Key':key}});
+    if(r.status===401){alert('Invalid key.');return;}
+    if(!r.ok){panels.forEach(p=>{if(p)p.innerHTML='<div class="data-note" style="color:var(--accent)">Error loading review queue.</div>';});return;}
+    _reviewItems=await r.json();
+    const html=_reviewItems.length
+      ?_reviewItems.map((item,i)=>reviewItemHTML(item,i)).join('')
+      :'<div class="data-note" style="color:var(--dim)">Queue empty.</div>';
+    panels.forEach(p=>{if(p)p.innerHTML=html;});
+  }catch(e){
+    panels.forEach(p=>{if(p)p.innerHTML='<div class="data-note" style="color:var(--accent)">Request failed.</div>';});
+  }
+}
+
+async function resolveReview(i,action){
+  const key=localStorage.getItem('sync_key');
+  const item=_reviewItems[i];
+  if(!item||!key)return;
+  try{
+    const r=await fetch('/api/review/resolve',{
+      method:'POST',
+      headers:{'X-Sync-Key':key,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        receiptHandle:item.receiptHandle,
+        action,
+        source_url:item.source_url||'',
+        as_new:item.as_new||null,
+        as_update:item.as_update||null
+      })
+    });
+    if(!r.ok){alert('Resolve failed: '+r.status);return;}
+    await loadReviewQueue();
+  }catch(e){alert('Request failed');}
+}
 
 /* ── LOAD ── */
 function hideLoader(){

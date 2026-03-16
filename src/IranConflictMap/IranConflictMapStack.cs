@@ -141,6 +141,16 @@ public class IranConflictMapStack : Stack
             }
         });
 
+        // ── Review Queue (ambiguous items awaiting human judgment) ────────────────
+        var reviewQueue = new Queue(this, "ReviewQueue", new QueueProps
+        {
+            QueueName                 = "iran-conflict-map-review.fifo",
+            Fifo                      = true,
+            ContentBasedDeduplication = true,
+            VisibilityTimeout         = Duration.Minutes(15),  // > API receive visibility timeout (10 min)
+            RetentionPeriod           = Duration.Days(14)
+        });
+
         // ── Processor Lambda (SQS-triggered) ─────────────────────────────────
         var processorLambda = new LambdaFunction(this, "ProcessorFunction", new LambdaFunctionProps
         {
@@ -160,7 +170,8 @@ public class IranConflictMapStack : Stack
                 ["STRIKES_TABLE"]        = strikesTable.TableName,
                 ["SYNCS_TABLE"]          = syncsTable.TableName,
                 ["STRIKES_GSI"]          = "entity-date-index",
-                ["DEAD_LETTER_QUEUE_URL"] = deadLetterQueue.QueueUrl
+                ["DEAD_LETTER_QUEUE_URL"] = deadLetterQueue.QueueUrl,
+                ["REVIEW_QUEUE_URL"]      = reviewQueue.QueueUrl
             },
             Timeout      = Duration.Minutes(5),
             MemorySize   = 512,
@@ -175,6 +186,7 @@ public class IranConflictMapStack : Stack
         strikesTable.GrantReadWriteData(processorLambda);
         syncsTable.GrantReadWriteData(processorLambda);
         deadLetterQueue.GrantSendMessages(processorLambda);
+        reviewQueue.GrantSendMessages(processorLambda);
 
         // ── SSM Parameters (initial values — updated at runtime by sync Lambda) ──
         new StringParameter(this, "LastSynced", new StringParameterProps
@@ -189,7 +201,9 @@ public class IranConflictMapStack : Stack
         });
 
         strikesTable.GrantReadData(apiLambda);
-        syncsTable.GrantReadData(apiLambda);
+        syncsTable.GrantReadWriteData(apiLambda);   // write needed for review-approval sync records
+        reviewQueue.GrantConsumeMessages(apiLambda);
+        processorQueue.GrantSendMessages(apiLambda);
 
         // ── HTTP API Gateway ───────────────────────────────────────────────
         var httpApi = new HttpApi(this, "HttpApi", new HttpApiProps
@@ -340,6 +354,7 @@ public class IranConflictMapStack : Stack
         strikesTable.GrantReadData(syncLambda);
         syncsTable.GrantReadWriteData(syncLambda);
         processorQueue.GrantSendMessages(syncLambda);
+        reviewQueue.GrantSendMessages(syncLambda);   // in case Sync Lambda ever routes to review directly
         emailBucket.GrantReadWrite(syncLambda);
         syncLambda.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
         {
@@ -355,9 +370,12 @@ public class IranConflictMapStack : Stack
         // API: invoke extract for manual trigger; send to report queue for submit-url
         extractLambda.GrantInvoke(apiLambda);
         reportQueue.GrantSendMessages(apiLambda);
-        apiLambda.AddEnvironment("EXTRACT_FUNCTION_NAME", extractLambda.FunctionName);
-        apiLambda.AddEnvironment("REPORT_QUEUE_URL",      reportQueue.QueueUrl);
-        apiLambda.AddEnvironment("SSM_PREFIX",            "/iran-conflict-map");
+        apiLambda.AddEnvironment("EXTRACT_FUNCTION_NAME",  extractLambda.FunctionName);
+        apiLambda.AddEnvironment("REPORT_QUEUE_URL",       reportQueue.QueueUrl);
+        apiLambda.AddEnvironment("REVIEW_QUEUE_URL",       reviewQueue.QueueUrl);
+        apiLambda.AddEnvironment("PROCESSOR_QUEUE_URL",    processorQueue.QueueUrl);
+        apiLambda.AddEnvironment("SYNCS_TABLE",            syncsTable.TableName);
+        apiLambda.AddEnvironment("SSM_PREFIX",             "/iran-conflict-map");
 
         apiLambda.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
         {

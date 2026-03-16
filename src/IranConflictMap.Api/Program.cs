@@ -130,6 +130,7 @@ app.MapGet("/api/syncs", async (IAmazonDynamoDB dynamo) =>
         new_event_count   = item.ContainsKey("new_event_count")  ? int.Parse(item["new_event_count"].N)  : 0,
         update_count      = item.ContainsKey("update_count")     ? int.Parse(item["update_count"].N)     : 0,
         dead_letter_count = item.ContainsKey("dead_letter_count")? int.Parse(item["dead_letter_count"].N): 0,
+        review_count      = item.ContainsKey("review_count")     ? int.Parse(item["review_count"].N)     : 0,
         has_edits         = item.ContainsKey("has_edits")        && item["has_edits"].BOOL,
         last_synced       = item.ContainsKey("last_synced")      ? item["last_synced"].S                 : "",
         report_url        = item.ContainsKey("report_url")       ? item["report_url"].S                  : "",
@@ -173,7 +174,7 @@ app.MapPost("/api/sync/trigger", async (HttpContext ctx, IAmazonSimpleSystemsMan
     var response = await lambdaClient.InvokeAsync(new Amazon.Lambda.Model.InvokeRequest
     {
         FunctionName   = functionName,
-        InvocationType = "Event"   // async, fire-and-forget — extract Lambda scans inbox when no S3 event
+        InvocationType = "Event"   // async, fire-and-forget
     });
 
     return Results.Ok(new { triggered = true, status = (int)response.StatusCode });
@@ -200,7 +201,7 @@ app.MapPost("/api/sync/submit-url", async (HttpContext ctx, IAmazonSimpleSystems
     if (string.IsNullOrEmpty(queueUrl))
         return Results.Problem("REPORT_QUEUE_URL not configured");
 
-    var messageBody = JsonSerializer.Serialize(new { url });   // no email_key — manual submission
+    var messageBody = JsonSerializer.Serialize(new { url });
 
     await sqs.SendMessageAsync(new SendMessageRequest
     {
@@ -212,6 +213,150 @@ app.MapPost("/api/sync/submit-url", async (HttpContext ctx, IAmazonSimpleSystems
     return Results.Ok(new { queued = true, url });
 });
 
+// ── GET /api/review — peek at review queue items ───────────────────────────────
+app.MapGet("/api/review", async (HttpContext ctx, IAmazonSimpleSystemsManagement ssm, IAmazonSQS sqs) =>
+{
+    if (!await ValidateSyncKey(ctx, ssm))
+        return Results.Unauthorized();
+
+    var queueUrl = Environment.GetEnvironmentVariable("REVIEW_QUEUE_URL");
+    if (string.IsNullOrEmpty(queueUrl))
+        return Results.Problem("REVIEW_QUEUE_URL not configured");
+
+    var response = await sqs.ReceiveMessageAsync(new ReceiveMessageRequest
+    {
+        QueueUrl            = queueUrl,
+        MaxNumberOfMessages = 10,
+        VisibilityTimeout   = 600   // 10 minutes to review and act
+    });
+
+    var items = response.Messages.Select(m =>
+    {
+        try
+        {
+            var parsed = JsonDocument.Parse(m.Body).RootElement;
+            return (object)new
+            {
+                receiptHandle = m.ReceiptHandle,
+                source_url    = parsed.TryGetProperty("source_url", out var su) ? su.GetString() : "",
+                note          = parsed.TryGetProperty("item", out var it)
+                    ? (it.TryGetProperty("note", out var n) ? n.GetString() : "")
+                    : (parsed.TryGetProperty("note", out var n2) ? n2.GetString() : ""),
+                as_new        = parsed.TryGetProperty("item", out var it2) && it2.TryGetProperty("as_new",    out var an) ? an : (JsonElement?)null,
+                as_update     = parsed.TryGetProperty("item", out var it3) && it3.TryGetProperty("as_update", out var au) ? au : (JsonElement?)null
+            };
+        }
+        catch
+        {
+            return (object)new { receiptHandle = m.ReceiptHandle, source_url = "", note = "parse error", as_new = (JsonElement?)null, as_update = (JsonElement?)null };
+        }
+    }).ToList();
+
+    return Results.Ok(items);
+});
+
+// ── POST /api/review/resolve — approve or discard a review item ────────────────
+app.MapPost("/api/review/resolve", async (HttpContext ctx, IAmazonSimpleSystemsManagement ssm, IAmazonSQS sqs, IAmazonDynamoDB dynamo) =>
+{
+    if (!await ValidateSyncKey(ctx, ssm))
+        return Results.Unauthorized();
+
+    ResolveRequest? req;
+    try { req = await JsonSerializer.DeserializeAsync<ResolveRequest>(ctx.Request.Body); }
+    catch { return Results.BadRequest(new { error = "Invalid JSON body" }); }
+
+    if (req is null || string.IsNullOrEmpty(req.ReceiptHandle) || string.IsNullOrEmpty(req.Action))
+        return Results.BadRequest(new { error = "receiptHandle and action are required" });
+
+    if (req.Action is not ("new" or "update" or "discard"))
+        return Results.BadRequest(new { error = "action must be new, update, or discard" });
+
+    var reviewQueueUrl    = Environment.GetEnvironmentVariable("REVIEW_QUEUE_URL");
+    var processorQueueUrl = Environment.GetEnvironmentVariable("PROCESSOR_QUEUE_URL");
+    var syncsTable        = Environment.GetEnvironmentVariable("SYNCS_TABLE") ?? "syncs";
+
+    if (string.IsNullOrEmpty(reviewQueueUrl))
+        return Results.Problem("REVIEW_QUEUE_URL not configured");
+
+    if (req.Action != "discard" && string.IsNullOrEmpty(processorQueueUrl))
+        return Results.Problem("PROCESSOR_QUEUE_URL not configured");
+
+    if (req.Action != "discard")
+    {
+        // Write initial "processing" sync record — processor will update it with final counts
+        var runId = DateTime.UtcNow.ToString("o");
+        await dynamo.PutItemAsync(new PutItemRequest
+        {
+            TableName = syncsTable,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["id"]                = new() { S = runId },
+                ["entity"]            = new() { S = "sync" },
+                ["timestamp"]         = new() { S = runId },
+                ["status"]            = new() { S = "processing" },
+                ["new_event_count"]   = new() { N = "0" },
+                ["update_count"]      = new() { N = "0" },
+                ["dead_letter_count"] = new() { N = "0" },
+                ["review_count"]      = new() { N = "0" },
+                ["report_url"]        = new() { S = req.SourceUrl ?? "" }
+            }
+        });
+
+        // Build SyncEnvelope and send to processor
+        string envelope;
+        if (req.Action == "new" && req.AsNew.HasValue)
+        {
+            envelope = JsonSerializer.Serialize(new
+            {
+                source_url = req.SourceUrl ?? "",
+                synced_at  = runId,
+                @new       = new[] { req.AsNew.Value },
+                updates    = (object?)null,
+                ambiguous  = (object?)null
+            });
+        }
+        else if (req.Action == "update" && req.AsUpdate.HasValue)
+        {
+            envelope = JsonSerializer.Serialize(new
+            {
+                source_url = req.SourceUrl ?? "",
+                synced_at  = runId,
+                @new       = (object?)null,
+                updates    = new[] { req.AsUpdate.Value },
+                ambiguous  = (object?)null
+            });
+        }
+        else
+        {
+            return Results.BadRequest(new { error = $"as_{req.Action} payload is required for action '{req.Action}'" });
+        }
+
+        await sqs.SendMessageAsync(new SendMessageRequest
+        {
+            QueueUrl       = processorQueueUrl,
+            MessageBody    = envelope,
+            MessageGroupId = "review"
+        });
+    }
+
+    // Delete from review queue
+    await sqs.DeleteMessageAsync(new DeleteMessageRequest
+    {
+        QueueUrl      = reviewQueueUrl,
+        ReceiptHandle = req.ReceiptHandle
+    });
+
+    return Results.Ok(new { resolved = true, action = req.Action });
+});
+
 app.Run();
 
 record SubmitUrlRequest([property: System.Text.Json.Serialization.JsonPropertyName("url")] string? Url);
+
+record ResolveRequest(
+    [property: System.Text.Json.Serialization.JsonPropertyName("receiptHandle")] string  ReceiptHandle,
+    [property: System.Text.Json.Serialization.JsonPropertyName("action")]        string  Action,
+    [property: System.Text.Json.Serialization.JsonPropertyName("source_url")]    string? SourceUrl,
+    [property: System.Text.Json.Serialization.JsonPropertyName("as_new")]        System.Text.Json.JsonElement? AsNew,
+    [property: System.Text.Json.Serialization.JsonPropertyName("as_update")]     System.Text.Json.JsonElement? AsUpdate
+);

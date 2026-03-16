@@ -72,13 +72,13 @@ public class Function
         New vs update rule: Classify each extracted event as:
         new — not previously reported; assign the next available ID
         update — reported in a prior report, this report adds detail or corrects it; include only changed fields plus date, lat, and lng as lookup keys (lat/lng as plain decimal numbers, not DynamoDB wire format); omit location and actor from the lookup
-        ambiguous — cannot confidently determine whether new or update; include a note explaining why
+        ambiguous — cannot confidently determine whether new or update; include a "note" explaining the uncertainty, a complete "as_new" item (same PutRequest/Item wire format as new events), and an "as_update" payload (same lookup/changes format as updates); only use ambiguous when genuinely uncertain — prefer new or update if you can reasonably classify the event
 
         Output format — return a single JSON object:
         {
           "new": [ { "PutRequest": { "Item": { ... DynamoDB wire format ... } } }, ... ],
           "updates": [ { "lookup": { "date": "...", "lat": 0.0, "lng": 0.0 }, "changes": { ... } }, ... ],
-          "ambiguous": [ { "note": "...", "raw": {} }, ... ]
+          "ambiguous": [ { "note": "...", "as_new": { "PutRequest": { "Item": { ... DynamoDB wire format ... } } }, "as_update": { "lookup": { "date": "...", "lat": 0.0, "lng": 0.0 }, "changes": { ... } } }, ... ]
         }
         Only include "disputed" when genuinely contested. Only include "citations" when footnotes are mappable. Only include fields in "changes" that are actually changing.
         """;
