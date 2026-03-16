@@ -27,6 +27,7 @@ public class Function
     private const string ExpectedKeyword1 = "Iran";
     private const string ExpectedKeyword2 = "Update";
     private const string ReportBaseUrl    = "https://www.criticalthreats.org/analysis/";
+    private const string ListingPageUrl   = "https://www.criticalthreats.org/analysis/ctp-iran-updates";
 
     public Function()
     {
@@ -103,31 +104,59 @@ public class Function
 
         ctx.Logger.LogLine($"[extract] matched ({reason}): '{message.Subject}'");
 
-        var reportUrl = BuildReportUrl(message.Subject ?? "");
+        var (reportUrl, strategy) = await ResolveReportUrl(message, ctx);
         if (reportUrl == null)
         {
-            ctx.Logger.LogLine($"[extract] could not construct report URL from subject: '{message.Subject}' — leaving in inbox");
+            ctx.Logger.LogLine($"[extract] all 3 strategies failed for '{message.Subject}' — leaving in inbox");
             return;
         }
 
-        ctx.Logger.LogLine($"[extract] verifying: {reportUrl}");
-        if (!await VerifyReportUrl(reportUrl, ctx))
-        {
-            ctx.Logger.LogLine($"[extract] URL not found: {reportUrl} — leaving in inbox");
-            return;
-        }
-
-        await EnqueueReportUrl(reportUrl, emailKey, ctx);
+        await EnqueueReportUrl(reportUrl, emailKey, strategy, ctx);
     }
 
-    // ── URL construction from email subject ───────────────────────────────────
+    // ── 3-strategy URL resolution ─────────────────────────────────────────────
 
-    private static readonly string[] MonthNames =
+    private async Task<(string? url, string strategy)> ResolveReportUrl(MimeMessage message, ILambdaContext ctx)
     {
-        "january","february","march","april","may","june",
-        "july","august","september","october","november","december"
-    };
+        // Strategy 1: Subject slug + HEAD verify
+        var subjectUrl = BuildReportUrl(message.Subject ?? "");
+        if (subjectUrl != null)
+        {
+            ctx.Logger.LogLine($"[extract] strategy 1 (subject_slug): verifying {subjectUrl}");
+            if (await VerifyReportUrl(subjectUrl, ctx))
+                return (subjectUrl, "subject_slug");
+            ctx.Logger.LogLine("[extract] strategy 1 failed — trying INI_LIST");
+        }
+        else
+        {
+            ctx.Logger.LogLine("[extract] strategy 1: could not build URL from subject — trying INI_LIST");
+        }
 
+        // Strategy 2: INI_LIST match from listing page
+        var dateSlug = BuildDateSlug(message.Subject ?? "");
+        if (dateSlug != null)
+        {
+            ctx.Logger.LogLine($"[extract] strategy 2 (ini_list): searching for date slug '{dateSlug}'");
+            var iniUrl = await FindUrlInIniList(dateSlug, ctx);
+            if (iniUrl != null)
+                return (iniUrl, "ini_list");
+            ctx.Logger.LogLine("[extract] strategy 2 failed — trying body scan");
+        }
+        else
+        {
+            ctx.Logger.LogLine("[extract] strategy 2: could not extract date from subject — trying body scan");
+        }
+
+        // Strategy 3: Plain-text body scan
+        ctx.Logger.LogLine("[extract] strategy 3 (body_scan): scanning email body");
+        var bodyUrl = ScanBodyForUrl(message, ctx);
+        if (bodyUrl != null)
+            return (bodyUrl, "body_scan");
+
+        return (null, "");
+    }
+
+    // Strategy 1 helper: build slug URL from subject
     internal static string? BuildReportUrl(string subject)
     {
         // Match "Some Title: Month D, YYYY" (time zone suffix is ignored)
@@ -149,6 +178,93 @@ public class Function
         return $"{ReportBaseUrl}{slug}-{month}-{day}-{year}";
     }
 
+    // Strategy 2 helper: extract "month-day-year" from subject for INI_LIST matching
+    internal static string? BuildDateSlug(string subject)
+    {
+        var re = new Regex(
+            @"\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2}),\s+(\d{4})",
+            RegexOptions.IgnoreCase);
+
+        var m = re.Match(subject);
+        if (!m.Success) return null;
+
+        var month = m.Groups[1].Value.ToLowerInvariant();
+        var day   = int.Parse(m.Groups[2].Value);
+        var year  = m.Groups[3].Value;
+
+        return $"{month}-{day}-{year}";
+    }
+
+    private async Task<string?> FindUrlInIniList(string dateSlug, ILambdaContext ctx)
+    {
+        try
+        {
+            var html = await Http.GetStringAsync(ListingPageUrl);
+            ctx.Logger.LogLine($"[extract] INI_LIST page fetched ({html.Length} chars)");
+
+            var iniMatch = Regex.Match(html, @"var\s+INI_LIST\s*=\s*(\[.*?\]);", RegexOptions.Singleline);
+            if (!iniMatch.Success)
+            {
+                ctx.Logger.LogLine("[extract] INI_LIST variable not found in listing page");
+                return null;
+            }
+
+            // Extract all slugs with regex (avoids full JSON parse of potentially large array)
+            var slugRe  = new Regex(@"""slug""\s*:\s*""([^""]+)""", RegexOptions.Singleline);
+            var matches = slugRe.Matches(iniMatch.Groups[1].Value);
+
+            ctx.Logger.LogLine($"[extract] INI_LIST has {matches.Count} entries");
+
+            foreach (Match m in matches)
+            {
+                var slug = m.Groups[1].Value;
+                if (slug.Contains(dateSlug))
+                {
+                    var url = $"{ReportBaseUrl}{slug}";
+                    ctx.Logger.LogLine($"[extract] INI_LIST match: {url}");
+                    return url;
+                }
+            }
+
+            ctx.Logger.LogLine($"[extract] no INI_LIST entry found for '{dateSlug}'");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            ctx.Logger.LogLine($"[extract] INI_LIST fetch error: {ex.Message}");
+            return null;
+        }
+    }
+
+    // Strategy 3 helper: scan email body for a criticalthreats.org/analysis/ URL
+    private static string? ScanBodyForUrl(MimeMessage message, ILambdaContext ctx)
+    {
+        var re = new Regex(@"https://www\.criticalthreats\.org/analysis/[^\s""'<>\]]+");
+
+        // Try plain-text body first
+        var text = message.TextBody ?? "";
+        var m = re.Match(text);
+        if (m.Success)
+        {
+            ctx.Logger.LogLine($"[extract] body scan (text) found: {m.Value}");
+            return m.Value.TrimEnd('.');
+        }
+
+        // Fallback to HTML body
+        if (!string.IsNullOrEmpty(message.HtmlBody))
+        {
+            m = re.Match(message.HtmlBody);
+            if (m.Success)
+            {
+                ctx.Logger.LogLine($"[extract] body scan (html) found: {m.Value}");
+                return m.Value.TrimEnd('.');
+            }
+        }
+
+        ctx.Logger.LogLine("[extract] body scan found no criticalthreats.org/analysis/ URL");
+        return null;
+    }
+
     private async Task<bool> VerifyReportUrl(string url, ILambdaContext ctx)
     {
         try
@@ -157,7 +273,6 @@ public class Function
             req.Headers.Add("User-Agent", "Mozilla/5.0 (compatible)");
             var resp = await Http.SendAsync(req);
             ctx.Logger.LogLine($"[extract] HEAD {url} → {(int)resp.StatusCode}");
-            // 200 with non-"Not Found" title = valid; we'll rely on status code only
             return resp.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -167,9 +282,9 @@ public class Function
         }
     }
 
-    private async Task EnqueueReportUrl(string url, string emailKey, ILambdaContext ctx)
+    private async Task EnqueueReportUrl(string url, string emailKey, string strategy, ILambdaContext ctx)
     {
-        var body = JsonSerializer.Serialize(new { url, email_key = emailKey });
+        var body = JsonSerializer.Serialize(new { url, email_key = emailKey, url_strategy = strategy });
 
         await _sqs.SendMessageAsync(new SendMessageRequest
         {
@@ -178,7 +293,7 @@ public class Function
             MessageGroupId = "report"
         });
 
-        ctx.Logger.LogLine($"[extract] enqueued → {url}");
+        ctx.Logger.LogLine($"[extract] enqueued via {strategy}: {url}");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

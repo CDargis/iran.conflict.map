@@ -115,12 +115,13 @@ public class Function
         var msg = JsonSerializer.Deserialize<ReportMessage>(messageBody)
             ?? throw new Exception($"Could not deserialize SQS message: {messageId}");
 
-        var reportUrl = msg.Url;
-        var emailKey  = msg.EmailKey;   // null for manual submissions
-        var runId     = DateTime.UtcNow.ToString("o");
+        var reportUrl   = msg.Url;
+        var emailKey    = msg.EmailKey;     // null for manual submissions
+        var urlStrategy = msg.UrlStrategy;  // null for manual submissions
+        var runId       = DateTime.UtcNow.ToString("o");
 
         context.Logger.LogLine($"[sync] run started: {runId}");
-        context.Logger.LogLine($"[sync] url={reportUrl}  email_key={emailKey ?? "(none)"}");
+        context.Logger.LogLine($"[sync] url={reportUrl}  email_key={emailKey ?? "(none)"}  url_strategy={urlStrategy ?? "(manual)"}");
 
         try
         {
@@ -133,7 +134,7 @@ public class Function
             {
                 context.Logger.LogLine("[sync] report page returned empty content");
                 await WriteSyncRecord(runId, "fetch_error", 0, 0, 0,
-                    $"Empty or failed response fetching {reportUrl}", reportUrl);
+                    $"Empty or failed response fetching {reportUrl}", reportUrl, urlStrategy);
                 return;
             }
 
@@ -146,7 +147,7 @@ public class Function
             {
                 context.Logger.LogLine("[sync] Claude returned no usable response");
                 await WriteSyncRecord(runId, "claude_error", 0, 0, 0,
-                    "Claude returned empty or malformed JSON — possible JS-rendered content or wrong page", reportUrl);
+                    "Claude returned empty or malformed JSON — possible JS-rendered content or wrong page", reportUrl, urlStrategy);
                 return;
             }
 
@@ -185,7 +186,7 @@ public class Function
 
             await WriteSyncRecord(runId, syncStatus, newCount, updateCount, ambigCount,
                 syncStatus == "no_events" ? "Claude returned no events — report page may be JS-rendered or have no new events" : null,
-                reportUrl);
+                reportUrl, urlStrategy);
             await UpdateSsmParam($"{SsmPrefix}/last_synced", DateTime.UtcNow.ToString("yyyy-MM-dd"));
 
             context.Logger.LogLine($"[sync] done — status={syncStatus} new={newCount} updates={updateCount} ambiguous={ambigCount}");
@@ -194,7 +195,7 @@ public class Function
         {
             context.Logger.LogLine($"[sync] unhandled error: {ex}");
             await WriteSyncRecord(runId, "error", 0, 0, 0,
-                ex.Message[..Math.Min(ex.Message.Length, 1000)], reportUrl);
+                ex.Message[..Math.Min(ex.Message.Length, 1000)], reportUrl, urlStrategy);
             throw;  // re-throw so SQS retries
         }
     }
@@ -326,7 +327,7 @@ public class Function
     }
 
     private async Task WriteSyncRecord(string id, string status, int newEventCount, int updateCount,
-        int ambigCount, string? errorMessage, string? reportUrl)
+        int ambigCount, string? errorMessage, string? reportUrl, string? urlStrategy = null)
     {
         var item = new Dictionary<string, AttributeValue>
         {
@@ -342,6 +343,8 @@ public class Function
             item["error_message"] = new() { S = errorMessage.Length > 1000 ? errorMessage[..1000] : errorMessage };
         if (!string.IsNullOrEmpty(reportUrl))
             item["report_url"] = new() { S = reportUrl };
+        if (!string.IsNullOrEmpty(urlStrategy))
+            item["url_strategy"] = new() { S = urlStrategy };
 
         await _dynamo.PutItemAsync(new PutItemRequest { TableName = SyncsTable, Item = item });
     }
@@ -383,6 +386,7 @@ public class Function
 // ── Message model ─────────────────────────────────────────────────────────────
 
 public record ReportMessage(
-    [property: JsonPropertyName("url")]       string  Url,
-    [property: JsonPropertyName("email_key")] string? EmailKey
+    [property: JsonPropertyName("url")]          string  Url,
+    [property: JsonPropertyName("email_key")]    string? EmailKey,
+    [property: JsonPropertyName("url_strategy")] string? UrlStrategy
 );

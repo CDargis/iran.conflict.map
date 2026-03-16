@@ -1204,7 +1204,15 @@ function syncLogHTML(syncs){
       if(s.update_count>0) parts.push(`${s.update_count} update${s.update_count>1?'s':''}`);
       resultText=parts.join(' / ');
     }
-    const hasDetail=!!(s.error_message);
+    const hasErrorDetail=!!(s.error_message);
+    const hasSuccessDetail=!!(s.report_url)&&(s.status==='success'||s.status==='no_events');
+    const hasDetail=hasErrorDetail||hasSuccessDetail;
+    let detailHtml='';
+    if(hasErrorDetail) detailHtml=`<div class="sync-error-detail">${s.error_message}</div>`;
+    else if(hasSuccessDetail){
+      const strategy=s.url_strategy?`<span style="opacity:.6">via ${s.url_strategy.replace(/_/g,' ')}</span>`:'';
+      detailHtml=`<div class="sync-error-detail"><a href="${s.report_url}" target="_blank" rel="noopener" style="color:var(--accent);word-break:break-all">${s.report_url}</a>${strategy?'<br>'+strategy:''}</div>`;
+    }
     const editsBadge=s.has_edits?'<span class="sync-edits">⚠ edits</span>':'';
     const syncedThru=s.last_synced?`<span style="color:var(--dim);font-size:9px">thru ${s.last_synced}</span>`:'';
     return `<div class="sync-entry${hasDetail?' expandable':''}">
@@ -1212,7 +1220,7 @@ function syncLogHTML(syncs){
         <span class="sync-ts">${ts}</span>
         <span class="sync-result ${resultClass}">${resultText}${hasDetail?' ▾':''}</span>
         ${editsBadge}${syncedThru}
-      </div>${hasDetail?`<div class="sync-error-detail">${s.error_message}</div>`:''}
+      </div>${hasDetail?detailHtml:''}
     </div>`;
   }).join('');
 }

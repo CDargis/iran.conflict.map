@@ -133,6 +133,7 @@ app.MapGet("/api/syncs", async (IAmazonDynamoDB dynamo) =>
         has_edits         = item.ContainsKey("has_edits")        && item["has_edits"].BOOL,
         last_synced       = item.ContainsKey("last_synced")      ? item["last_synced"].S                 : "",
         report_url        = item.ContainsKey("report_url")       ? item["report_url"].S                  : "",
+        url_strategy      = item.ContainsKey("url_strategy")     ? item["url_strategy"].S                : "",
         error_message     = item.ContainsKey("error_message")    ? item["error_message"].S               : ""
     }).ToList();
 
@@ -213,4 +214,4 @@ app.MapPost("/api/sync/submit-url", async (HttpContext ctx, IAmazonSimpleSystems
 
 app.Run();
 
-record SubmitUrlRequest(string? Url);
+record SubmitUrlRequest([property: System.Text.Json.Serialization.JsonPropertyName("url")] string? Url);

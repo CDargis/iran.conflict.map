@@ -392,6 +392,13 @@ public class IranConflictMapStack : Stack
         });
         inboxRule.AddTarget(new Amazon.CDK.AWS.Events.Targets.LambdaFunction(extractLambda));
 
+        // ── 3-hour cron — retry stuck inbox emails ────────────────────────────
+        var inboxRetryRule = new Rule(this, "InboxRetrySchedule", new RuleProps
+        {
+            Schedule = Schedule.Rate(Duration.Hours(3))
+        });
+        inboxRetryRule.AddTarget(new Amazon.CDK.AWS.Events.Targets.LambdaFunction(extractLambda));
+
         // ── S3 Bucket ──────────────────────────────────────────────────────
         var bucket = new Bucket(this, "SiteBucket", new BucketProps
         {

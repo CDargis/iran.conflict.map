@@ -20,7 +20,8 @@ var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(S
     ["test-ctp-feed"] = ("Check criticalthreats.org for RSS feed and Iran update listing", TestCtpFeed),
     ["test-ctp-api"]  = ("Probe the criticalthreats.org API for Iran update articles", TestCtpApi),
     ["test-ctp-url"]  = ("Test URL construction from email subject for a given raw email file", TestCtpUrl),
-    ["test-ctp-fetch"] = ("Fetch a criticalthreats.org article URL and show what text content is available", TestCtpFetch)
+    ["test-ctp-fetch"] = ("Fetch a criticalthreats.org article URL and show what text content is available", TestCtpFetch),
+    ["test-ini-list"]  = ("Dump the INI_LIST slugs from the CTP Iran updates listing page", TestIniList)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -501,6 +502,41 @@ async Task TestCtpFetch(string[] opts)
             Console.WriteLine(content[..Math.Min(content.Length, 600)]);
         }
     }
+}
+
+// ── test-ini-list ─────────────────────────────────────────────────────────────
+async Task TestIniList(string[] opts)
+{
+    const string listingUrl = "https://www.criticalthreats.org/analysis/ctp-iran-updates";
+    using var http = new HttpClient();
+    http.DefaultRequestHeaders.Add("User-Agent",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+
+    var html = await http.GetStringAsync(listingUrl);
+
+    var iniMatch = Regex.Match(html, @"var INI_LIST\s*=\s*(\[.*?\]);", RegexOptions.Singleline);
+    if (!iniMatch.Success) { Console.WriteLine("INI_LIST not found"); return; }
+
+    var entries = Regex.Matches(iniMatch.Groups[1].Value,
+        @"""slug""\s*:\s*""([^""]+)""[^}]*""title""\s*:\s*""([^""]+)""");
+
+    // also try title-first order
+    if (entries.Count == 0)
+        entries = Regex.Matches(iniMatch.Groups[1].Value,
+            @"""title""\s*:\s*""([^""]+)""[^}]*""slug""\s*:\s*""([^""]+)""");
+
+    Console.WriteLine($"INI_LIST total JSON length: {iniMatch.Groups[1].Value.Length} chars");
+
+    // Extract all slug+title pairs
+    var slugRe = new Regex(@"\{[^}]*""slug""\s*:\s*""([^""]+)""[^}]*""title""\s*:\s*""([^""]+)""", RegexOptions.Singleline);
+    var allMatches = slugRe.Matches(iniMatch.Groups[1].Value).ToList();
+    Console.WriteLine($"Found {allMatches.Count} entries. Most recent 10:");
+    foreach (var m in allMatches.Take(10))
+        Console.WriteLine($"  {m.Groups[1].Value}");
+
+    Console.WriteLine("\nSearching for 'march-15':");
+    foreach (var m in allMatches.Where(m => m.Groups[1].Value.Contains("march-15")))
+        Console.WriteLine($"  {m.Groups[1].Value}");
 }
 
 // ── AWS Client Builders ───────────────────────────────────────────────────────
