@@ -16,6 +16,8 @@ sealed class Program
 
         new PipelineStack(app, "PipelineStack", new StackProps { Env = env });
 
+        Tags.Of(app).Add("Project", "iran-conflict-map");
+
         app.Synth();
     }
 }
