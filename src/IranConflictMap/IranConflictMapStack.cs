@@ -108,6 +108,16 @@ public class IranConflictMapStack : Stack
         });
 
         // ── SQS Queues ────────────────────────────────────────────────────────
+        // ── Report URL Queue (Extract Lambda → Sync Lambda, or manual submit) ────
+        var reportQueue = new Queue(this, "ReportQueue", new QueueProps
+        {
+            QueueName                 = "iran-conflict-map-report.fifo",
+            Fifo                      = true,
+            ContentBasedDeduplication = true,
+            VisibilityTimeout         = Duration.Minutes(6),  // > sync lambda timeout
+            RetentionPeriod           = Duration.Days(7)
+        });
+
         var deadLetterQueue = new Queue(this, "DeadLetterQueue", new QueueProps
         {
             QueueName                 = "iran-conflict-map-dlq.fifo",
@@ -261,7 +271,41 @@ public class IranConflictMapStack : Stack
             }
         });
 
-        // ── Sync Lambda ────────────────────────────────────────────────────────
+        // ── Extract Lambda (S3 inbox → URL construction → report queue) ─────────
+        var extractLambda = new LambdaFunction(this, "ExtractFunction", new LambdaFunctionProps
+        {
+            FunctionName = "iran-conflict-map-extract",
+            Runtime      = Amazon.CDK.AWS.Lambda.Runtime.DOTNET_8,
+            Handler      = "IranConflictMap.Extract::IranConflictMap.Extract.Function::FunctionHandler",
+            Code         = Amazon.CDK.AWS.Lambda.Code.FromAsset("src/IranConflictMap.Extract", new Amazon.CDK.AWS.S3.Assets.AssetOptions
+            {
+                Bundling = new BundlingOptions
+                {
+                    Image   = Amazon.CDK.AWS.Lambda.Runtime.DOTNET_8.BundlingImage,
+                    Command = new[] { "bash", "-c", "dotnet publish -c Release -o /asset-output" }
+                }
+            }),
+            Environment = new Dictionary<string, string>
+            {
+                ["EMAIL_BUCKET"]       = emailBucket.BucketName,
+                ["EMAIL_INBOX_PREFIX"] = "inbox/",
+                ["EMAIL_OTHER_PREFIX"] = "other/",
+                ["REPORT_QUEUE_URL"]   = reportQueue.QueueUrl
+            },
+            Timeout      = Duration.Minutes(2),
+            MemorySize   = 256,
+            LogRetention = RetentionDays.TWO_WEEKS
+        });
+
+        emailBucket.GrantReadWrite(extractLambda);
+        extractLambda.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
+        {
+            Actions   = ["s3:DeleteObject"],
+            Resources = [emailBucket.ArnForObjects("*")]
+        }));
+        reportQueue.GrantSendMessages(extractLambda);
+
+        // ── Sync Lambda (report queue → fetch → Claude → processor queue) ──────
         var syncLambda = new LambdaFunction(this, "SyncFunction", new LambdaFunctionProps
         {
             FunctionName = "iran-conflict-map-sync",
@@ -281,47 +325,47 @@ public class IranConflictMapStack : Stack
                 ["SYNCS_TABLE"]         = syncsTable.TableName,
                 ["SSM_PREFIX"]          = "/iran-conflict-map",
                 ["PROCESSOR_QUEUE_URL"] = processorQueue.QueueUrl,
-                ["EMAIL_BUCKET"]        = emailBucket.BucketName,
-                ["EMAIL_INBOX_PREFIX"]  = "inbox/",
-                ["EMAIL_OTHER_PREFIX"]  = "other/"
+                ["EMAIL_BUCKET"]        = emailBucket.BucketName
             },
             Timeout      = Duration.Minutes(5),
             MemorySize   = 512,
             LogRetention = RetentionDays.TWO_WEEKS
         });
 
+        syncLambda.AddEventSource(new SqsEventSource(reportQueue, new SqsEventSourceProps
+        {
+            BatchSize = 1
+        }));
+
         strikesTable.GrantReadData(syncLambda);
         syncsTable.GrantReadWriteData(syncLambda);
         processorQueue.GrantSendMessages(syncLambda);
         emailBucket.GrantReadWrite(syncLambda);
-        syncLambda.AddToRolePolicy(new Amazon.CDK.AWS.IAM.PolicyStatement(
-            new Amazon.CDK.AWS.IAM.PolicyStatementProps
-            {
-                Actions   = new[] { "s3:DeleteObject" },
-                Resources = new[] { emailBucket.ArnForObjects("*") }
-            }
-        ));
-
-        // SSM: read anthropic_api_key and Graph API creds
+        syncLambda.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
+        {
+            Actions   = ["s3:DeleteObject"],
+            Resources = [emailBucket.ArnForObjects("*")]
+        }));
         syncLambda.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
         {
             Actions   = ["ssm:GetParameters", "ssm:PutParameter"],
             Resources = [$"arn:aws:ssm:{this.Region}:{this.Account}:parameter/iran-conflict-map/*"]
         }));
 
-        // Allow API Lambda to invoke sync Lambda for manual trigger endpoint
-        syncLambda.GrantInvoke(apiLambda);
-        apiLambda.AddEnvironment("SYNC_FUNCTION_NAME", syncLambda.FunctionName);
-        apiLambda.AddEnvironment("SSM_PREFIX", "/iran-conflict-map");
+        // API: invoke extract for manual trigger; send to report queue for submit-url
+        extractLambda.GrantInvoke(apiLambda);
+        reportQueue.GrantSendMessages(apiLambda);
+        apiLambda.AddEnvironment("EXTRACT_FUNCTION_NAME", extractLambda.FunctionName);
+        apiLambda.AddEnvironment("REPORT_QUEUE_URL",      reportQueue.QueueUrl);
+        apiLambda.AddEnvironment("SSM_PREFIX",            "/iran-conflict-map");
 
-        // SSM: read sync_key for trigger auth
         apiLambda.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
         {
             Actions   = ["ssm:GetParameter"],
             Resources = [$"arn:aws:ssm:{this.Region}:{this.Account}:parameter/iran-conflict-map/sync_key"]
         }));
 
-        // ── EventBridge S3 trigger — inbox/ ObjectCreated → sync Lambda ──────
+        // ── EventBridge S3 trigger — inbox/ ObjectCreated → extract Lambda ────
         emailBucket.EnableEventBridgeNotification();
 
         var inboxRule = new Rule(this, "InboxObjectCreated", new RuleProps
@@ -346,7 +390,7 @@ public class IranConflictMapStack : Stack
                 }
             }
         });
-        inboxRule.AddTarget(new Amazon.CDK.AWS.Events.Targets.LambdaFunction(syncLambda));
+        inboxRule.AddTarget(new Amazon.CDK.AWS.Events.Targets.LambdaFunction(extractLambda));
 
         // ── S3 Bucket ──────────────────────────────────────────────────────
         var bucket = new Bucket(this, "SiteBucket", new BucketProps

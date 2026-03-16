@@ -1139,10 +1139,20 @@ async function triggerSync(){
     key=prompt('Sync key:');
     if(!key) return;
   }
+
+  const url=prompt('Report URL (leave blank to scan inbox):')?.trim()||'';
+
   const btns=[document.getElementById('desktop-sync-btn'),document.getElementById('mobile-sync-btn')];
-  btns.forEach(b=>{if(b)b.disabled=true;b.textContent='…';});
+  btns.forEach(b=>{if(b){b.disabled=true;b.textContent='…';}});
   try{
-    const r=await fetch('/api/sync/trigger',{method:'POST',headers:{'X-Sync-Key':key}});
+    let r;
+    if(url){
+      r=await fetch('/api/sync/submit-url',{method:'POST',
+        headers:{'X-Sync-Key':key,'Content-Type':'application/json'},
+        body:JSON.stringify({url})});
+    } else {
+      r=await fetch('/api/sync/trigger',{method:'POST',headers:{'X-Sync-Key':key}});
+    }
     if(r.status===401){
       localStorage.removeItem('sync_key');
       btns.forEach(b=>{if(b){b.disabled=false;b.textContent='Run Now';}});

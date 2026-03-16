@@ -5,11 +5,15 @@ using Amazon.Lambda.RuntimeSupport;
 using Amazon.Lambda.Serialization.SystemTextJson;
 using Amazon.SimpleSystemsManagement;
 using Amazon.SimpleSystemsManagement.Model;
+using Amazon.SQS;
+using Amazon.SQS.Model;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
 builder.Services.AddSingleton<IAmazonDynamoDB>(new AmazonDynamoDBClient());
 builder.Services.AddSingleton<IAmazonSimpleSystemsManagement>(new AmazonSimpleSystemsManagementClient());
+builder.Services.AddSingleton<IAmazonSQS>(new AmazonSQSClient());
 builder.Services.AddSingleton(new Amazon.Lambda.AmazonLambdaClient());
 
 var app = builder.Build();
@@ -136,62 +140,77 @@ app.MapGet("/api/syncs", async (IAmazonDynamoDB dynamo) =>
     return Results.Ok(syncCache);
 });
 
-// ── POST /api/sync/trigger ─────────────────────────────────────────────────────
-app.MapPost("/api/sync/trigger", async (HttpContext ctx, IAmazonSimpleSystemsManagement ssm, IAmazonDynamoDB dynamo) =>
+// ── Auth helper ────────────────────────────────────────────────────────────────
+async Task<bool> ValidateSyncKey(HttpContext ctx, IAmazonSimpleSystemsManagement ssm)
 {
-    // ── Auth: validate X-Sync-Key against SSM ─────────────────────────────
     var providedKey = ctx.Request.Headers["X-Sync-Key"].FirstOrDefault() ?? "";
-    if (string.IsNullOrEmpty(providedKey))
-        return Results.Unauthorized();
-
+    if (string.IsNullOrEmpty(providedKey)) return false;
     var ssmPrefix = Environment.GetEnvironmentVariable("SSM_PREFIX") ?? "/iran-conflict-map";
-    GetParameterResponse keyParam;
     try
     {
-        keyParam = await ssm.GetParameterAsync(new GetParameterRequest
+        var param = await ssm.GetParameterAsync(new GetParameterRequest
         {
             Name           = $"{ssmPrefix}/sync_key",
             WithDecryption = true
         });
+        return string.Equals(providedKey, param.Parameter.Value, StringComparison.Ordinal);
     }
-    catch { return Results.Unauthorized(); }
+    catch { return false; }
+}
 
-    if (!string.Equals(providedKey, keyParam.Parameter.Value, StringComparison.Ordinal))
+// ── POST /api/sync/trigger — scan inbox via extract Lambda ─────────────────────
+app.MapPost("/api/sync/trigger", async (HttpContext ctx, IAmazonSimpleSystemsManagement ssm) =>
+{
+    if (!await ValidateSyncKey(ctx, ssm))
         return Results.Unauthorized();
 
-    // ── Rate limit: reject if last sync was < 10 minutes ago ──────────────
-    var syncsTable = Environment.GetEnvironmentVariable("SYNCS_TABLE") ?? "syncs";
-    var recent = await dynamo.QueryAsync(new QueryRequest
-    {
-        TableName                 = syncsTable,
-        IndexName                 = "entity-timestamp-index",
-        KeyConditionExpression    = "entity = :e",
-        ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-        {
-            [":e"] = new AttributeValue { S = "sync" }
-        },
-        ScanIndexForward = false,
-        Limit            = 1
-    });
-
-    if (recent.Items.Count > 0 &&
-        DateTime.TryParse(recent.Items[0]["timestamp"].S, out var lastSync) &&
-        (DateTime.UtcNow - lastSync).TotalMinutes < 10)
-        return Results.StatusCode(429);
-
-    // ── Trigger ───────────────────────────────────────────────────────────
-    var functionName = Environment.GetEnvironmentVariable("SYNC_FUNCTION_NAME");
+    var functionName = Environment.GetEnvironmentVariable("EXTRACT_FUNCTION_NAME");
     if (string.IsNullOrEmpty(functionName))
-        return Results.Problem("SYNC_FUNCTION_NAME not configured");
+        return Results.Problem("EXTRACT_FUNCTION_NAME not configured");
 
     var lambdaClient = new Amazon.Lambda.AmazonLambdaClient();
     var response = await lambdaClient.InvokeAsync(new Amazon.Lambda.Model.InvokeRequest
     {
         FunctionName   = functionName,
-        InvocationType = "Event"   // async, fire-and-forget
+        InvocationType = "Event"   // async, fire-and-forget — extract Lambda scans inbox when no S3 event
     });
 
     return Results.Ok(new { triggered = true, status = (int)response.StatusCode });
 });
 
+// ── POST /api/sync/submit-url — manually submit a report URL ───────────────────
+app.MapPost("/api/sync/submit-url", async (HttpContext ctx, IAmazonSimpleSystemsManagement ssm, IAmazonSQS sqs) =>
+{
+    if (!await ValidateSyncKey(ctx, ssm))
+        return Results.Unauthorized();
+
+    string? url;
+    try
+    {
+        var body = await JsonSerializer.DeserializeAsync<SubmitUrlRequest>(ctx.Request.Body);
+        url = body?.Url;
+    }
+    catch { return Results.BadRequest(new { error = "Invalid JSON body" }); }
+
+    if (string.IsNullOrWhiteSpace(url) || !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        return Results.BadRequest(new { error = "url is required and must be an https URL" });
+
+    var queueUrl = Environment.GetEnvironmentVariable("REPORT_QUEUE_URL");
+    if (string.IsNullOrEmpty(queueUrl))
+        return Results.Problem("REPORT_QUEUE_URL not configured");
+
+    var messageBody = JsonSerializer.Serialize(new { url });   // no email_key — manual submission
+
+    await sqs.SendMessageAsync(new SendMessageRequest
+    {
+        QueueUrl       = queueUrl,
+        MessageBody    = messageBody,
+        MessageGroupId = "manual"
+    });
+
+    return Results.Ok(new { queued = true, url });
+});
+
 app.Run();
+
+record SubmitUrlRequest(string? Url);

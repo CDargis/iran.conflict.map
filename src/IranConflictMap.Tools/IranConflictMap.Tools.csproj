@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MimeKit" Version="4.*" />
     <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.*" />
     <PackageReference Include="AWSSDK.SQS" Version="3.7.*" />
     <PackageReference Include="AWSSDK.SSO" Version="3.7.*" />

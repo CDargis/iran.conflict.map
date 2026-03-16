@@ -1,16 +1,17 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Amazon.Lambda.Core;
+using Amazon.Lambda.SQSEvents;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.SimpleSystemsManagement;
 using Amazon.SimpleSystemsManagement.Model;
 using Amazon.SQS;
 using Amazon.SQS.Model;
-using MimeKit;
 
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.SystemTextJson.DefaultLambdaJsonSerializer))]
 
@@ -24,28 +25,21 @@ public class Function
         MaxAutomaticRedirections = 10
     })
     {
-        Timeout = TimeSpan.FromMinutes(4)   // Sonnet with large reports can take 2-3 min; Lambda timeout is 5 min
+        Timeout = TimeSpan.FromMinutes(4)
     };
 
-    private readonly IAmazonDynamoDB _dynamo;
-    private readonly IAmazonSimpleSystemsManagement _ssm;
-    private readonly IAmazonSQS _sqs;
-    private readonly IAmazonS3 _s3;
+    private readonly IAmazonDynamoDB                  _dynamo;
+    private readonly IAmazonSimpleSystemsManagement   _ssm;
+    private readonly IAmazonSQS                       _sqs;
+    private readonly IAmazonS3                        _s3;
 
     private static readonly string StrikesTable      = Env("STRIKES_TABLE",       "strikes");
     private static readonly string SyncsTable        = Env("SYNCS_TABLE",         "syncs");
     private static readonly string SsmPrefix         = Env("SSM_PREFIX",          "/iran-conflict-map");
     private static readonly string ProcessorQueueUrl = Env("PROCESSOR_QUEUE_URL", "");
     private static readonly string EmailBucket       = Env("EMAIL_BUCKET",        "");
-    private static readonly string InboxPrefix       = Env("EMAIL_INBOX_PREFIX",  "inbox/");
-    private static readonly string OtherPrefix       = Env("EMAIL_OTHER_PREFIX",  "other/");
 
-    // Filter: sender + (subject OR body) must contain "Iran" and "Update"
-    private const string ExpectedSender   = "criticalthreats@aei.org";
-    private const string ExpectedKeyword1 = "Iran";
-    private const string ExpectedKeyword2 = "Update";
-
-    // ── Extraction system prompt ──────────────────────────────────────────────
+    // ── System prompt ─────────────────────────────────────────────────────────
     private const string SystemPrompt = """
         I'm building an Iran/Middle East conflict map. I need you to process a CTP-ISW Iran update report and extract strike events into structured DynamoDB data.
         Schema:
@@ -97,7 +91,6 @@ public class Function
         _s3     = new AmazonS3Client();
     }
 
-    // For testing
     public Function(IAmazonDynamoDB dynamo, IAmazonSimpleSystemsManagement ssm, IAmazonSQS sqs, IAmazonS3 s3)
     {
         _dynamo = dynamo;
@@ -106,296 +99,107 @@ public class Function
         _s3     = s3;
     }
 
-    public async Task<string> FunctionHandler(object input, ILambdaContext context)
+    // ── SQS trigger ───────────────────────────────────────────────────────────
+    // Message body: { "url": "https://...", "email_key": "inbox/..." (optional) }
+
+    public async Task FunctionHandler(SQSEvent sqsEvent, ILambdaContext context)
     {
-        var runId = DateTime.UtcNow.ToString("o");
+        foreach (var record in sqsEvent.Records)
+        {
+            await ProcessMessage(record.Body, record.MessageId, context);
+        }
+    }
+
+    private async Task ProcessMessage(string messageBody, string messageId, ILambdaContext context)
+    {
+        var msg = JsonSerializer.Deserialize<ReportMessage>(messageBody)
+            ?? throw new Exception($"Could not deserialize SQS message: {messageId}");
+
+        var reportUrl = msg.Url;
+        var emailKey  = msg.EmailKey;   // null for manual submissions
+        var runId     = DateTime.UtcNow.ToString("o");
+
         context.Logger.LogLine($"[sync] run started: {runId}");
+        context.Logger.LogLine($"[sync] url={reportUrl}  email_key={emailKey ?? "(none)"}");
 
         try
         {
             var (anthropicKey, lastSynced) = await ReadSsmParams();
             context.Logger.LogLine($"[sync] last_synced={lastSynced}");
 
-            // ── 1. Find all CTP-ISW emails in inbox ───────────────────────────
-            var emails = await FindAllCtpEmails(context);
-            if (emails.Count == 0)
+            // ── 1. Fetch report page ──────────────────────────────────────────
+            var reportText = await FetchReportPage(reportUrl, context);
+            if (string.IsNullOrWhiteSpace(reportText))
             {
-                context.Logger.LogLine("[sync] no CTP-ISW email found in inbox");
-                await WriteSyncRecord(runId, "no_email", 0, 0, 0, null, null);
-                return "no_email";
-            }
-            context.Logger.LogLine($"[sync] found {emails.Count} CTP-ISW email(s) to process");
-
-            var totalNew    = 0;
-            var totalUpdate = 0;
-            var totalAmbig  = 0;
-            var processed   = 0;
-
-            foreach (var (emailKey, emailMessage) in emails)
-            {
-                var emailRunId = emails.Count == 1 ? runId : $"{runId}#{processed}";
-                context.Logger.LogLine($"[sync] processing [{processed + 1}/{emails.Count}]: subject='{emailMessage.Subject}'");
-
-                // ── 2. Extract and resolve report URL ─────────────────────────
-                var htmlBody   = emailMessage.HtmlBody ?? "";
-                var hubspotUrl = ExtractHubspotLink(htmlBody, context);
-                if (hubspotUrl == null)
-                {
-                    context.Logger.LogLine("[sync] no Iran Update link found in email");
-                    await WriteSyncRecord(emailRunId, "no_url", 0, 0, 0,
-                        "Could not find Iran Update link in email body", null);
-                    await MoveS3Object(emailKey, "processed/" + emailKey[InboxPrefix.Length..], context);
-                    processed++;
-                    continue;
-                }
-
-                var reportUrl = await FollowRedirect(hubspotUrl, context);
-                if (reportUrl == null || !reportUrl.Contains("criticalthreats.org/analysis/", StringComparison.OrdinalIgnoreCase))
-                {
-                    context.Logger.LogLine($"[sync] redirect did not lead to criticalthreats.org/analysis: {reportUrl}");
-                    await WriteSyncRecord(emailRunId, "no_url", 0, 0, 0,
-                        $"Link did not redirect to a criticalthreats.org report (got: {reportUrl})", null);
-                    await MoveS3Object(emailKey, "processed/" + emailKey[InboxPrefix.Length..], context);
-                    processed++;
-                    continue;
-                }
-                context.Logger.LogLine($"[sync] report URL: {reportUrl}");
-
-                // ── 3. Fetch report page ───────────────────────────────────────
-                var reportText = await FetchReportPage(reportUrl, context);
-                if (string.IsNullOrWhiteSpace(reportText))
-                {
-                    context.Logger.LogLine("[sync] report page returned empty content");
-                    await WriteSyncRecord(emailRunId, "fetch_error", 0, 0, 0,
-                        $"Empty or failed response fetching {reportUrl}", reportUrl);
-                    processed++;
-                    continue;
-                }
-
-                // ── 4. Call Claude Haiku ───────────────────────────────────────
-                var nextId = await GetNextId();
-                context.Logger.LogLine($"[sync] calling Claude, nextId={nextId}");
-
-                var claudeJson = await CallClaude(reportText, reportUrl, lastSynced, nextId, anthropicKey, context);
-                if (claudeJson == null)
-                {
-                    context.Logger.LogLine("[sync] Claude returned no usable response");
-                    await WriteSyncRecord(emailRunId, "claude_error", 0, 0, 0,
-                        "Claude returned empty or malformed JSON — possible wrong page fetched or JS-rendered content", reportUrl);
-                    processed++;
-                    continue;
-                }
-
-                // ── 5. Wrap with audit metadata and push to processor SQS ────
-                var syncedAt  = DateTime.UtcNow.ToString("o");
-                var claudeDoc = JsonDocument.Parse(claudeJson).RootElement;
-                var envelope  = JsonSerializer.Serialize(new
-                {
-                    source_url = reportUrl,
-                    synced_at  = syncedAt,
-                    @new       = claudeDoc.TryGetProperty("new",       out var n) ? n : (JsonElement?)null,
-                    updates    = claudeDoc.TryGetProperty("updates",   out var u) ? u : (JsonElement?)null,
-                    ambiguous  = claudeDoc.TryGetProperty("ambiguous", out var a) ? a : (JsonElement?)null
-                });
-
-                await _sqs.SendMessageAsync(new SendMessageRequest
-                {
-                    QueueUrl        = ProcessorQueueUrl,
-                    MessageBody     = envelope,
-                    MessageGroupId  = "sync"
-                });
-                context.Logger.LogLine("[sync] Claude response pushed to SQS");
-
-                // ── 6. Move email to processed ────────────────────────────────
-                await MoveS3Object(emailKey, "processed/" + emailKey[InboxPrefix.Length..], context);
-
-                // ── 7. Write sync record ──────────────────────────────────────
-                var newCount    = claudeDoc.TryGetProperty("new",       out var nArr) ? nArr.GetArrayLength() : 0;
-                var updateCount = claudeDoc.TryGetProperty("updates",   out var uArr) ? uArr.GetArrayLength() : 0;
-                var ambigCount  = claudeDoc.TryGetProperty("ambiguous", out var aArr) ? aArr.GetArrayLength() : 0;
-
-                totalNew    += newCount;
-                totalUpdate += updateCount;
-                totalAmbig  += ambigCount;
-
-                // Flag if Claude returned valid JSON but extracted nothing at all — possible JS-render or wrong page
-                var syncStatus = (newCount + updateCount + ambigCount) == 0 ? "no_events" : "success";
-                if (syncStatus == "no_events")
-                    context.Logger.LogLine("[sync] warning: Claude returned valid JSON but no events — possible JS-rendered page or empty report");
-
-                await WriteSyncRecord(emailRunId, syncStatus, newCount, updateCount, ambigCount,
-                    syncStatus == "no_events" ? "Claude returned no events — report page may be JS-rendered or have no new events" : null,
-                    reportUrl);
-                await UpdateSsmParam($"{SsmPrefix}/last_synced", DateTime.UtcNow.ToString("yyyy-MM-dd"));
-                context.Logger.LogLine($"[sync] email {processed + 1} done — status={syncStatus} new={newCount} updates={updateCount} ambiguous={ambigCount}");
-                processed++;
+                context.Logger.LogLine("[sync] report page returned empty content");
+                await WriteSyncRecord(runId, "fetch_error", 0, 0, 0,
+                    $"Empty or failed response fetching {reportUrl}", reportUrl);
+                return;
             }
 
-            context.Logger.LogLine($"[sync] all done — processed={processed} new={totalNew} updates={totalUpdate} ambiguous={totalAmbig}");
-            return $"success:{totalNew}";
+            // ── 2. Call Claude ────────────────────────────────────────────────
+            var nextId = await GetNextId();
+            context.Logger.LogLine($"[sync] calling Claude, nextId={nextId}");
+
+            var claudeJson = await CallClaude(reportText, reportUrl, lastSynced, nextId, anthropicKey, context);
+            if (claudeJson == null)
+            {
+                context.Logger.LogLine("[sync] Claude returned no usable response");
+                await WriteSyncRecord(runId, "claude_error", 0, 0, 0,
+                    "Claude returned empty or malformed JSON — possible JS-rendered content or wrong page", reportUrl);
+                return;
+            }
+
+            // ── 3. Push to processor SQS ──────────────────────────────────────
+            var syncedAt  = DateTime.UtcNow.ToString("o");
+            var claudeDoc = JsonDocument.Parse(claudeJson).RootElement;
+            var envelope  = JsonSerializer.Serialize(new
+            {
+                source_url = reportUrl,
+                synced_at  = syncedAt,
+                @new       = claudeDoc.TryGetProperty("new",       out var n) ? n : (JsonElement?)null,
+                updates    = claudeDoc.TryGetProperty("updates",   out var u) ? u : (JsonElement?)null,
+                ambiguous  = claudeDoc.TryGetProperty("ambiguous", out var a) ? a : (JsonElement?)null
+            });
+
+            await _sqs.SendMessageAsync(new SendMessageRequest
+            {
+                QueueUrl       = ProcessorQueueUrl,
+                MessageBody    = envelope,
+                MessageGroupId = "sync"
+            });
+            context.Logger.LogLine("[sync] Claude response pushed to processor queue");
+
+            // ── 4. Move email to processed (only if we have an email key) ─────
+            if (!string.IsNullOrEmpty(emailKey))
+                await MoveS3Object(emailKey, "processed/" + emailKey["inbox/".Length..], context);
+
+            // ── 5. Write sync record ──────────────────────────────────────────
+            var newCount    = claudeDoc.TryGetProperty("new",       out var nArr) ? nArr.GetArrayLength() : 0;
+            var updateCount = claudeDoc.TryGetProperty("updates",   out var uArr) ? uArr.GetArrayLength() : 0;
+            var ambigCount  = claudeDoc.TryGetProperty("ambiguous", out var aArr) ? aArr.GetArrayLength() : 0;
+
+            var syncStatus = (newCount + updateCount + ambigCount) == 0 ? "no_events" : "success";
+            if (syncStatus == "no_events")
+                context.Logger.LogLine("[sync] warning: Claude returned valid JSON but no events — possible JS-rendered page or empty report");
+
+            await WriteSyncRecord(runId, syncStatus, newCount, updateCount, ambigCount,
+                syncStatus == "no_events" ? "Claude returned no events — report page may be JS-rendered or have no new events" : null,
+                reportUrl);
+            await UpdateSsmParam($"{SsmPrefix}/last_synced", DateTime.UtcNow.ToString("yyyy-MM-dd"));
+
+            context.Logger.LogLine($"[sync] done — status={syncStatus} new={newCount} updates={updateCount} ambiguous={ambigCount}");
         }
         catch (Exception ex)
         {
             context.Logger.LogLine($"[sync] unhandled error: {ex}");
             await WriteSyncRecord(runId, "error", 0, 0, 0,
-                ex.Message[..Math.Min(ex.Message.Length, 1000)], null);
-            throw;
+                ex.Message[..Math.Min(ex.Message.Length, 1000)], reportUrl);
+            throw;  // re-throw so SQS retries
         }
     }
 
-    // ── S3 Email Reading ─────────────────────────────────────────────────────
-
-    private async Task<List<(string key, MimeMessage message)>> FindAllCtpEmails(ILambdaContext ctx)
-    {
-        var listResp = await _s3.ListObjectsV2Async(new ListObjectsV2Request
-        {
-            BucketName = EmailBucket,
-            Prefix     = InboxPrefix
-        });
-
-        var objects = listResp.S3Objects
-            .Where(o => o.Key != InboxPrefix)           // skip folder placeholder
-            .OrderByDescending(o => o.LastModified)
-            .ToList();
-
-        ctx.Logger.LogLine($"[sync] {objects.Count} objects in inbox");
-
-        var matches = new List<(string key, MimeMessage message)>();
-
-        foreach (var obj in objects)
-        {
-            var message = await ReadMimeMessage(obj.Key, ctx);
-            if (message == null) continue;
-
-            var (isMatch, reason) = IsCtpIswEmail(message);
-            if (isMatch)
-            {
-                ctx.Logger.LogLine($"[sync] matched ({reason}): {obj.Key}");
-                matches.Add((obj.Key, message));
-            }
-            else
-            {
-                var from    = message.From.Mailboxes.FirstOrDefault()?.Address ?? "(unknown)";
-                var subject = message.Subject ?? "";
-                ctx.Logger.LogLine($"[sync] skipping: from={from} subject={subject[..Math.Min(subject.Length, 60)]}");
-                await MoveS3Object(obj.Key, OtherPrefix + obj.Key[InboxPrefix.Length..], ctx);
-            }
-        }
-
-        // Return oldest-first so updates are applied in chronological order
-        matches.Reverse();
-        return matches;
-    }
-
-    /// <summary>
-    /// Returns (true, reason) if the message is a CTP-ISW Iran daily update.
-    /// Primary: sender + subject contains "Iran" and "Update".
-    /// Fallback: sender + body text contains "Iran" and "Update" (in case subject format changes).
-    /// </summary>
-    private static (bool match, string reason) IsCtpIswEmail(MimeMessage message)
-    {
-        var from    = message.From.Mailboxes.FirstOrDefault()?.Address ?? "";
-        var subject = message.Subject ?? "";
-
-        if (!from.Equals(ExpectedSender, StringComparison.OrdinalIgnoreCase))
-            return (false, "");
-
-        // Primary: subject contains "Iran" AND "Update"
-        if (subject.Contains(ExpectedKeyword1, StringComparison.OrdinalIgnoreCase) &&
-            subject.Contains(ExpectedKeyword2, StringComparison.OrdinalIgnoreCase))
-            return (true, "sender+subject");
-
-        // Fallback: body text contains "Iran" AND "Update"
-        var body = message.TextBody ?? Regex.Replace(message.HtmlBody ?? "", @"<[^>]+>", " ");
-        if (body.Contains(ExpectedKeyword1, StringComparison.OrdinalIgnoreCase) &&
-            body.Contains(ExpectedKeyword2, StringComparison.OrdinalIgnoreCase))
-            return (true, "sender+body");
-
-        return (false, "");
-    }
-
-    private async Task<MimeMessage?> ReadMimeMessage(string key, ILambdaContext ctx)
-    {
-        try
-        {
-            var resp = await _s3.GetObjectAsync(EmailBucket, key);
-            return await MimeMessage.LoadAsync(resp.ResponseStream);
-        }
-        catch (Exception ex)
-        {
-            ctx.Logger.LogLine($"[sync] warning: failed to read {key}: {ex.Message}");
-            return null;
-        }
-    }
-
-    private async Task MoveS3Object(string sourceKey, string destKey, ILambdaContext ctx)
-    {
-        await _s3.CopyObjectAsync(EmailBucket, sourceKey, EmailBucket, destKey);
-        await _s3.DeleteObjectAsync(EmailBucket, sourceKey);
-        ctx.Logger.LogLine($"[sync] moved {sourceKey} → {destKey}");
-    }
-
-    // ── URL Extraction ───────────────────────────────────────────────────────
-
-    private string? ExtractHubspotLink(string emailBody, ILambdaContext ctx)
-    {
-        var anchorRe = new Regex(@"<a\s[^>]*href=""([^""]+)""[^>]*>(.*?)</a>",
-            RegexOptions.IgnoreCase | RegexOptions.Singleline);
-
-        // Primary: anchor whose visible text contains "Iran War Update"
-        foreach (Match m in anchorRe.Matches(emailBody))
-        {
-            var href = m.Groups[1].Value;
-            var text = Regex.Replace(m.Groups[2].Value, @"<[^>]+>", "").Trim();
-            if (text.Contains("Iran Update", StringComparison.OrdinalIgnoreCase))
-            {
-                ctx.Logger.LogLine($"[sync] primary match: '{text[..Math.Min(text.Length, 80)]}'");
-                return href;
-            }
-        }
-
-        ctx.Logger.LogLine("[sync] primary match failed — trying fallback keywords");
-
-        // Fallback: HubSpot href whose visible text suggests a report link
-        foreach (Match m in anchorRe.Matches(emailBody))
-        {
-            var href = m.Groups[1].Value;
-            var text = Regex.Replace(m.Groups[2].Value, @"<[^>]+>", "").Trim();
-            if (href.Contains("hubspotlinks", StringComparison.OrdinalIgnoreCase) &&
-                (text.Contains("criticalthreats", StringComparison.OrdinalIgnoreCase) ||
-                 text.Contains("read the", StringComparison.OrdinalIgnoreCase) ||
-                 text.Contains("view update", StringComparison.OrdinalIgnoreCase) ||
-                 text.Contains("full update", StringComparison.OrdinalIgnoreCase) ||
-                 text.Contains("full report", StringComparison.OrdinalIgnoreCase)))
-            {
-                ctx.Logger.LogLine($"[sync] fallback match: '{text[..Math.Min(text.Length, 80)]}'");
-                return href;
-            }
-        }
-
-        ctx.Logger.LogLine("[sync] no suitable link found in email body");
-        return null;
-    }
-
-    private async Task<string?> FollowRedirect(string url, ILambdaContext ctx)
-    {
-        try
-        {
-            // Use GET — HubSpot tracking links don't redirect on HEAD requests
-            using var req = new HttpRequestMessage(HttpMethod.Get, url);
-            var res = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
-            var finalUrl = res.RequestMessage?.RequestUri?.ToString();
-            ctx.Logger.LogLine($"[sync] redirect resolved → {finalUrl}");
-            return finalUrl;
-        }
-        catch (Exception ex)
-        {
-            ctx.Logger.LogLine($"[sync] redirect error: {ex.Message}");
-            return null;
-        }
-    }
-
-    // ── Report Fetch ─────────────────────────────────────────────────────────
+    // ── Report fetch ──────────────────────────────────────────────────────────
 
     private async Task<string> FetchReportPage(string url, ILambdaContext ctx)
     {
@@ -417,7 +221,7 @@ public class Function
         }
     }
 
-    // ── Claude ───────────────────────────────────────────────────────────────
+    // ── Claude ────────────────────────────────────────────────────────────────
 
     private async Task<string?> CallClaude(
         string reportText, string reportUrl, string lastSynced, int nextId, string apiKey, ILambdaContext ctx)
@@ -477,9 +281,9 @@ public class Function
         try
         {
             var parsed     = JsonDocument.Parse(jsonText);
-            var hasNew     = parsed.RootElement.TryGetProperty("new",       out var n) && n.ValueKind == JsonValueKind.Array;
-            var hasUpdates = parsed.RootElement.TryGetProperty("updates",   out var u) && u.ValueKind == JsonValueKind.Array;
-            var hasAmbig   = parsed.RootElement.TryGetProperty("ambiguous", out var a) && a.ValueKind == JsonValueKind.Array;
+            var hasNew     = parsed.RootElement.TryGetProperty("new",       out var nv) && nv.ValueKind == JsonValueKind.Array;
+            var hasUpdates = parsed.RootElement.TryGetProperty("updates",   out var uv) && uv.ValueKind == JsonValueKind.Array;
+            var hasAmbig   = parsed.RootElement.TryGetProperty("ambiguous", out var av) && av.ValueKind == JsonValueKind.Array;
 
             if (!hasNew && !hasUpdates && !hasAmbig)
             {
@@ -487,7 +291,7 @@ public class Function
                 return null;
             }
 
-            ctx.Logger.LogLine($"[sync] Claude response valid: new={n.GetArrayLength()} updates={u.GetArrayLength()} ambiguous={a.GetArrayLength()}");
+            ctx.Logger.LogLine($"[sync] Claude response valid: new={nv.GetArrayLength()} updates={uv.GetArrayLength()} ambiguous={av.GetArrayLength()}");
             return jsonText;
         }
         catch (JsonException ex)
@@ -497,7 +301,16 @@ public class Function
         }
     }
 
-    // ── DynamoDB ─────────────────────────────────────────────────────────────
+    // ── S3 ────────────────────────────────────────────────────────────────────
+
+    private async Task MoveS3Object(string sourceKey, string destKey, ILambdaContext ctx)
+    {
+        await _s3.CopyObjectAsync(EmailBucket, sourceKey, EmailBucket, destKey);
+        await _s3.DeleteObjectAsync(EmailBucket, sourceKey);
+        ctx.Logger.LogLine($"[sync] moved {sourceKey} → {destKey}");
+    }
+
+    // ── DynamoDB ──────────────────────────────────────────────────────────────
 
     private async Task<int> GetNextId()
     {
@@ -533,7 +346,7 @@ public class Function
         await _dynamo.PutItemAsync(new PutItemRequest { TableName = SyncsTable, Item = item });
     }
 
-    // ── SSM ──────────────────────────────────────────────────────────────────
+    // ── SSM ───────────────────────────────────────────────────────────────────
 
     private async Task<(string anthropicKey, string lastSynced)> ReadSsmParams()
     {
@@ -566,3 +379,10 @@ public class Function
     private static string Env(string key, string fallback) =>
         Environment.GetEnvironmentVariable(key) is { Length: > 0 } v ? v : fallback;
 }
+
+// ── Message model ─────────────────────────────────────────────────────────────
+
+public record ReportMessage(
+    [property: JsonPropertyName("url")]       string  Url,
+    [property: JsonPropertyName("email_key")] string? EmailKey
+);

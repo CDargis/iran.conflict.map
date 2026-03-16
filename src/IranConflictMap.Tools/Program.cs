@@ -4,7 +4,9 @@ using Amazon.Runtime;
 using Amazon.Runtime.CredentialManagement;
 using Amazon.SQS;
 using Amazon.SQS.Model;
+using MimeKit;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 // ── Global flags ─────────────────────────────────────────────────────────────
 var profile  = GetFlag(ref args, "--profile") ?? "default";
@@ -12,7 +14,13 @@ var region   = GetFlag(ref args, "--region")  ?? "us-east-1";
 
 var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(StringComparer.OrdinalIgnoreCase)
 {
-    ["reseed"] = ("Clear strikes table and reseed via SQS (skips last seed date)", Reseed)
+    ["reseed"]        = ("Clear strikes table and reseed via SQS (skips last seed date)", Reseed),
+    ["submit-url"]    = ("Submit a report URL directly to the report queue for processing", SubmitUrl),
+    ["test-hubspot"]  = ("Extract HubSpot link from a raw email file and resolve the redirect body", TestHubspot),
+    ["test-ctp-feed"] = ("Check criticalthreats.org for RSS feed and Iran update listing", TestCtpFeed),
+    ["test-ctp-api"]  = ("Probe the criticalthreats.org API for Iran update articles", TestCtpApi),
+    ["test-ctp-url"]  = ("Test URL construction from email subject for a given raw email file", TestCtpUrl),
+    ["test-ctp-fetch"] = ("Fetch a criticalthreats.org article URL and show what text content is available", TestCtpFetch)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -33,7 +41,34 @@ if (!commands.TryGetValue(args[0], out var cmd))
 
 await cmd.run(args[1..]);
 
-// ── reseed ───────────────────────────────────────────────────────────────────
+// ── submit-url ────────────────────────────────────────────────────────────────
+async Task SubmitUrl(string[] opts)
+{
+    var url = opts.Length > 0 ? opts[0]
+        : throw new Exception("Usage: submit-url <report-url>");
+
+    if (!url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        throw new Exception("URL must start with https://");
+
+    const string queueName = "iran-conflict-map-report.fifo";
+
+    var sqs      = BuildSqsClient();
+    var queueUrl = (await sqs.GetQueueUrlAsync(queueName)).QueueUrl;
+
+    var body = System.Text.Json.JsonSerializer.Serialize(new { url });
+
+    await sqs.SendMessageAsync(new SendMessageRequest
+    {
+        QueueUrl       = queueUrl,
+        MessageBody    = body,
+        MessageGroupId = "manual"
+    });
+
+    Console.WriteLine($"Queued: {url}");
+    Console.WriteLine("Monitor the sync Lambda logs to track progress.");
+}
+
+// ── reseed ────────────────────────────────────────────────────────────────────
 async Task Reseed(string[] opts)
 {
     const string tableName   = "strikes";
@@ -136,6 +171,336 @@ async Task Reseed(string[] opts)
     Console.WriteLine();
     Console.WriteLine($"Reseed complete. {totalMessages} messages sent to processor queue.");
     Console.WriteLine("Monitor the processor Lambda logs to confirm writes.");
+}
+
+// ── test-hubspot ─────────────────────────────────────────────────────────────
+async Task TestHubspot(string[] opts)
+{
+    var emailPath = opts.Length > 0 ? opts[0]
+        : throw new Exception("Usage: test-hubspot <path-to-raw-email>");
+
+    Console.WriteLine($"Reading email: {emailPath}");
+    using var stream = File.OpenRead(emailPath);
+    var message = await MimeMessage.LoadAsync(stream);
+    Console.WriteLine($"  Subject : {message.Subject}");
+    Console.WriteLine($"  From    : {message.From}");
+
+    var htmlBody = message.HtmlBody ?? "";
+    if (string.IsNullOrEmpty(htmlBody))
+    {
+        Console.WriteLine("No HTML body found in email.");
+        return;
+    }
+    Console.WriteLine($"  HTML body length: {htmlBody.Length} chars");
+
+    // ── Step 1: extract HubSpot link (same logic as sync Lambda) ─────────────
+    var anchorRe = new Regex(@"<a\s[^>]*href=""([^""]+)""[^>]*>(.*?)</a>",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+    string? hubspotUrl = null;
+
+    foreach (Match m in anchorRe.Matches(htmlBody))
+    {
+        var text = Regex.Replace(m.Groups[2].Value, @"<[^>]+>", "").Trim();
+        if (text.Contains("Iran Update", StringComparison.OrdinalIgnoreCase))
+        {
+            hubspotUrl = m.Groups[1].Value;
+            Console.WriteLine($"\n[primary match] text: '{text[..Math.Min(text.Length, 80)]}'");
+            Console.WriteLine($"  href: {hubspotUrl}");
+            break;
+        }
+    }
+
+    if (hubspotUrl == null)
+    {
+        Console.WriteLine("\nPrimary match failed — trying fallback keywords...");
+        foreach (Match m in anchorRe.Matches(htmlBody))
+        {
+            var href = m.Groups[1].Value;
+            var text = Regex.Replace(m.Groups[2].Value, @"<[^>]+>", "").Trim();
+            if (href.Contains("hubspotlinks", StringComparison.OrdinalIgnoreCase) &&
+                (text.Contains("criticalthreats", StringComparison.OrdinalIgnoreCase) ||
+                 text.Contains("read the", StringComparison.OrdinalIgnoreCase) ||
+                 text.Contains("view update", StringComparison.OrdinalIgnoreCase) ||
+                 text.Contains("full update", StringComparison.OrdinalIgnoreCase) ||
+                 text.Contains("full report", StringComparison.OrdinalIgnoreCase) ||
+                 text.Contains("see full", StringComparison.OrdinalIgnoreCase)))
+            {
+                hubspotUrl = href;
+                Console.WriteLine($"\n[fallback match] text: '{text[..Math.Min(text.Length, 80)]}'");
+                Console.WriteLine($"  href: {hubspotUrl}");
+                break;
+            }
+        }
+    }
+
+    if (hubspotUrl == null)
+    {
+        Console.WriteLine("\nNo suitable HubSpot link found. Dumping all hrefs:");
+        foreach (Match m in anchorRe.Matches(htmlBody))
+        {
+            var text = Regex.Replace(m.Groups[2].Value, @"<[^>]+>", "").Trim();
+            Console.WriteLine($"  [{text[..Math.Min(text.Length, 50)]}] → {m.Groups[1].Value[..Math.Min(m.Groups[1].Value.Length, 80)]}");
+        }
+        return;
+    }
+
+    // ── Step 2: fetch the HubSpot URL and read the response body ─────────────
+    Console.WriteLine("\nFetching HubSpot URL...");
+    using var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true });
+    http.DefaultRequestHeaders.Add("User-Agent",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+
+    using var resp = await http.GetAsync(hubspotUrl);
+    var finalUrl = resp.RequestMessage?.RequestUri?.ToString();
+    Console.WriteLine($"  Status  : {(int)resp.StatusCode} {resp.StatusCode}");
+    Console.WriteLine($"  Final URL: {finalUrl}");
+
+    var body = await resp.Content.ReadAsStringAsync();
+    Console.WriteLine($"  Body length: {body.Length} chars");
+
+    // ── Step 3: look for criticalthreats.org URL in the response body ─────────
+    var ctpRe = new Regex(@"https?://[^\s""'<>]*criticalthreats\.org/analysis/[^\s""'<>]*",
+        RegexOptions.IgnoreCase);
+    var ctpMatches = ctpRe.Matches(body).Select(m => m.Value).Distinct().ToList();
+
+    if (ctpMatches.Count > 0)
+    {
+        Console.WriteLine($"\n criticalthreats.org URL(s) found in response body:");
+        foreach (var u in ctpMatches)
+            Console.WriteLine($"  {u}");
+    }
+    else
+    {
+        Console.WriteLine("\nNo criticalthreats.org/analysis URL found in response body.");
+        Console.WriteLine("Dumping first 2000 chars of body to inspect:");
+        Console.WriteLine(body[..Math.Min(body.Length, 2000)]);
+    }
+}
+
+// ── test-ctp-feed ─────────────────────────────────────────────────────────────
+async Task TestCtpFeed(string[] opts)
+{
+    using var http = new HttpClient();
+    http.DefaultRequestHeaders.Add("User-Agent",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+
+    var candidates = new[]
+    {
+        "https://www.criticalthreats.org/feed",
+        "https://www.criticalthreats.org/feed.xml",
+        "https://www.criticalthreats.org/rss",
+        "https://www.criticalthreats.org/rss.xml",
+        "https://www.criticalthreats.org/analysis/feed",
+        "https://www.criticalthreats.org/category/iran/feed",
+    };
+
+    Console.WriteLine("=== Checking for RSS feed ===");
+    foreach (var url in candidates)
+    {
+        try
+        {
+            var resp = await http.GetAsync(url);
+            Console.WriteLine($"  {(int)resp.StatusCode}  {url}");
+            if (resp.IsSuccessStatusCode)
+            {
+                var body = await resp.Content.ReadAsStringAsync();
+                Console.WriteLine($"       Content-Type: {resp.Content.Headers.ContentType}");
+                Console.WriteLine($"       Body preview: {body[..Math.Min(body.Length, 300)]}");
+                Console.WriteLine();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  ERR  {url}  ({ex.Message})");
+        }
+    }
+
+    Console.WriteLine("\n=== Checking Iran update listing page ===");
+    var listingUrls = new[]
+    {
+        "https://www.criticalthreats.org/analysis/iran-update",
+        "https://www.criticalthreats.org/briefs/iran-update",
+        "https://www.criticalthreats.org/tag/iran-update",
+        "https://www.criticalthreats.org/category/iran-update",
+    };
+
+    var iranRe = new Regex(
+        @"https?://(?:www\.)?criticalthreats\.org/analysis/iran[^\s""'<>]*",
+        RegexOptions.IgnoreCase);
+
+    foreach (var url in listingUrls)
+    {
+        try
+        {
+            var resp = await http.GetAsync(url);
+            Console.WriteLine($"  {(int)resp.StatusCode}  {url}");
+            if (resp.IsSuccessStatusCode)
+            {
+                var body = await resp.Content.ReadAsStringAsync();
+
+                // Look for all hrefs containing "iran" to see article link patterns
+                var hrefRe = new Regex(@"href=""([^""]*iran[^""]*)""", RegexOptions.IgnoreCase);
+                var hrefs  = hrefRe.Matches(body).Select(m => m.Groups[1].Value).Distinct().Take(20).ToList();
+
+                if (hrefs.Count > 0)
+                {
+                    Console.WriteLine($"       hrefs containing 'iran' ({hrefs.Count} found):");
+                    foreach (var h in hrefs) Console.WriteLine($"         {h}");
+                }
+                else
+                {
+                    Console.WriteLine($"       No iran hrefs found — dumping 3000 chars:");
+                    Console.WriteLine(body[..Math.Min(body.Length, 3000)]);
+                }
+                Console.WriteLine();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  ERR  {url}  ({ex.Message})");
+        }
+    }
+}
+
+// ── test-ctp-api ──────────────────────────────────────────────────────────────
+async Task TestCtpApi(string[] opts)
+{
+    const string apiBase = "https://api.criticalthreats.org/v1";
+
+    using var http = new HttpClient();
+    http.DefaultRequestHeaders.Add("User-Agent",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+    http.DefaultRequestHeaders.Add("Accept", "application/json");
+
+    var candidates = new[]
+    {
+        $"{apiBase}/analyses?search=iran+update&limit=5",
+        $"{apiBase}/analyses?category=iran-update&limit=5",
+        $"{apiBase}/analyses?tag=iran-update&limit=5",
+        $"{apiBase}/publications?search=iran+update&limit=5",
+        $"{apiBase}/posts?search=iran+update&limit=5",
+        $"{apiBase}/content?search=iran+update&limit=5",
+        $"{apiBase}/articles?search=iran+update&limit=5",
+        $"{apiBase}/analyses?limit=5",
+    };
+
+    foreach (var url in candidates)
+    {
+        try
+        {
+            var resp = await http.GetAsync(url);
+            var body = await resp.Content.ReadAsStringAsync();
+            Console.WriteLine($"{(int)resp.StatusCode}  {url}");
+            if (resp.IsSuccessStatusCode)
+            {
+                Console.WriteLine(body[..Math.Min(body.Length, 800)]);
+                Console.WriteLine();
+                break; // stop at first working endpoint
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERR  {url}  ({ex.Message})");
+        }
+    }
+}
+
+// ── test-ctp-url ──────────────────────────────────────────────────────────────
+async Task TestCtpUrl(string[] opts)
+{
+    var emailPath = opts.Length > 0 ? opts[0]
+        : throw new Exception("Usage: test-ctp-url <path-to-raw-email>");
+
+    using var stream = File.OpenRead(emailPath);
+    var message = await MimeMessage.LoadAsync(stream);
+    var subject = message.Subject ?? "";
+    Console.WriteLine($"Subject: {subject}");
+
+    // Extract date from subject — look for "Month DD, YYYY"
+    var dateRe = new Regex(@"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),\s+(\d{4})\b",
+        RegexOptions.IgnoreCase);
+    var dm = dateRe.Match(subject);
+    if (!dm.Success)
+    {
+        Console.WriteLine("Could not extract date from subject.");
+        return;
+    }
+
+    var month = dm.Groups[1].Value.ToLowerInvariant();
+    var day   = int.Parse(dm.Groups[2].Value);
+    var year  = dm.Groups[3].Value;
+    Console.WriteLine($"Parsed date: {month} {day}, {year}");
+
+    // Build candidate URLs — standard pattern first, then variations
+    var candidates = new[]
+    {
+        $"https://www.criticalthreats.org/analysis/iran-update-{month}-{day}-{year}",
+        $"https://www.criticalthreats.org/analysis/iran-war-update-{month}-{day}-{year}",
+        $"https://www.criticalthreats.org/analysis/iran-update-evening-special-report-{month}-{day}-{year}",
+        $"https://www.criticalthreats.org/analysis/iran-update-special-report-{month}-{day}-{year}",
+    };
+
+    using var http = new HttpClient();
+    http.DefaultRequestHeaders.Add("User-Agent",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+
+    foreach (var url in candidates)
+    {
+        var resp = await http.GetAsync(url);
+        var body = await resp.Content.ReadAsStringAsync();
+        var title = Regex.Match(body, @"<title>([^<]+)</title>").Groups[1].Value.Trim();
+        Console.WriteLine($"\n{(int)resp.StatusCode}  {url}");
+        Console.WriteLine($"  Title: {title}");
+        if (resp.IsSuccessStatusCode && !title.Contains("Not Found", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine("  *** VALID ARTICLE ***");
+            // Show a snippet of visible text
+            var text = Regex.Replace(body, @"<[^>]+>", " ");
+            text = Regex.Replace(text, @"\s{2,}", " ").Trim();
+            Console.WriteLine($"  Preview: {text[..Math.Min(text.Length, 300)]}");
+        }
+    }
+}
+
+// ── test-ctp-fetch ────────────────────────────────────────────────────────────
+async Task TestCtpFetch(string[] opts)
+{
+    var url = opts.Length > 0 ? opts[0]
+        : throw new Exception("Usage: test-ctp-fetch <url>");
+
+    using var http = new HttpClient();
+    http.DefaultRequestHeaders.Add("User-Agent",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+
+    var html = await http.GetStringAsync(url);
+    Console.WriteLine($"Fetched {html.Length} chars");
+
+    // Strip tags — what would FetchReportPage give Claude?
+    var text = Regex.Replace(html, @"<[^>]+>", " ");
+    text = Regex.Replace(text, @"[ \t]{2,}", " ");
+    text = Regex.Replace(text, @"(\r?\n){3,}", "\n\n").Trim();
+    Console.WriteLine($"Stripped text length: {text.Length} chars");
+    Console.WriteLine("\n--- First 1000 chars of stripped text ---");
+    Console.WriteLine(text[..Math.Min(text.Length, 1000)]);
+
+    // Check for JSON-LD or embedded data that might contain article content
+    Console.WriteLine("\n--- Checking for embedded JSON/data in <script> tags ---");
+    var scriptRe = new Regex(@"<script[^>]*>([\s\S]*?)</script>", RegexOptions.IgnoreCase);
+    foreach (Match m in scriptRe.Matches(html))
+    {
+        var content = m.Groups[1].Value.Trim();
+        // Look for script blocks that contain article-like content (long text, not just JS)
+        if (content.Length > 200 && (
+            content.Contains("iran", StringComparison.OrdinalIgnoreCase) ||
+            content.Contains("\"body\"", StringComparison.OrdinalIgnoreCase) ||
+            content.Contains("\"content\"", StringComparison.OrdinalIgnoreCase) ||
+            content.Contains("@type", StringComparison.OrdinalIgnoreCase)))
+        {
+            Console.WriteLine($"\nScript block ({content.Length} chars):");
+            Console.WriteLine(content[..Math.Min(content.Length, 600)]);
+        }
+    }
 }
 
 // ── AWS Client Builders ───────────────────────────────────────────────────────
