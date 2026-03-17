@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Conflict Tracker</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:     #13110e;
+      --panel:  #1b1814;
+      --border: #2e2820;
+      --accent: #9b2335;
+      --amber:  #c8a84b;
+      --green:  #4a7c59;
+      --blue:   #5b8db8;
+      --text:   #cfc3b0;
+      --dim:    #736860;
+      --mono:   'IBM Plex Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    /* ── Topbar ── */
+    #topbar {
+      position: sticky; top: 0; z-index: 10;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    #topbar-left { display: flex; align-items: center; gap: 16px; }
+    #topbar-title { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+    #topbar a { font-size: 11px; color: var(--dim); text-decoration: none; }
+    #topbar a:hover { color: var(--text); }
+    #auth-status { font-size: 10px; color: var(--dim); }
+    #auth-status.authed { color: var(--green); }
+
+    /* ── Layout ── */
+    #content { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
+
+    /* ── Section ── */
+    .section { margin-bottom: 36px; }
+    .section-title {
+      font-size: 10px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--dim);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 5px 12px;
+      border-radius: 3px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn:hover:not(:disabled) { border-color: var(--text); }
+    .btn:disabled { opacity: .4; cursor: default; }
+    .btn.accent  { border-color: var(--accent); color: var(--accent); }
+    .btn.green   { border-color: var(--green);  color: var(--green);  }
+    .btn.blue    { border-color: var(--blue);   color: var(--blue);   }
+    .btn.dim     { color: var(--dim); }
+
+    /* ── Controls row ── */
+    #controls-row { display: flex; align-items: center; gap: 8px; }
+    #url-input {
+      flex: 1;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 5px 10px;
+      border-radius: 3px;
+    }
+    #url-input::placeholder { color: var(--dim); }
+    #url-input:focus { outline: none; border-color: var(--accent); }
+    #sync-status { font-size: 10px; color: var(--dim); margin-top: 6px; min-height: 16px; }
+
+    /* ── Review items ── */
+    .review-item {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .review-note {
+      color: var(--amber);
+      font-size: 11px;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    .review-source {
+      font-size: 10px;
+      margin-bottom: 12px;
+    }
+    .review-source a { color: var(--accent); text-decoration: none; word-break: break-all; }
+    .review-source a:hover { text-decoration: underline; }
+    .review-payloads {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .review-payload {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 10px;
+    }
+    .review-payload.unavailable { opacity: .4; }
+    .review-payload-label {
+      font-size: 9px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 8px;
+    }
+    .review-payload pre {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.6;
+      max-height: 480px;
+      overflow-y: auto;
+    }
+    .review-actions { display: flex; gap: 8px; }
+
+    /* ── Sync log ── */
+    .sync-entry {
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+    }
+    .sync-entry-row { display: flex; align-items: center; gap: 10px; }
+    .sync-ts { color: var(--dim); min-width: 110px; }
+    .sync-result.new   { color: var(--green); }
+    .sync-result.error { color: var(--accent); }
+    .sync-result.none  { color: var(--dim); }
+    .sync-review { color: var(--blue); margin-left: 4px; }
+    .sync-detail {
+      display: none;
+      font-size: 10px;
+      color: var(--dim);
+      padding: 4px 0 0 120px;
+      word-break: break-all;
+    }
+    .sync-entry.expandable { cursor: pointer; }
+    .sync-entry.expandable.open .sync-detail { display: block; }
+  </style>
+</head>
+<body>
+
+<div id="topbar">
+  <div id="topbar-left">
+    <span id="topbar-title">Admin</span>
+    <a href="/">← Map</a>
+  </div>
+  <span id="auth-status">not authenticated</span>
+</div>
+
+<div id="content">
+
+  <!-- Sync controls -->
+  <div class="section">
+    <div class="section-title">Sync</div>
+    <div id="controls-row">
+      <button class="btn" id="scan-btn" onclick="scanInbox()">Scan Inbox</button>
+      <input id="url-input" type="text" placeholder="or paste a report URL to process directly" />
+      <button class="btn accent" id="submit-btn" onclick="submitUrl()">Submit</button>
+    </div>
+    <div id="sync-status"></div>
+  </div>
+
+  <!-- Review queue -->
+  <div class="section">
+    <div class="section-title">
+      Review Queue
+      <button class="btn" onclick="loadReviewQueue()">Load</button>
+    </div>
+    <div id="review-panel"><div style="color:var(--dim);font-size:11px">Click Load to fetch pending items.</div></div>
+  </div>
+
+  <!-- Sync log -->
+  <div class="section">
+    <div class="section-title">
+      Sync Log
+      <button class="btn" onclick="loadSyncLog()">Refresh</button>
+    </div>
+    <div id="sync-log"><div style="color:var(--dim);font-size:11px">Loading…</div></div>
+  </div>
+
+</div>
+
+<script>
+  let _reviewItems = [];
+  let _syncKey = localStorage.getItem('sync_key');
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+
+  function updateAuthStatus() {
+    const el = document.getElementById('auth-status');
+    if (_syncKey) {
+      el.textContent = 'authenticated';
+      el.classList.add('authed');
+    } else {
+      el.textContent = 'not authenticated';
+      el.classList.remove('authed');
+    }
+  }
+
+  function getKey() {
+    if (_syncKey) return _syncKey;
+    const k = prompt('Sync key:');
+    if (!k) return null;
+    _syncKey = k;
+    localStorage.setItem('sync_key', k);
+    updateAuthStatus();
+    return k;
+  }
+
+  function handleUnauth() {
+    localStorage.removeItem('sync_key');
+    _syncKey = null;
+    updateAuthStatus();
+    alert('Invalid key — cleared. Try again.');
+  }
+
+  // ── Sync controls ─────────────────────────────────────────────────────────
+
+  function setSyncStatus(msg, color) {
+    const el = document.getElementById('sync-status');
+    el.textContent = msg;
+    el.style.color = color || 'var(--dim)';
+  }
+
+  async function scanInbox() {
+    const key = getKey();
+    if (!key) return;
+    const btn = document.getElementById('scan-btn');
+    btn.disabled = true;
+    btn.textContent = '…';
+    setSyncStatus('Triggering inbox scan…');
+    try {
+      const r = await fetch('/api/sync/trigger', { method: 'POST', headers: { 'X-Sync-Key': key } });
+      if (r.status === 401) { handleUnauth(); return; }
+      if (r.status === 429) { setSyncStatus('Triggered recently — wait 10 minutes.', 'var(--accent)'); return; }
+      if (!r.ok) { setSyncStatus('Error: ' + r.status, 'var(--accent)'); return; }
+      setSyncStatus('Scan triggered. Monitor sync log.', 'var(--green)');
+      setTimeout(() => setSyncStatus(''), 6000);
+      setTimeout(loadSyncLog, 3000);
+    } catch (e) {
+      setSyncStatus('Request failed', 'var(--accent)');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Scan Inbox';
+    }
+  }
+
+  async function submitUrl() {
+    const key = getKey();
+    if (!key) return;
+    const url = document.getElementById('url-input').value.trim();
+    if (!url) return;
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = '…';
+    setSyncStatus('Submitting URL…');
+    try {
+      const r = await fetch('/api/sync/submit-url', {
+        method: 'POST',
+        headers: { 'X-Sync-Key': key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      if (r.status === 401) { handleUnauth(); return; }
+      if (!r.ok) { setSyncStatus('Error: ' + r.status, 'var(--accent)'); return; }
+      setSyncStatus('URL submitted. Monitor sync log.', 'var(--green)');
+      document.getElementById('url-input').value = '';
+      setTimeout(() => setSyncStatus(''), 6000);
+      setTimeout(loadSyncLog, 3000);
+    } catch (e) {
+      setSyncStatus('Request failed', 'var(--accent)');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Submit';
+    }
+  }
+
+  // ── Review queue ──────────────────────────────────────────────────────────
+
+  function reviewItemHTML(item, i) {
+    const hasNew    = !!item.as_new;
+    const hasUpdate = !!item.as_update;
+
+    const newCol = hasNew
+      ? `<div class="review-payload">
+           <div class="review-payload-label">As New</div>
+           <pre>${escHtml(JSON.stringify(item.as_new, null, 2))}</pre>
+         </div>`
+      : `<div class="review-payload unavailable">
+           <div class="review-payload-label">As New</div>
+           <div style="font-size:10px;color:var(--dim)">not available</div>
+         </div>`;
+
+    const updateCol = hasUpdate
+      ? `<div class="review-payload">
+           <div class="review-payload-label">As Update</div>
+           <pre>${escHtml(JSON.stringify(item.as_update, null, 2))}</pre>
+         </div>`
+      : `<div class="review-payload unavailable">
+           <div class="review-payload-label">As Update</div>
+           <div style="font-size:10px;color:var(--dim)">not available</div>
+         </div>`;
+
+    return `<div class="review-item">
+      <div class="review-note">${escHtml(item.note || 'No note provided.')}</div>
+      ${item.source_url ? `<div class="review-source"><a href="${escHtml(item.source_url)}" target="_blank" rel="noopener">${escHtml(item.source_url)}</a></div>` : ''}
+      <div class="review-payloads">${newCol}${updateCol}</div>
+      <div class="review-actions">
+        ${hasNew    ? `<button class="btn green" onclick="resolveReview(${i},'new')">Approve New</button>`       : ''}
+        ${hasUpdate ? `<button class="btn blue"  onclick="resolveReview(${i},'update')">Approve Update</button>` : ''}
+        <button class="btn dim" onclick="resolveReview(${i},'discard')">Discard</button>
+      </div>
+    </div>`;
+  }
+
+  async function loadReviewQueue() {
+    const key = getKey();
+    if (!key) return;
+    const panel = document.getElementById('review-panel');
+    panel.innerHTML = '<div style="color:var(--dim);font-size:11px">Loading…</div>';
+    try {
+      const r = await fetch('/api/review', { headers: { 'X-Sync-Key': key } });
+      if (r.status === 401) { handleUnauth(); return; }
+      if (!r.ok) { panel.innerHTML = '<div style="color:var(--accent);font-size:11px">Error loading review queue.</div>'; return; }
+      _reviewItems = await r.json();
+      panel.innerHTML = _reviewItems.length
+        ? _reviewItems.map((item, i) => reviewItemHTML(item, i)).join('')
+        : '<div style="color:var(--dim);font-size:11px">Queue empty.</div>';
+    } catch (e) {
+      panel.innerHTML = '<div style="color:var(--accent);font-size:11px">Request failed.</div>';
+    }
+  }
+
+  async function resolveReview(i, action) {
+    const key = getKey();
+    if (!key) return;
+    const item = _reviewItems[i];
+    if (!item) return;
+    try {
+      const r = await fetch('/api/review/resolve', {
+        method: 'POST',
+        headers: { 'X-Sync-Key': key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          receiptHandle: item.receiptHandle,
+          action,
+          source_url: item.source_url || '',
+          as_new:     item.as_new    || null,
+          as_update:  item.as_update || null
+        })
+      });
+      if (r.status === 401) { handleUnauth(); return; }
+      if (!r.ok) { alert('Resolve failed: ' + r.status); return; }
+      await loadReviewQueue();
+    } catch (e) { alert('Request failed'); }
+  }
+
+  // ── Sync log ──────────────────────────────────────────────────────────────
+
+  const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+
+  function fmtSyncTs(iso) {
+    const d = new Date(iso);
+    return `${MONTHS[d.getMonth()]} ${String(d.getDate()).padStart(2,'0')} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  function syncLogHTML(syncs) {
+    if (!syncs || !syncs.length) return '<div style="color:var(--dim);font-size:11px">No syncs yet.</div>';
+    return syncs.map(s => {
+      const ts = fmtSyncTs(s.timestamp);
+      let cls = 'none', label = 'no changes';
+      if (['error','claude_error','fetch_error','no_url','no_email','no_events'].includes(s.status)) {
+        cls = 'error'; label = s.status.replace(/_/g, ' ');
+      } else if (s.status === 'partial') {
+        cls = 'error';
+        const parts = [];
+        if (s.new_event_count > 0) parts.push(`+${s.new_event_count}`);
+        if (s.dead_letter_count > 0) parts.push(`⚠ ${s.dead_letter_count} DLQ`);
+        label = parts.join(' / ') || 'partial';
+      } else if (s.new_event_count > 0 || s.update_count > 0) {
+        cls = 'new';
+        const parts = [];
+        if (s.new_event_count > 0) parts.push(`+${s.new_event_count} event${s.new_event_count > 1 ? 's' : ''}`);
+        if (s.update_count > 0) parts.push(`${s.update_count} update${s.update_count > 1 ? 's' : ''}`);
+        label = parts.join(' / ');
+      }
+      const reviewBadge = s.review_count > 0 ? `<span class="sync-review">↷ ${s.review_count} review</span>` : '';
+      const hasError   = !!s.error_message;
+      const hasSuccess = !!s.report_url && (s.status === 'success' || s.status === 'no_events');
+      const hasDetail  = hasError || hasSuccess;
+      let detail = '';
+      if (hasError) {
+        detail = `<div class="sync-detail">${escHtml(s.error_message)}</div>`;
+      } else if (hasSuccess) {
+        const strat = s.url_strategy ? `<br><span style="opacity:.6">via ${s.url_strategy.replace(/_/g,' ')}</span>` : '';
+        detail = `<div class="sync-detail"><a href="${escHtml(s.report_url)}" target="_blank" rel="noopener" style="color:var(--accent)">${escHtml(s.report_url)}</a>${strat}</div>`;
+      }
+      return `<div class="sync-entry${hasDetail ? ' expandable' : ''}">
+        <div class="sync-entry-row"${hasDetail ? ' onclick="this.closest(\'.sync-entry\').classList.toggle(\'open\')"' : ''}>
+          <span class="sync-ts">${ts}</span>
+          <span class="sync-result ${cls}">${label}${hasDetail ? ' ▾' : ''}</span>
+          ${reviewBadge}
+        </div>${detail}
+      </div>`;
+    }).join('');
+  }
+
+  function loadSyncLog() {
+    fetch('/api/syncs')
+      .then(r => r.ok ? r.json() : [])
+      .then(data => { document.getElementById('sync-log').innerHTML = syncLogHTML(data); })
+      .catch(() => { document.getElementById('sync-log').innerHTML = '<div style="color:var(--accent);font-size:11px">Failed to load.</div>'; });
+  }
+
+  // ── Utils ─────────────────────────────────────────────────────────────────
+
+  function escHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+
+  updateAuthStatus();
+  loadSyncLog();
+</script>
+</body>
+</html>
