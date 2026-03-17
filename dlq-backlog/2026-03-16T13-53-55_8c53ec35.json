@@ -1,0 +1,13 @@
+{
+  "note": "Saraya Awliya al Dam claimed five \u0027operations\u0027 targeting US bases in and outside Iraq on March 14, including an attack against US forces in Erbil. The Erbil attack is a distinct location from the Victory Base drone attacks (ID 400) and may warrant a separate event, but the claim comes from a likely Iranian front group with no independent corroboration and no casualty data. Insufficient detail to confidently assign severity or confirm it as a new versus previously-logged event.",
+  "raw": {
+    "date": "2026-03-14",
+    "actor": "Saraya Awliya al Dam (likely Iranian militia front group)",
+    "location": "Erbil, Iraq (and unspecified other US bases outside Iraq)",
+    "type": "drone/unspecified",
+    "target_type": "military",
+    "citations": [
+      "https://t.me/awlialdm/272"
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "note": "Hezbollah claimed 31 attacks against Israeli forces and positions in northern Israel and southern Lebanon between March 14\u201315 (including seven direct engagements with ATGM and numerous rocket barrages across five towns in Marjaayoun District). These collectively represent a sustained operational pattern rather than a single discrete strike event. The data footnotes for this section are marked \u0027data available upon request\u0027 for the aggregated count, and the individual Telegram citations cover a broad sweep of claims. It is unclear whether any of these individual sub-events were previously logged as separate events in prior reports (coverage begins March 1). Consolidating into one event would misrepresent the scale; splitting into 31 would violate the granularity rule. Recommend logging as one aggregated Hezbollah ground-and-rocket campaign event once the operator confirms no prior individual events have been logged for this campaign period.",
+  "raw": {
+    "date": "2026-03-15",
+    "actor": "Hezbollah",
+    "location": "Southern Lebanon and Northern Israel (Marjaayoun District and multiple towns)",
+    "type": "mixed (rockets, ATGM, direct engagement)",
+    "claimed_attacks": 31,
+    "direct_engagements": 7,
+    "citations": [
+      "https://t.me/mmirleb/11136",
+      "https://t.me/mmirleb/11139",
+      "https://t.me/mmirleb/11142",
+      "https://t.me/mmirleb/11146",
+      "https://t.me/mmirleb/11158",
+      "https://t.me/mmirleb/11181",
+      "https://t.me/mmirleb/11201",
+      "https://t.me/mmirleb/11203",
+      "https://t.me/mmirleb/11233"
+    ]
+  }
+}

@@ -24,7 +24,8 @@ var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(S
     ["test-ini-list"]  = ("Dump the INI_LIST slugs from the CTP Iran updates listing page", TestIniList),
     ["dlq-to-review"]      = ("Migrate DLQ messages matching a timestamp (--timestamp 'yyyy-MM-dd HH:mm:ss', ±60s window) to review queue", DlqToReview),
     ["normalize-review"]   = ("Convert legacy bare UpdateEvent messages in review queue to wrapped format [--confirm]", NormalizeReview),
-    ["drain-review"]       = ("Save all review queue messages to review-backlog/ and delete from queue [--confirm]", DrainReview)
+    ["drain-review"]       = ("Save all review queue messages to review-backlog/ and delete from queue [--confirm]", DrainReview),
+    ["drain-dlq"]          = ("Save all DLQ messages to dlq-backlog/ and delete from queue [--confirm]", DrainDlq)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -876,27 +877,41 @@ async Task NormalizeReview(string[] opts)
 
 async Task DrainReview(string[] opts)
 {
-    var confirm     = opts.Contains("--confirm");
-    var outDir      = GetFlag(ref opts, "--out") ?? FindRepoRoot("review-backlog");
-    const string reviewName = "iran-conflict-map-review.fifo";
+    var outDir = GetFlag(ref opts, "--out") ?? FindRepoRoot("review-backlog");
+    await DrainQueue(opts, "iran-conflict-map-review.fifo", outDir);
+}
 
-    var sqs       = BuildSqsClient();
-    var reviewUrl = (await sqs.GetQueueUrlAsync(reviewName)).QueueUrl;
+// ── drain-dlq ─────────────────────────────────────────────────────────────────
 
-    Console.WriteLine($"Review queue : {reviewUrl}");
-    Console.WriteLine($"Output dir   : {outDir}");
-    Console.WriteLine($"Mode         : {(confirm ? "LIVE — will save and delete" : "DRY RUN — pass --confirm to apply")}");
+async Task DrainDlq(string[] opts)
+{
+    var outDir = GetFlag(ref opts, "--out") ?? FindRepoRoot("dlq-backlog");
+    await DrainQueue(opts, "iran-conflict-map-dlq.fifo", outDir);
+}
+
+// ── DrainQueue (shared) ───────────────────────────────────────────────────────
+
+async Task DrainQueue(string[] opts, string queueName, string outDir)
+{
+    var confirm = opts.Contains("--confirm");
+
+    var sqs      = BuildSqsClient();
+    var queueUrl = (await sqs.GetQueueUrlAsync(queueName)).QueueUrl;
+
+    Console.WriteLine($"Queue      : {queueUrl}");
+    Console.WriteLine($"Output dir : {outDir}");
+    Console.WriteLine($"Mode       : {(confirm ? "LIVE — will save and delete" : "DRY RUN — pass --confirm to apply")}");
     Console.WriteLine();
 
-    var all      = new List<Message>();
-    var received = new HashSet<string>();
+    var all          = new List<Message>();
+    var received     = new HashSet<string>();
     var emptyRetries = 0;
 
     while (emptyRetries < 3)
     {
         var resp = await sqs.ReceiveMessageAsync(new ReceiveMessageRequest
         {
-            QueueUrl                    = reviewUrl,
+            QueueUrl                    = queueUrl,
             MaxNumberOfMessages         = 10,
             VisibilityTimeout           = 300,
             WaitTimeSeconds             = 20,
@@ -918,23 +933,23 @@ async Task DrainReview(string[] opts)
     if (all.Count == 0) return;
 
     if (confirm)
+    {
         Directory.CreateDirectory(outDir);
+    }
 
     foreach (var msg in all)
     {
-        // Use SentTimestamp for a meaningful filename prefix
-        var sentMs  = msg.Attributes.TryGetValue("SentTimestamp", out string? ts)
+        var sentMs   = msg.Attributes.TryGetValue("SentTimestamp", out string? ts)
             ? DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(ts)).UtcDateTime.ToString("yyyy-MM-ddTHH-mm-ss")
             : "unknown";
         var fileName = $"{sentMs}_{msg.MessageId[..8]}.json";
         var filePath = Path.Combine(outDir, fileName);
 
-        // Pretty-print JSON if possible, otherwise write raw
         string content;
         try
         {
             var doc = JsonDocument.Parse(msg.Body);
-            content = System.Text.Json.JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
+            content = JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
         }
         catch { content = msg.Body; }
 
@@ -945,7 +960,7 @@ async Task DrainReview(string[] opts)
             await File.WriteAllTextAsync(filePath, content);
             await sqs.DeleteMessageAsync(new DeleteMessageRequest
             {
-                QueueUrl      = reviewUrl,
+                QueueUrl      = queueUrl,
                 ReceiptHandle = msg.ReceiptHandle
             });
         }
@@ -953,19 +968,18 @@ async Task DrainReview(string[] opts)
 
     if (!confirm)
     {
-        // Release visibility on all messages
         foreach (var msg in all)
         {
             try
             {
                 await sqs.ChangeMessageVisibilityAsync(new ChangeMessageVisibilityRequest
                 {
-                    QueueUrl          = reviewUrl,
+                    QueueUrl          = queueUrl,
                     ReceiptHandle     = msg.ReceiptHandle,
                     VisibilityTimeout = 0
                 });
             }
-            catch (Amazon.SQS.AmazonSQSException) { }
+            catch (AmazonSQSException) { }
         }
         Console.WriteLine();
         Console.WriteLine("Re-run with --confirm to save and delete.");

@@ -1,0 +1,22 @@
+{
+  "note": "The report confirms via satellite imagery (footnote [lxx]) that the combined force destroyed an intelligence office in Sarpol-e Zahab, Kermanshah Province, with the confirmation date being March 14 but the satellite imagery dating from March 6. It is unclear whether this strike was already logged as a March 6 event. If not logged, a new event should be created for the strike date (approximately 2026-03-06) at Sarpol-e Zahab (lat ~34.4611, lng ~45.8647).",
+  "raw": {
+    "date": "2026-03-06",
+    "title": "Combined force destroys intelligence office in Sarpol-e Zahab, Kermanshah Province",
+    "location": "Sarpol-e Zahab, Kermanshah Province, Iran",
+    "lat": 34.4611,
+    "lng": 45.8647,
+    "type": "strike",
+    "target_type": "command",
+    "actor": "US, Israel",
+    "severity": "medium",
+    "description": "Satellite imagery from March 6 confirmed that the combined force destroyed an intelligence office in Sarpol-e Zahab, Kermanshah Province.",
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 0
+    },
+    "citations": [
+      "https://x.com/zarGEOINT/status/2032856942490616116?s=20"
+    ]
+  }
+}

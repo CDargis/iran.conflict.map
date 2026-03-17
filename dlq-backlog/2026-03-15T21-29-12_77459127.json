@@ -1,0 +1,23 @@
+{
+  "note": "The report references CENTCOM destroying 16 Iranian minelayers near the Strait of Hormuz on March 10 (footnote [lv]: https://x.com/CENTCOM/status/2031489675760640370). This event date is 2026-03-10, which falls within the already-logged range (up to 2026-03-15). It is unclear whether a prior event for this specific action was logged; if not, it should be added as a new event for 2026-03-10 targeting Iranian minelayers near the Strait of Hormuz.",
+  "raw": {
+    "date": "2026-03-10",
+    "title": "CENTCOM destroys 16 Iranian minelayers near Strait of Hormuz",
+    "location": "Strait of Hormuz, Iran",
+    "lat": 26.5667,
+    "lng": 56.2500,
+    "type": "naval",
+    "target_type": "naval",
+    "actor": "US",
+    "severity": "high",
+    "description": "CENTCOM reported that US forces destroyed 16 Iranian minelayers near the Strait of Hormuz. Iran has deployed fewer than 10 naval mines in the strait so far; a 2025 US Congressional Report estimated Iran has 5,000\u20136,000 naval mines in total.",
+    "casualties": {
+      "confirmed": 0,
+      "estimated": 0
+    },
+    "citations": [
+      "https://x.com/CENTCOM/status/2031489675760640370",
+      "https://www.cbsnews.com/news/iran-mines-strait-of-hormuz/?linkId=917703318"
+    ]
+  }
+}
