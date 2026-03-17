@@ -772,7 +772,7 @@ async Task NormalizeReview(string[] opts)
         {
             QueueUrl            = reviewUrl,
             MaxNumberOfMessages = 10,
-            VisibilityTimeout   = 60,
+            VisibilityTimeout   = 300,
             WaitTimeSeconds     = 20
         });
 
@@ -813,24 +813,10 @@ async Task NormalizeReview(string[] opts)
         }
     }
 
-    // Release current-format messages immediately — no changes needed
-    foreach (var msg in current)
+    // Release all messages — ignore stale handle errors (timeout already expired, SQS will re-enqueue)
+    foreach (var msg in current.Concat(confirm ? Enumerable.Empty<Message>() : legacy))
     {
-        await sqs.ChangeMessageVisibilityAsync(new ChangeMessageVisibilityRequest
-        {
-            QueueUrl          = reviewUrl,
-            ReceiptHandle     = msg.ReceiptHandle,
-            VisibilityTimeout = 0
-        });
-    }
-
-    Console.WriteLine();
-    Console.WriteLine($"Legacy: {legacy.Count}  Current: {current.Count}");
-
-    if (!confirm)
-    {
-        Console.WriteLine("Re-run with --confirm to convert.");
-        foreach (var msg in legacy)
+        try
         {
             await sqs.ChangeMessageVisibilityAsync(new ChangeMessageVisibilityRequest
             {
@@ -839,6 +825,15 @@ async Task NormalizeReview(string[] opts)
                 VisibilityTimeout = 0
             });
         }
+        catch (Amazon.SQS.AmazonSQSException) { /* handle expired — message will re-appear automatically */ }
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"Legacy: {legacy.Count}  Current: {current.Count}");
+
+    if (!confirm)
+    {
+        Console.WriteLine("Re-run with --confirm to convert.");
         return;
     }
 
