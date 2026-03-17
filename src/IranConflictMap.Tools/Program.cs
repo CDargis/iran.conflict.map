@@ -649,14 +649,11 @@ async Task DlqToReview(string[] opts)
     }
 
     Console.WriteLine($"Migrating {selected.Count} message(s) to review queue...");
+    var totalItems = 0;
     foreach (var msg in selected)
     {
-        await sqs.SendMessageAsync(new SendMessageRequest
-        {
-            QueueUrl       = reviewUrl,
-            MessageBody    = msg.Body,
-            MessageGroupId = "review"
-        });
+        var sent = await ExpandToReviewQueue(sqs, reviewUrl, msg.Body);
+        totalItems += sent;
 
         await sqs.DeleteMessageAsync(new DeleteMessageRequest
         {
@@ -664,11 +661,89 @@ async Task DlqToReview(string[] opts)
             ReceiptHandle = msg.ReceiptHandle
         });
 
-        Console.WriteLine($"  migrated {msg.MessageId}");
+        Console.WriteLine($"  migrated {msg.MessageId} → {sent} review item(s)");
     }
 
     Console.WriteLine();
-    Console.WriteLine($"Done. {selected.Count} message(s) moved to review queue.");
+    Console.WriteLine($"Done. {selected.Count} message(s) expanded into {totalItems} review item(s).");
+}
+
+// ── dlq-to-review helpers ─────────────────────────────────────────────────────
+
+async Task<int> ExpandToReviewQueue(IAmazonSQS sqs, string reviewUrl, string body)
+{
+    JsonElement root;
+    try { root = JsonDocument.Parse(body).RootElement; }
+    catch { return 0; }
+
+    var sourceUrl = root.TryGetProperty("source_url", out var su) ? su.GetString() : null;
+
+    // If already a per-item review message (has "item" property), forward as-is
+    if (root.TryGetProperty("item", out _))
+    {
+        await SendReviewMessage(sqs, reviewUrl, body);
+        return 1;
+    }
+
+    // SyncEnvelope — expand into individual review items
+    int sent = 0;
+
+    if (root.TryGetProperty("new", out JsonElement newArr) && newArr.ValueKind == JsonValueKind.Array)
+    {
+        foreach (JsonElement evt in newArr.EnumerateArray())
+        {
+            string itemBody = JsonSerializer.Serialize(new
+            {
+                source_url = sourceUrl,
+                item = new { note = "Migrated from DLQ — new event", as_new = evt, as_update = (JsonElement?)null }
+            });
+            await SendReviewMessage(sqs, reviewUrl, itemBody);
+            sent++;
+        }
+    }
+
+    if (root.TryGetProperty("updates", out JsonElement updArr) && updArr.ValueKind == JsonValueKind.Array)
+    {
+        foreach (JsonElement upd in updArr.EnumerateArray())
+        {
+            string itemBody = JsonSerializer.Serialize(new
+            {
+                source_url = sourceUrl,
+                item = new { note = "Migrated from DLQ — update", as_new = (JsonElement?)null, as_update = upd }
+            });
+            await SendReviewMessage(sqs, reviewUrl, itemBody);
+            sent++;
+        }
+    }
+
+    if (root.TryGetProperty("ambiguous", out JsonElement ambArr) && ambArr.ValueKind == JsonValueKind.Array)
+    {
+        foreach (JsonElement amb in ambArr.EnumerateArray())
+        {
+            string ambNote = amb.TryGetProperty("note", out JsonElement n) ? n.GetString() ?? "Migrated from DLQ — ambiguous" : "Migrated from DLQ — ambiguous";
+            JsonElement? asNew    = amb.TryGetProperty("as_new",    out JsonElement an) ? an : null;
+            JsonElement? asUpdate = amb.TryGetProperty("as_update", out JsonElement au) ? au : null;
+            string itemBody = JsonSerializer.Serialize(new
+            {
+                source_url = sourceUrl,
+                item = new { note = ambNote, as_new = asNew, as_update = asUpdate }
+            });
+            await SendReviewMessage(sqs, reviewUrl, itemBody);
+            sent++;
+        }
+    }
+
+    return sent;
+}
+
+async Task SendReviewMessage(IAmazonSQS sqs, string reviewUrl, string body)
+{
+    await sqs.SendMessageAsync(new SendMessageRequest
+    {
+        QueueUrl       = reviewUrl,
+        MessageBody    = body,
+        MessageGroupId = "review"
+    });
 }
 
 // ── AWS Client Builders ───────────────────────────────────────────────────────

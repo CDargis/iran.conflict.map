@@ -227,7 +227,7 @@ app.MapGet("/api/review", async (HttpContext ctx, IAmazonSimpleSystemsManagement
     {
         QueueUrl            = queueUrl,
         MaxNumberOfMessages = 10,
-        VisibilityTimeout   = 600   // 10 minutes to review and act
+        VisibilityTimeout   = 300   // 5 minutes to review and act
     });
 
     var items = response.Messages.Select(m =>
