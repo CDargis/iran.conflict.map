@@ -25,7 +25,8 @@ var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(S
     ["dlq-to-review"]      = ("Migrate DLQ messages matching a timestamp (--timestamp 'yyyy-MM-dd HH:mm:ss', ±60s window) to review queue", DlqToReview),
     ["normalize-review"]   = ("Convert legacy bare UpdateEvent messages in review queue to wrapped format [--confirm]", NormalizeReview),
     ["drain-review"]       = ("Save all review queue messages to review-backlog/ and delete from queue [--confirm]", DrainReview),
-    ["drain-dlq"]          = ("Save all DLQ messages to dlq-backlog/ and delete from queue [--confirm]", DrainDlq)
+    ["drain-dlq"]          = ("Save all DLQ messages to dlq-backlog/ and delete from queue [--confirm]", DrainDlq),
+    ["send-envelope"]      = ("Send a SyncEnvelope JSON file to the processor queue [--file <path>] [--confirm]", SendEnvelope)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -887,6 +888,60 @@ async Task DrainDlq(string[] opts)
 {
     var outDir = GetFlag(ref opts, "--out") ?? FindRepoRoot("dlq-backlog");
     await DrainQueue(opts, "iran-conflict-map-dlq.fifo", outDir);
+}
+
+// ── send-envelope ─────────────────────────────────────────────────────────────
+
+async Task SendEnvelope(string[] opts)
+{
+    var confirm  = opts.Contains("--confirm");
+    var filePath = GetFlag(ref opts, "--file");
+
+    if (string.IsNullOrEmpty(filePath))
+    {
+        Console.Error.WriteLine("Error: --file <path> is required.");
+        return;
+    }
+
+    if (!File.Exists(filePath))
+    {
+        Console.Error.WriteLine($"Error: file not found: {filePath}");
+        return;
+    }
+
+    string json = await File.ReadAllTextAsync(filePath);
+
+    // Validate it parses and has a "new" array
+    JsonDocument doc;
+    try { doc = JsonDocument.Parse(json); }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Error: invalid JSON — {ex.Message}");
+        return;
+    }
+
+    int newCount = doc.RootElement.TryGetProperty("new", out JsonElement newEl) && newEl.ValueKind == JsonValueKind.Array
+        ? newEl.GetArrayLength() : 0;
+
+    var sqs          = BuildSqsClient();
+    var processorUrl = (await sqs.GetQueueUrlAsync("iran-conflict-map-processor.fifo")).QueueUrl;
+
+    Console.WriteLine($"Processor queue : {processorUrl}");
+    Console.WriteLine($"File            : {filePath}");
+    Console.WriteLine($"New events      : {newCount}");
+    Console.WriteLine($"Mode            : {(confirm ? "LIVE — will send to processor" : "DRY RUN — pass --confirm to apply")}");
+
+    if (!confirm) return;
+
+    await sqs.SendMessageAsync(new SendMessageRequest
+    {
+        QueueUrl       = processorUrl,
+        MessageBody    = json,
+        MessageGroupId = "review"
+    });
+
+    Console.WriteLine();
+    Console.WriteLine($"Done. Envelope sent — {newCount} new event(s) queued for processing.");
 }
 
 // ── DrainQueue (shared) ───────────────────────────────────────────────────────

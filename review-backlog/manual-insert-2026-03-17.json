@@ -1,0 +1,119 @@
+{
+  "source_url": "https://www.criticalthreats.org/analysis/iran-update-march-16-2026",
+  "synced_at": "2026-03-17T00:00:00.0000000Z",
+  "is_review_approval": true,
+  "new": [
+    {
+      "PutRequest": {
+        "Item": {
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-15" },
+          "title":       { "S": "FPV Drone and Rocket Attack on Camp Victory, Baghdad" },
+          "location":    { "S": "Baghdad, Iraq" },
+          "lat":         { "N": "33.3152" },
+          "lng":         { "N": "44.3661" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "Kataib Hezbollah" },
+          "severity":    { "S": "low" },
+          "description": { "S": "Kataib Hezbollah conducted a FPV drone attack on the former US Victory Base near Baghdad International Airport on March 15. No US forces are stationed at Camp Victory. The IRI also claimed 24 operations targeting enemy bases inside Iraq and elsewhere in the region on March 15, and Saraya Awliya al Dam claimed a rocket barrage at the same site." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "citations":   { "L": [
+            { "S": "https://x.com/JoeTruzman/status/2032963872693563531?s=20" },
+            { "S": "https://t.me/ElamAlmoqawama/1585" },
+            { "S": "https://t.me/awlialdm/281" }
+          ]}
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-15" },
+          "title":       { "S": "IDF Airstrike on Hezbollah Weapons Depot, Khiam" },
+          "location":    { "S": "Khiam, Lebanon" },
+          "lat":         { "N": "33.3667" },
+          "lng":         { "N": "35.6167" },
+          "type":        { "S": "airstrike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "IDF" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "The IDF struck a Hezbollah weapons depot in Khiam, southern Lebanon, on March 15. IDF ground forces had previously discovered the depot, and the IDF 91st Division found large quantities of combat equipment inside, including dozens of rockets, explosive devices, and rifles." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "citations":   { "L": [
+            { "S": "https://x.com/Me1Ray/status/2033521165684416745" },
+            { "S": "https://x.com/AvichayAdraee/status/2033483477190844727" }
+          ]}
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-15" },
+          "title":       { "S": "Hezbollah Rocket and Drone Barrage on Nahariya" },
+          "location":    { "S": "Nahariya, Israel" },
+          "lat":         { "N": "33.005" },
+          "lng":         { "N": "35.0942" },
+          "type":        { "S": "rocket" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Hezbollah" },
+          "severity":    { "S": "high" },
+          "description": { "S": "Hezbollah claimed 23 attacks targeting Israeli forces and positions in northern Israel and southern Lebanon on March 15-16, including rocket and drone attacks along both sides of the Israel-Lebanon border. Hezbollah claimed a rocket barrage and drone squadron targeted Nahariya; Israeli media confirmed a direct impact on a structure in Nahariya on March 16." },
+          "casualties":  { "M": { "confirmed": { "N": "1" }, "estimated": { "N": "1" } } },
+          "citations":   { "L": [
+            { "S": "https://www.criticalthreats.org/analysis/iran-update-march-16-2026" }
+          ]}
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-11" },
+          "title":       { "S": "US Strike on IRGC Missile Depot, Yazd Province" },
+          "location":    { "S": "Yazd, Iran" },
+          "lat":         { "N": "31.8974" },
+          "lng":         { "N": "54.3569" },
+          "type":        { "S": "airstrike" },
+          "target_type": { "S": "military" },
+          "actor":       { "S": "US" },
+          "severity":    { "S": "high" },
+          "description": { "S": "A BBC journalist reported on March 16, citing CENTCOM imagery, that the combined force struck a military depot site in Yazd, Yazd Province, on March 11. CENTCOM Commander Admiral Brad Cooper confirmed the depot was associated with 'IRGC missile command infrastructure' and used to build 'light and heavyweight torpedoes,' and stated that US strikes have shifted to targeting Iran's wider manufacturing apparatus and defense industrial base." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "citations":   { "L": [
+            { "S": "https://x.com/FSeifikaran/status/2033557076035661988?s=20" },
+            { "S": "https://x.com/CENTCOM/status/2033510902532653154?s=20" }
+          ]}
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "entity":      { "S": "strike" },
+          "date":        { "S": "2026-03-15" },
+          "title":       { "S": "Iranian Drone Strike on Dubai International Airport" },
+          "location":    { "S": "Dubai, UAE" },
+          "lat":         { "N": "25.2532" },
+          "lng":         { "N": "55.3657" },
+          "type":        { "S": "drone" },
+          "target_type": { "S": "civilian" },
+          "actor":       { "S": "Iran" },
+          "severity":    { "S": "medium" },
+          "description": { "S": "An Iranian drone struck the Dubai International Airport, UAE, on March 15, causing a fire at a nearby fuel tank. The strike was part of Iran's broader campaign targeting Gulf state infrastructure to impose economic and political pressure on the United States and Gulf states." },
+          "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "citations":   { "L": [
+            { "S": "https://x.com/no_itsmyturn/status/2033384408477036608" },
+            { "S": "https://www.bbc.com/news/articles/crl4gxgkkylo" }
+          ]}
+        }
+      }
+    }
+  ],
+  "updates": null,
+  "ambiguous": null
+}
