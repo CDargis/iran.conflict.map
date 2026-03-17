@@ -22,7 +22,7 @@ var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(S
     ["test-ctp-url"]  = ("Test URL construction from email subject for a given raw email file", TestCtpUrl),
     ["test-ctp-fetch"] = ("Fetch a criticalthreats.org article URL and show what text content is available", TestCtpFetch),
     ["test-ini-list"]  = ("Dump the INI_LIST slugs from the CTP Iran updates listing page", TestIniList),
-    ["dlq-to-review"]  = ("Migrate DLQ messages to review queue, filtered by sent date (default: yesterday)", DlqToReview)
+    ["dlq-to-review"]  = ("Migrate the N most recent DLQ messages to review queue (default: 5)", DlqToReview)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -544,10 +544,8 @@ async Task TestIniList(string[] opts)
 async Task DlqToReview(string[] opts)
 {
     var confirm  = opts.Contains("--confirm");
-    var dateFlag = GetFlag(ref opts, "--date");
-    var filterDate = dateFlag != null
-        ? DateOnly.Parse(dateFlag)
-        : DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1));
+    var countStr = GetFlag(ref opts, "--count");
+    var topN     = countStr != null ? int.Parse(countStr) : 5;
 
     const string dlqName    = "iran-conflict-map-dlq.fifo";
     const string reviewName = "iran-conflict-map-review.fifo";
@@ -558,23 +556,21 @@ async Task DlqToReview(string[] opts)
 
     Console.WriteLine($"DLQ    : {dlqUrl}");
     Console.WriteLine($"Review : {reviewUrl}");
-    Console.WriteLine($"Filter : sent on {filterDate:yyyy-MM-dd} (UTC)");
+    Console.WriteLine($"Top N  : {topN} most recent");
     Console.WriteLine($"Mode   : {(confirm ? "LIVE — will migrate and delete" : "DRY RUN — pass --confirm to migrate")}");
     Console.WriteLine();
 
-    // Drain the DLQ in batches; SQS returns up to 10 at a time.
-    // Use a long visibility timeout so messages don't re-appear mid-run.
-    var matched   = new List<Message>();
-    var skipped   = 0;
-    var received  = new HashSet<string>();
+    // Drain all visible DLQ messages, then pick the N most recent by SentTimestamp.
+    var all      = new List<Message>();
+    var received = new HashSet<string>();
 
     while (true)
     {
         var resp = await sqs.ReceiveMessageAsync(new ReceiveMessageRequest
         {
-            QueueUrl            = dlqUrl,
-            MaxNumberOfMessages = 10,
-            VisibilityTimeout   = confirm ? 60 : 30,
+            QueueUrl                    = dlqUrl,
+            MaxNumberOfMessages         = 10,
+            VisibilityTimeout           = 30,
             MessageSystemAttributeNames = new List<string> { "All" }
         });
 
@@ -582,63 +578,55 @@ async Task DlqToReview(string[] opts)
 
         foreach (var msg in resp.Messages)
         {
-            // Guard against duplicates within same drain pass
-            if (!received.Add(msg.MessageId)) continue;
-
-            // SentTimestamp is milliseconds since epoch
-            var sentMs   = long.Parse(msg.Attributes["SentTimestamp"]);
-            var sentUtc  = DateTimeOffset.FromUnixTimeMilliseconds(sentMs).UtcDateTime;
-            var sentDate = DateOnly.FromDateTime(sentUtc);
-
-            if (sentDate == filterDate)
-            {
-                matched.Add(msg);
-                Console.WriteLine($"  [match]  {msg.MessageId}  sent={sentUtc:HH:mm:ss}  body={msg.Body[..Math.Min(msg.Body.Length, 80)]}...");
-            }
-            else
-            {
-                skipped++;
-                Console.WriteLine($"  [skip]   {msg.MessageId}  sent={sentUtc:yyyy-MM-dd HH:mm:ss}");
-
-                // Release skipped messages immediately so they don't stay invisible
-                if (!confirm)
-                {
-                    await sqs.ChangeMessageVisibilityAsync(new ChangeMessageVisibilityRequest
-                    {
-                        QueueUrl          = dlqUrl,
-                        ReceiptHandle     = msg.ReceiptHandle,
-                        VisibilityTimeout = 0
-                    });
-                }
-            }
+            if (received.Add(msg.MessageId))
+                all.Add(msg);
         }
     }
 
-    Console.WriteLine();
-    Console.WriteLine($"Matched {matched.Count} message(s) for {filterDate}, skipped {skipped}.");
+    Console.WriteLine($"Found {all.Count} message(s) in DLQ.");
 
-    if (matched.Count == 0 || !confirm)
+    var selected = all
+        .OrderByDescending(m => long.Parse(m.Attributes["SentTimestamp"]))
+        .Take(topN)
+        .ToList();
+
+    Console.WriteLine($"Selecting {selected.Count} most recent:");
+    foreach (var msg in selected)
     {
-        if (!confirm && matched.Count > 0)
+        var sentUtc = DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(msg.Attributes["SentTimestamp"])).UtcDateTime;
+        Console.WriteLine($"  {msg.MessageId}  sent={sentUtc:yyyy-MM-dd HH:mm:ss}  body={msg.Body[..Math.Min(msg.Body.Length, 80)]}...");
+    }
+
+    // Release messages we won't migrate
+    var unselectedIds = new HashSet<string>(selected.Select(m => m.MessageId));
+    foreach (var msg in all.Where(m => !unselectedIds.Contains(m.MessageId)))
+    {
+        await sqs.ChangeMessageVisibilityAsync(new ChangeMessageVisibilityRequest
         {
-            Console.WriteLine("Re-run with --confirm to migrate.");
-            // Release matched messages too (we held them during dry-run)
-            foreach (var msg in matched)
+            QueueUrl          = dlqUrl,
+            ReceiptHandle     = msg.ReceiptHandle,
+            VisibilityTimeout = 0
+        });
+    }
+
+    Console.WriteLine();
+    if (!confirm)
+    {
+        Console.WriteLine("Re-run with --confirm to migrate.");
+        foreach (var msg in selected)
+        {
+            await sqs.ChangeMessageVisibilityAsync(new ChangeMessageVisibilityRequest
             {
-                await sqs.ChangeMessageVisibilityAsync(new ChangeMessageVisibilityRequest
-                {
-                    QueueUrl          = dlqUrl,
-                    ReceiptHandle     = msg.ReceiptHandle,
-                    VisibilityTimeout = 0
-                });
-            }
+                QueueUrl          = dlqUrl,
+                ReceiptHandle     = msg.ReceiptHandle,
+                VisibilityTimeout = 0
+            });
         }
         return;
     }
 
-    Console.WriteLine($"Migrating {matched.Count} message(s) to review queue...");
-    var migrated = 0;
-    foreach (var msg in matched)
+    Console.WriteLine($"Migrating {selected.Count} message(s) to review queue...");
+    foreach (var msg in selected)
     {
         await sqs.SendMessageAsync(new SendMessageRequest
         {
@@ -653,12 +641,11 @@ async Task DlqToReview(string[] opts)
             ReceiptHandle = msg.ReceiptHandle
         });
 
-        migrated++;
         Console.WriteLine($"  migrated {msg.MessageId}");
     }
 
     Console.WriteLine();
-    Console.WriteLine($"Done. {migrated} message(s) moved to review queue.");
+    Console.WriteLine($"Done. {selected.Count} message(s) moved to review queue.");
 }
 
 // ── AWS Client Builders ───────────────────────────────────────────────────────
