@@ -234,21 +234,22 @@ app.MapGet("/api/review", async (HttpContext ctx, IAmazonSimpleSystemsManagement
     {
         try
         {
-            var parsed = JsonDocument.Parse(m.Body).RootElement;
+            var parsed     = JsonDocument.Parse(m.Body).RootElement;
+            var hasWrapper = parsed.TryGetProperty("item", out JsonElement data);
+            if (!hasWrapper) data = parsed;  // unwrapped format: item fields at root
+
             return (object)new
             {
                 receiptHandle = m.ReceiptHandle,
                 source_url    = parsed.TryGetProperty("source_url", out var su) ? su.GetString() : "",
-                note          = parsed.TryGetProperty("item", out var it)
-                    ? (it.TryGetProperty("note", out var n) ? n.GetString() : "")
-                    : (parsed.TryGetProperty("note", out var n2) ? n2.GetString() : ""),
-                as_new        = parsed.TryGetProperty("item", out var it2) && it2.TryGetProperty("as_new",    out var an) ? an : (JsonElement?)null,
-                as_update     = parsed.TryGetProperty("item", out var it3) && it3.TryGetProperty("as_update", out var au) ? au : (JsonElement?)null
+                note          = data.TryGetProperty("note", out var n) ? n.GetString() : "",
+                as_new        = (data.TryGetProperty("as_new",    out var an) && an.ValueKind != JsonValueKind.Null) ? (object?)an : null,
+                as_update     = (data.TryGetProperty("as_update", out var au) && au.ValueKind != JsonValueKind.Null) ? (object?)au : null
             };
         }
         catch
         {
-            return (object)new { receiptHandle = m.ReceiptHandle, source_url = "", note = "parse error", as_new = (JsonElement?)null, as_update = (JsonElement?)null };
+            return (object)new { receiptHandle = m.ReceiptHandle, source_url = (string?)"", note = (string?)"parse error", as_new = (object?)null, as_update = (object?)null };
         }
     }).ToList();
 
