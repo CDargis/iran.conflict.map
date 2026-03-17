@@ -103,7 +103,10 @@ public class Function
 
             // Audit fields
             if (!string.IsNullOrEmpty(syncedAt))
+            {
                 item["created_at"] = new AttributeValue { S = syncedAt };
+                item["updated_at"] = new AttributeValue { S = syncedAt };
+            }
             if (!string.IsNullOrEmpty(sourceUrl))
                 item["created_source_url"] = new AttributeValue { S = sourceUrl };
 
@@ -291,6 +294,13 @@ public class Function
                 };
             }
         }
+
+        // Stamp updated_at on every write
+        updates["updated_at"] = new AttributeValueUpdate
+        {
+            Action = AttributeAction.PUT,
+            Value  = new AttributeValue { S = DateTime.UtcNow.ToString("o") }
+        };
 
         // Append audit entry to update_log
         if (!string.IsNullOrEmpty(syncedAt))
