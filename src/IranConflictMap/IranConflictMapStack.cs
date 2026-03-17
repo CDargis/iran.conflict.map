@@ -531,9 +531,14 @@ public class IranConflictMapStack : Stack
             "frontend"
         ));
 
+        // Inject deploy date into index.html (overwrites the asset copy)
+        var deployDate  = DateTime.UtcNow.ToString("MMM d, yyyy");
+        var indexHtml   = File.ReadAllText(Path.Combine(frontendPath, "index.html"))
+                              .Replace("%%DEPLOY_DATE%%", deployDate);
+
         new BucketDeployment(this, "DeployFrontend", new BucketDeploymentProps
         {
-            Sources             = new[] { Source.Asset(frontendPath) },
+            Sources             = new ISource[] { Source.Asset(frontendPath), Source.Data("index.html", indexHtml) },
             DestinationBucket   = bucket,
             Distribution        = distribution,
             DistributionPaths   = new[] { "/*" },
