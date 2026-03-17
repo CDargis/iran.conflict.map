@@ -238,13 +238,24 @@ app.MapGet("/api/review", async (HttpContext ctx, IAmazonSimpleSystemsManagement
             var hasWrapper = parsed.TryGetProperty("item", out JsonElement data);
             if (!hasWrapper) data = parsed;  // unwrapped format: item fields at root
 
+            object? asNew    = (data.TryGetProperty("as_new",    out var an) && an.ValueKind != JsonValueKind.Null) ? (object?)an : null;
+            object? asUpdate = (data.TryGetProperty("as_update", out var au) && au.ValueKind != JsonValueKind.Null) ? (object?)au : null;
+
+            // Legacy format: bare UpdateEvent object (has "lookup"/"changes" at root, no wrapper)
+            string? note = data.TryGetProperty("note", out var n) ? n.GetString() : "";
+            if (asNew == null && asUpdate == null && data.TryGetProperty("lookup", out _))
+            {
+                asUpdate = data;
+                if (string.IsNullOrEmpty(note)) note = "Legacy queued update";
+            }
+
             return (object)new
             {
                 receiptHandle = m.ReceiptHandle,
                 source_url    = parsed.TryGetProperty("source_url", out var su) ? su.GetString() : "",
-                note          = data.TryGetProperty("note", out var n) ? n.GetString() : "",
-                as_new        = (data.TryGetProperty("as_new",    out var an) && an.ValueKind != JsonValueKind.Null) ? (object?)an : null,
-                as_update     = (data.TryGetProperty("as_update", out var au) && au.ValueKind != JsonValueKind.Null) ? (object?)au : null
+                note,
+                as_new        = asNew,
+                as_update     = asUpdate
             };
         }
         catch
