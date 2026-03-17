@@ -118,33 +118,33 @@ public class Function
 
     private async Task<(string? url, string strategy)> ResolveReportUrl(MimeMessage message, ILambdaContext ctx)
     {
-        // Strategy 1: Subject slug + HEAD verify
-        var subjectUrl = BuildReportUrl(message.Subject ?? "");
-        if (subjectUrl != null)
+        var dateSlug = BuildDateSlug(message.Subject ?? "");
+
+        // Strategy 1: Canonical URL (iran-update-{month}-{day}-{year}) confirmed via INI_LIST
+        // NOTE: criticalthreats.org returns HTTP 200 for non-existent pages (soft 404s) so HEAD verify is not used.
+        //       INI_LIST is the authoritative source of published slugs.
+        if (dateSlug != null)
         {
-            ctx.Logger.LogLine($"[extract] strategy 1 (subject_slug): verifying {subjectUrl}");
-            if (await VerifyReportUrl(subjectUrl, ctx))
-                return (subjectUrl, "subject_slug");
-            ctx.Logger.LogLine("[extract] strategy 1 failed — trying INI_LIST");
+            var canonicalSlug = $"iran-update-{dateSlug}";
+            ctx.Logger.LogLine($"[extract] strategy 1 (canonical): checking INI_LIST for '{canonicalSlug}'");
+            var canonicalUrl = await FindUrlInIniList(canonicalSlug, exactMatch: true, ctx);
+            if (canonicalUrl != null)
+                return (canonicalUrl, "canonical");
+            ctx.Logger.LogLine("[extract] strategy 1 failed — trying fuzzy INI_LIST");
         }
         else
         {
-            ctx.Logger.LogLine("[extract] strategy 1: could not build URL from subject — trying INI_LIST");
+            ctx.Logger.LogLine("[extract] strategy 1: could not extract date from subject — trying INI_LIST");
         }
 
-        // Strategy 2: INI_LIST match from listing page
-        var dateSlug = BuildDateSlug(message.Subject ?? "");
+        // Strategy 2: Fuzzy INI_LIST match — any slug containing the date slug
         if (dateSlug != null)
         {
-            ctx.Logger.LogLine($"[extract] strategy 2 (ini_list): searching for date slug '{dateSlug}'");
-            var iniUrl = await FindUrlInIniList(dateSlug, ctx);
+            ctx.Logger.LogLine($"[extract] strategy 2 (ini_list): fuzzy search for date slug '{dateSlug}'");
+            var iniUrl = await FindUrlInIniList(dateSlug, exactMatch: false, ctx);
             if (iniUrl != null)
                 return (iniUrl, "ini_list");
             ctx.Logger.LogLine("[extract] strategy 2 failed — trying body scan");
-        }
-        else
-        {
-            ctx.Logger.LogLine("[extract] strategy 2: could not extract date from subject — trying body scan");
         }
 
         // Strategy 3: Plain-text body scan
@@ -156,29 +156,7 @@ public class Function
         return (null, "");
     }
 
-    // Strategy 1 helper: build slug URL from subject
-    internal static string? BuildReportUrl(string subject)
-    {
-        // Match "Some Title: Month D, YYYY" (time zone suffix is ignored)
-        var re = new Regex(
-            @"^(.+?):\s*(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2}),\s+(\d{4})",
-            RegexOptions.IgnoreCase);
-
-        var m = re.Match(subject);
-        if (!m.Success) return null;
-
-        var titlePart = m.Groups[1].Value.Trim();
-        var month     = m.Groups[2].Value.ToLowerInvariant();
-        var day       = int.Parse(m.Groups[3].Value);
-        var year      = m.Groups[4].Value;
-
-        // Slugify: lowercase, collapse non-alphanumeric runs to single hyphen
-        var slug = Regex.Replace(titlePart.ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
-
-        return $"{ReportBaseUrl}{slug}-{month}-{day}-{year}";
-    }
-
-    // Strategy 2 helper: extract "month-day-year" from subject for INI_LIST matching
+    // Extract "month-day-year" from subject for INI_LIST matching
     internal static string? BuildDateSlug(string subject)
     {
         var re = new Regex(
@@ -195,7 +173,7 @@ public class Function
         return $"{month}-{day}-{year}";
     }
 
-    private async Task<string?> FindUrlInIniList(string dateSlug, ILambdaContext ctx)
+    private async Task<string?> FindUrlInIniList(string slugFragment, bool exactMatch, ILambdaContext ctx)
     {
         try
         {
@@ -218,15 +196,16 @@ public class Function
             foreach (Match m in matches)
             {
                 var slug = m.Groups[1].Value;
-                if (slug.Contains(dateSlug))
+                bool isMatch = exactMatch ? slug == slugFragment : slug.Contains(slugFragment);
+                if (isMatch)
                 {
                     var url = $"{ReportBaseUrl}{slug}";
-                    ctx.Logger.LogLine($"[extract] INI_LIST match: {url}");
+                    ctx.Logger.LogLine($"[extract] INI_LIST match ({(exactMatch ? "exact" : "fuzzy")}): {url}");
                     return url;
                 }
             }
 
-            ctx.Logger.LogLine($"[extract] no INI_LIST entry found for '{dateSlug}'");
+            ctx.Logger.LogLine($"[extract] no INI_LIST entry found for '{slugFragment}'");
             return null;
         }
         catch (Exception ex)
@@ -263,23 +242,6 @@ public class Function
 
         ctx.Logger.LogLine("[extract] body scan found no criticalthreats.org/analysis/ URL");
         return null;
-    }
-
-    private async Task<bool> VerifyReportUrl(string url, ILambdaContext ctx)
-    {
-        try
-        {
-            using var req = new HttpRequestMessage(HttpMethod.Head, url);
-            req.Headers.Add("User-Agent", "Mozilla/5.0 (compatible)");
-            var resp = await Http.SendAsync(req);
-            ctx.Logger.LogLine($"[extract] HEAD {url} → {(int)resp.StatusCode}");
-            return resp.IsSuccessStatusCode;
-        }
-        catch (Exception ex)
-        {
-            ctx.Logger.LogLine($"[extract] verify error: {ex.Message}");
-            return false;
-        }
     }
 
     private async Task EnqueueReportUrl(string url, string emailKey, string strategy, ILambdaContext ctx)

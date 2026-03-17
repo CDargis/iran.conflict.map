@@ -57,7 +57,11 @@ public class Function
                     newCount = await ProcessNewEvents(payload.New, payload.SourceUrl, payload.SyncedAt, context);
 
                 if (payload.Updates is { Count: > 0 })
-                    (updateApplied, updateDeadLettered) = await ProcessUpdates(payload.Updates, payload.SourceUrl, payload.SyncedAt, context);
+                {
+                    int updateReviewed;
+                    (updateApplied, updateDeadLettered, updateReviewed) = await ProcessUpdates(payload.Updates, payload.SourceUrl, payload.SyncedAt, context);
+                    reviewCount += updateReviewed;
+                }
 
                 if (payload.Ambiguous is { Count: > 0 })
                     reviewCount = await ProcessAmbiguous(payload.Ambiguous, payload.SourceUrl, context);
@@ -133,10 +137,11 @@ public class Function
 
     // ── Updates ─────────────────────────────────────────────────────────────────
 
-    private async Task<(int applied, int deadLettered)> ProcessUpdates(List<UpdateEvent> updates, string? sourceUrl, string? syncedAt, ILambdaContext context)
+    private async Task<(int applied, int deadLettered, int reviewed)> ProcessUpdates(List<UpdateEvent> updates, string? sourceUrl, string? syncedAt, ILambdaContext context)
     {
         var applied = 0;
         var deadLettered = 0;
+        var reviewed = 0;
 
         foreach (var update in updates)
         {
@@ -165,9 +170,9 @@ public class Function
 
                 if (getResp.Item == null || getResp.Item.Count == 0)
                 {
-                    context.Logger.LogLine($"[processor] update: id={existingId} not found, dead-lettering");
-                    await SendToDeadLetter("update_not_found", JsonSerializer.Serialize(update));
-                    deadLettered++;
+                    context.Logger.LogLine($"[processor] update: id={existingId} not found, sending to review");
+                    await SendFailedUpdateToReviewQueue($"Update lookup failed: id={existingId} not found in DB.", update, sourceUrl);
+                    reviewed++;
                     continue;
                 }
 
@@ -183,9 +188,9 @@ public class Function
 
                 if (date == null || lat == null || lng == null)
                 {
-                    context.Logger.LogLine($"[processor] update missing date/lat/lng lookup fields, dead-lettering");
-                    await SendToDeadLetter("update_missing_lookup", JsonSerializer.Serialize(update));
-                    deadLettered++;
+                    context.Logger.LogLine($"[processor] update missing date/lat/lng lookup fields, sending to review");
+                    await SendFailedUpdateToReviewQueue("Update lookup failed: missing date, lat, or lng fields.", update, sourceUrl);
+                    reviewed++;
                     continue;
                 }
 
@@ -214,18 +219,17 @@ public class Function
 
                 if (closest.Count == 0)
                 {
-                    context.Logger.LogLine($"[processor] update: no proximity match for {date} ({lat},{lng}), dead-lettering");
-                    await SendToDeadLetter("update_no_match", JsonSerializer.Serialize(update));
-                    deadLettered++;
+                    context.Logger.LogLine($"[processor] update: no proximity match for {date} ({lat},{lng}), sending to review");
+                    await SendFailedUpdateToReviewQueue($"Update lookup failed: no event found near ({lat},{lng}) on {date}.", update, sourceUrl);
+                    reviewed++;
                     continue;
                 }
 
                 if (closest.Count > 1 && closest[1].dist < 1.0)
                 {
-                    // Two events within 1km of each other — ambiguous
-                    context.Logger.LogLine($"[processor] update: multiple proximity matches within 1km for {date} ({lat},{lng}), dead-lettering");
-                    await SendToDeadLetter("update_multiple_matches", JsonSerializer.Serialize(update));
-                    deadLettered++;
+                    context.Logger.LogLine($"[processor] update: multiple proximity matches within 1km for {date} ({lat},{lng}), sending to review");
+                    await SendFailedUpdateToReviewQueue($"Update lookup ambiguous: multiple events within 1km of ({lat},{lng}) on {date}.", update, sourceUrl);
+                    reviewed++;
                     continue;
                 }
 
@@ -237,7 +241,7 @@ public class Function
             }
         }
 
-        return (applied, deadLettered);
+        return (applied, deadLettered, reviewed);
     }
 
     private async Task ApplyUpdate(string id, Dictionary<string, AttributeValue> existing,
@@ -397,6 +401,21 @@ public class Function
         var body = sourceUrl != null
             ? JsonSerializer.Serialize(new { source_url = sourceUrl, item = ambiguousItem })
             : ambiguousItem.GetRawText();
+
+        await _sqs.SendMessageAsync(new SendMessageRequest
+        {
+            QueueUrl       = ReviewQueueUrl,
+            MessageBody    = body,
+            MessageGroupId = "review"
+        });
+    }
+
+    private async Task SendFailedUpdateToReviewQueue(string note, UpdateEvent update, string? sourceUrl)
+    {
+        if (string.IsNullOrEmpty(ReviewQueueUrl)) return;
+
+        var item = new { note, as_update = update, as_new = (object?)null };
+        var body = JsonSerializer.Serialize(new { source_url = sourceUrl, item });
 
         await _sqs.SendMessageAsync(new SendMessageRequest
         {
