@@ -31,7 +31,7 @@ New vs update rule: This report may reference events from a prior reporting wind
 
 new — this event has not been previously reported; assign it the next available ID
 update — this event was reported in a prior report and this report is adding detail, correcting casualties, changing disputed status, or otherwise refining it; do not assign a new ID, instead include only the fields that changed plus date, location, and actor as lookup keys
-ambiguous — you cannot confidently determine whether this is new or an update; include a note explaining why
+ambiguous — you cannot confidently determine whether this is new or an update; include a note explaining why, and populate both as_new (full PutRequest item) and as_update (lookup + changes) so a human reviewer can choose which to apply
 
 Output format — return a single JSON object with three arrays:
 json{
@@ -78,7 +78,38 @@ json{
   "ambiguous": [
     {
       "note": "...",
-      "raw": {}
+      "as_new": {
+        "PutRequest": {
+          "Item": {
+            "id":          { "S": "..." },
+            "entity":      { "S": "strike" },
+            "date":        { "S": "YYYY-MM-DD" },
+            "title":       { "S": "..." },
+            "location":    { "S": "..." },
+            "lat":         { "N": "..." },
+            "lng":         { "N": "..." },
+            "type":        { "S": "..." },
+            "target_type": { "S": "..." },
+            "actor":       { "S": "..." },
+            "severity":    { "S": "..." },
+            "description": { "S": "..." },
+            "casualties":  { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+            "source_url":  { "S": "https://www.criticalthreats.org/analysis/..." },
+            "citations":   { "L": [ { "S": "https://..." } ] }
+          }
+        }
+      },
+      "as_update": {
+        "lookup": {
+          "date":     "YYYY-MM-DD",
+          "location": "...",
+          "actor":    "..."
+        },
+        "changes": {
+          "description": { "S": "..." },
+          "citations":   { "L": [ { "S": "https://..." } ] }
+        }
+      }
     }
   ]
 }
