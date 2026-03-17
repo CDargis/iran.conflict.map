@@ -316,14 +316,27 @@
 
   // ── Review queue ──────────────────────────────────────────────────────────
 
+  const REQUIRED_NEW_FIELDS = ['title', 'location', 'type', 'target_type', 'actor', 'severity', 'description'];
+
+  function missingNewFields(asNew) {
+    const item = asNew?.PutRequest?.Item;
+    if (!item) return REQUIRED_NEW_FIELDS;
+    return REQUIRED_NEW_FIELDS.filter(f => !item[f]);
+  }
+
   function reviewItemHTML(item, i) {
     const hasNew    = !!item.as_new;
     const hasUpdate = !!item.as_update;
 
+    const missing = hasNew ? missingNewFields(item.as_new) : [];
+    const newWarning = missing.length
+      ? `<div style="font-size:10px;color:var(--accent);margin-bottom:6px">⚠ missing fields: ${missing.join(', ')}</div>`
+      : '';
+
     const newCol = hasNew
       ? `<div class="review-payload">
            <div class="review-payload-label">As New</div>
-           <pre>${escHtml(JSON.stringify(item.as_new, null, 2))}</pre>
+           ${newWarning}<pre>${escHtml(JSON.stringify(item.as_new, null, 2))}</pre>
          </div>`
       : `<div class="review-payload unavailable">
            <div class="review-payload-label">As New</div>
@@ -345,7 +358,7 @@
       ${item.source_url ? `<div class="review-source"><a href="${escHtml(item.source_url)}" target="_blank" rel="noopener">${escHtml(item.source_url)}</a></div>` : ''}
       <div class="review-payloads">${newCol}${updateCol}</div>
       <div class="review-actions">
-        ${hasNew    ? `<button class="btn green" onclick="resolveReview(${i},'new')">Approve New</button>`       : ''}
+        ${hasNew    ? `<button class="btn green" onclick="resolveReview(${i},'new')" ${missing.length ? 'disabled title="Missing required fields"' : ''}>Approve New</button>` : ''}
         ${hasUpdate ? `<button class="btn blue"  onclick="resolveReview(${i},'update')">Approve Update</button>` : ''}
         <button class="btn dim" onclick="resolveReview(${i},'discard')">Discard</button>
       </div>
