@@ -845,7 +845,8 @@ async Task NormalizeReview(string[] opts)
 
     foreach (var msg in legacy)
     {
-        JsonElement root = JsonDocument.Parse(msg.Body).RootElement;
+        JsonElement root  = JsonDocument.Parse(msg.Body).RootElement;
+        object?     asNew = BuildAsNewFromLegacyUpdate(root);
 
         string newBody = JsonSerializer.Serialize(new
         {
@@ -853,8 +854,8 @@ async Task NormalizeReview(string[] opts)
             item       = new
             {
                 note      = "Legacy queued update (normalized)",
-                as_new    = (object?)null,
-                as_update = root
+                as_new    = asNew,
+                as_update = (object?)root
             }
         });
 
@@ -871,6 +872,59 @@ async Task NormalizeReview(string[] opts)
 
     Console.WriteLine();
     Console.WriteLine($"Done. {converted} message(s) converted.");
+}
+
+// Build a best-effort as_new PutRequest from a legacy bare UpdateEvent.
+// Uses lookup (date/lat/lng) + changes (already DynamoDB wire format) + entity="strike".
+// The processor overwrites id on write, so we omit it here.
+object? BuildAsNewFromLegacyUpdate(JsonElement root)
+{
+    if (!root.TryGetProperty("lookup",  out JsonElement lookup)  ||
+        !root.TryGetProperty("changes", out JsonElement changes))
+        return null;
+
+    using var ms     = new System.IO.MemoryStream();
+    using var writer = new System.Text.Json.Utf8JsonWriter(ms);
+
+    writer.WriteStartObject();                    // { PutRequest: { Item: { ... } } }
+    writer.WritePropertyName("PutRequest");
+    writer.WriteStartObject();
+    writer.WritePropertyName("Item");
+    writer.WriteStartObject();
+
+    writer.WritePropertyName("entity");
+    writer.WriteStartObject(); writer.WriteString("S", "strike"); writer.WriteEndObject();
+
+    if (lookup.TryGetProperty("date", out JsonElement date) && date.ValueKind == JsonValueKind.String)
+    {
+        writer.WritePropertyName("date");
+        writer.WriteStartObject(); writer.WriteString("S", date.GetString()); writer.WriteEndObject();
+    }
+
+    if (lookup.TryGetProperty("lat", out JsonElement lat) && lat.ValueKind == JsonValueKind.Number)
+    {
+        writer.WritePropertyName("lat");
+        writer.WriteStartObject(); writer.WriteString("N", lat.GetDouble().ToString("G")); writer.WriteEndObject();
+    }
+
+    if (lookup.TryGetProperty("lng", out JsonElement lng) && lng.ValueKind == JsonValueKind.Number)
+    {
+        writer.WritePropertyName("lng");
+        writer.WriteStartObject(); writer.WriteString("N", lng.GetDouble().ToString("G")); writer.WriteEndObject();
+    }
+
+    foreach (JsonProperty prop in changes.EnumerateObject())
+    {
+        writer.WritePropertyName(prop.Name);
+        prop.Value.WriteTo(writer);
+    }
+
+    writer.WriteEndObject(); // Item
+    writer.WriteEndObject(); // PutRequest
+    writer.WriteEndObject(); // root
+    writer.Flush();
+
+    return JsonDocument.Parse(ms.ToArray()).RootElement;
 }
 
 // ── AWS Client Builders ───────────────────────────────────────────────────────
