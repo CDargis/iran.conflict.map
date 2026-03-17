@@ -147,7 +147,7 @@ public class IranConflictMapStack : Stack
             QueueName                 = "iran-conflict-map-review.fifo",
             Fifo                      = true,
             ContentBasedDeduplication = true,
-            VisibilityTimeout         = Duration.Minutes(15),  // > API receive visibility timeout (10 min)
+            VisibilityTimeout         = Duration.Seconds(30),
             RetentionPeriod           = Duration.Days(14)
         });
 
