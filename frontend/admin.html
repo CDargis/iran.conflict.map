@@ -402,7 +402,11 @@
       });
       if (r.status === 401) { handleUnauth(); return; }
       if (!r.ok) { alert('Resolve failed: ' + r.status); return; }
-      await loadReviewQueue();
+      _reviewItems.splice(i, 1);
+      const panel = document.getElementById('review-panel');
+      panel.innerHTML = _reviewItems.length
+        ? _reviewItems.map((it, idx) => reviewItemHTML(it, idx)).join('')
+        : '<div style="color:var(--dim);font-size:11px">Queue empty.</div>';
     } catch (e) { alert('Request failed'); }
   }
 
