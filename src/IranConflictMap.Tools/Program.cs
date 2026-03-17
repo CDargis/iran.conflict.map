@@ -22,7 +22,8 @@ var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(S
     ["test-ctp-url"]  = ("Test URL construction from email subject for a given raw email file", TestCtpUrl),
     ["test-ctp-fetch"] = ("Fetch a criticalthreats.org article URL and show what text content is available", TestCtpFetch),
     ["test-ini-list"]  = ("Dump the INI_LIST slugs from the CTP Iran updates listing page", TestIniList),
-    ["dlq-to-review"]  = ("Migrate DLQ messages matching a timestamp (--timestamp 'yyyy-MM-dd HH:mm:ss', ±60s window) to review queue", DlqToReview)
+    ["dlq-to-review"]      = ("Migrate DLQ messages matching a timestamp (--timestamp 'yyyy-MM-dd HH:mm:ss', ±60s window) to review queue", DlqToReview),
+    ["normalize-review"]   = ("Convert legacy bare UpdateEvent messages in review queue to wrapped format [--confirm]", NormalizeReview)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -744,6 +745,132 @@ async Task SendReviewMessage(IAmazonSQS sqs, string reviewUrl, string body)
         MessageBody    = body,
         MessageGroupId = "review"
     });
+}
+
+// ── normalize-review ──────────────────────────────────────────────────────────
+
+async Task NormalizeReview(string[] opts)
+{
+    var confirm     = opts.Contains("--confirm");
+    const string reviewName = "iran-conflict-map-review.fifo";
+
+    var sqs       = BuildSqsClient();
+    var reviewUrl = (await sqs.GetQueueUrlAsync(reviewName)).QueueUrl;
+
+    Console.WriteLine($"Review queue : {reviewUrl}");
+    Console.WriteLine($"Mode         : {(confirm ? "LIVE — will convert and re-queue" : "DRY RUN — pass --confirm to apply")}");
+    Console.WriteLine();
+
+    var all      = new List<Message>();
+    var received = new HashSet<string>();
+    var emptyRetries = 0;
+
+    while (emptyRetries < 3)
+    {
+        var resp = await sqs.ReceiveMessageAsync(new ReceiveMessageRequest
+        {
+            QueueUrl            = reviewUrl,
+            MaxNumberOfMessages = 10,
+            VisibilityTimeout   = 60,
+            WaitTimeSeconds     = 20
+        });
+
+        if (resp.Messages.Count == 0) { emptyRetries++; continue; }
+
+        emptyRetries = 0;
+        foreach (var msg in resp.Messages)
+        {
+            if (received.Add(msg.MessageId))
+                all.Add(msg);
+        }
+    }
+
+    Console.WriteLine($"Found {all.Count} message(s) in review queue.");
+
+    var legacy  = new List<Message>();
+    var current = new List<Message>();
+
+    foreach (var msg in all)
+    {
+        JsonElement root;
+        try { root = JsonDocument.Parse(msg.Body).RootElement; }
+        catch { Console.WriteLine($"  [skip] {msg.MessageId} — unparseable JSON"); continue; }
+
+        // Legacy: bare UpdateEvent — has "lookup" at root, no "item" wrapper
+        bool isLegacy = root.TryGetProperty("lookup", out _) && !root.TryGetProperty("item", out _);
+
+        if (isLegacy)
+        {
+            legacy.Add(msg);
+            Console.WriteLine($"  [legacy]  {msg.MessageId}  body={msg.Body[..Math.Min(msg.Body.Length, 80)]}...");
+        }
+        else
+        {
+            current.Add(msg);
+            Console.WriteLine($"  [current] {msg.MessageId}");
+        }
+    }
+
+    // Release current-format messages immediately — no changes needed
+    foreach (var msg in current)
+    {
+        await sqs.ChangeMessageVisibilityAsync(new ChangeMessageVisibilityRequest
+        {
+            QueueUrl          = reviewUrl,
+            ReceiptHandle     = msg.ReceiptHandle,
+            VisibilityTimeout = 0
+        });
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"Legacy: {legacy.Count}  Current: {current.Count}");
+
+    if (!confirm)
+    {
+        Console.WriteLine("Re-run with --confirm to convert.");
+        foreach (var msg in legacy)
+        {
+            await sqs.ChangeMessageVisibilityAsync(new ChangeMessageVisibilityRequest
+            {
+                QueueUrl          = reviewUrl,
+                ReceiptHandle     = msg.ReceiptHandle,
+                VisibilityTimeout = 0
+            });
+        }
+        return;
+    }
+
+    Console.WriteLine($"Converting {legacy.Count} legacy message(s)...");
+    int converted = 0;
+
+    foreach (var msg in legacy)
+    {
+        JsonElement root = JsonDocument.Parse(msg.Body).RootElement;
+
+        string newBody = JsonSerializer.Serialize(new
+        {
+            source_url = (string?)null,
+            item       = new
+            {
+                note      = "Legacy queued update (normalized)",
+                as_new    = (object?)null,
+                as_update = root
+            }
+        });
+
+        await SendReviewMessage(sqs, reviewUrl, newBody);
+        await sqs.DeleteMessageAsync(new DeleteMessageRequest
+        {
+            QueueUrl      = reviewUrl,
+            ReceiptHandle = msg.ReceiptHandle
+        });
+
+        converted++;
+        Console.WriteLine($"  converted {msg.MessageId}");
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"Done. {converted} message(s) converted.");
 }
 
 // ── AWS Client Builders ───────────────────────────────────────────────────────
