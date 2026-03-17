@@ -242,6 +242,7 @@ app.MapGet("/api/review", async (HttpContext ctx, IAmazonSimpleSystemsManagement
             {
                 receiptHandle = m.ReceiptHandle,
                 source_url    = parsed.TryGetProperty("source_url", out var su) ? su.GetString() : "",
+                sync_id       = parsed.TryGetProperty("sync_id",    out var si) ? si.GetString() : null,
                 note          = data.TryGetProperty("note", out var n) ? n.GetString() : "",
                 as_new        = (data.TryGetProperty("as_new",    out var an) && an.ValueKind != JsonValueKind.Null) ? (object?)an : null,
                 as_update     = (data.TryGetProperty("as_update", out var au) && au.ValueKind != JsonValueKind.Null) ? (object?)au : null
@@ -284,24 +285,28 @@ app.MapPost("/api/review/resolve", async (HttpContext ctx, IAmazonSimpleSystemsM
 
     if (req.Action != "discard")
     {
-        // Write initial "processing" sync record — processor will update it with final counts
-        var runId = DateTime.UtcNow.ToString("o");
-        await dynamo.PutItemAsync(new PutItemRequest
+        // If no syncId, this is a manual approval without an origin sync — create a new record.
+        // If syncId is present, the processor will skip UpdateSyncRecord (is_review_approval=true).
+        var runId = req.SyncId ?? DateTime.UtcNow.ToString("o");
+        if (req.SyncId == null)
         {
-            TableName = syncsTable,
-            Item = new Dictionary<string, AttributeValue>
+            await dynamo.PutItemAsync(new PutItemRequest
             {
-                ["id"]                = new() { S = runId },
-                ["entity"]            = new() { S = "sync" },
-                ["timestamp"]         = new() { S = runId },
-                ["status"]            = new() { S = "processing" },
-                ["new_event_count"]   = new() { N = "0" },
-                ["update_count"]      = new() { N = "0" },
-                ["dead_letter_count"] = new() { N = "0" },
-                ["review_count"]      = new() { N = "0" },
-                ["report_url"]        = new() { S = req.SourceUrl ?? "" }
-            }
-        });
+                TableName = syncsTable,
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    ["id"]                = new() { S = runId },
+                    ["entity"]            = new() { S = "sync" },
+                    ["timestamp"]         = new() { S = runId },
+                    ["status"]            = new() { S = "processing" },
+                    ["new_event_count"]   = new() { N = "0" },
+                    ["update_count"]      = new() { N = "0" },
+                    ["dead_letter_count"] = new() { N = "0" },
+                    ["review_count"]      = new() { N = "0" },
+                    ["report_url"]        = new() { S = req.SourceUrl ?? "" }
+                }
+            });
+        }
 
         // Build SyncEnvelope and send to processor
         string envelope;
@@ -309,22 +314,24 @@ app.MapPost("/api/review/resolve", async (HttpContext ctx, IAmazonSimpleSystemsM
         {
             envelope = JsonSerializer.Serialize(new
             {
-                source_url = req.SourceUrl ?? "",
-                synced_at  = runId,
-                @new       = new[] { req.AsNew.Value },
-                updates    = (object?)null,
-                ambiguous  = (object?)null
+                source_url         = req.SourceUrl ?? "",
+                synced_at          = runId,
+                is_review_approval = req.SyncId != null,
+                @new               = new[] { req.AsNew.Value },
+                updates            = (object?)null,
+                ambiguous          = (object?)null
             });
         }
         else if (req.Action == "update" && req.AsUpdate.HasValue)
         {
             envelope = JsonSerializer.Serialize(new
             {
-                source_url = req.SourceUrl ?? "",
-                synced_at  = runId,
-                @new       = (object?)null,
-                updates    = new[] { req.AsUpdate.Value },
-                ambiguous  = (object?)null
+                source_url         = req.SourceUrl ?? "",
+                synced_at          = runId,
+                is_review_approval = req.SyncId != null,
+                @new               = (object?)null,
+                updates            = new[] { req.AsUpdate.Value },
+                ambiguous          = (object?)null
             });
         }
         else
@@ -358,6 +365,7 @@ record ResolveRequest(
     [property: System.Text.Json.Serialization.JsonPropertyName("receiptHandle")] string  ReceiptHandle,
     [property: System.Text.Json.Serialization.JsonPropertyName("action")]        string  Action,
     [property: System.Text.Json.Serialization.JsonPropertyName("source_url")]    string? SourceUrl,
+    [property: System.Text.Json.Serialization.JsonPropertyName("sync_id")]       string? SyncId,
     [property: System.Text.Json.Serialization.JsonPropertyName("as_new")]        System.Text.Json.JsonElement? AsNew,
     [property: System.Text.Json.Serialization.JsonPropertyName("as_update")]     System.Text.Json.JsonElement? AsUpdate
 );

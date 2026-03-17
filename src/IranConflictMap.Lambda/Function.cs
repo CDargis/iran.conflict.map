@@ -64,21 +64,23 @@ public class Function
                 }
 
                 if (payload.Ambiguous is { Count: > 0 })
-                    reviewCount = await ProcessAmbiguous(payload.Ambiguous, payload.SourceUrl, context);
+                    reviewCount = await ProcessAmbiguous(payload.Ambiguous, payload.SourceUrl, payload.SyncedAt, context);
 
                 var status = updateDeadLettered > 0 ? "partial" : "success";
                 var errors = new List<string>();
                 if (updateDeadLettered > 0) errors.Add($"{updateDeadLettered} updates dead-lettered");
                 if (reviewCount > 0) errors.Add($"{reviewCount} pending review");
 
-                await UpdateSyncRecord(syncRecordId, status, newCount, updateApplied, updateDeadLettered, reviewCount,
-                    errors.Count > 0 ? string.Join("; ", errors) : null, context);
+                if (!payload.IsReviewApproval)
+                    await UpdateSyncRecord(syncRecordId, status, newCount, updateApplied, updateDeadLettered, reviewCount,
+                        errors.Count > 0 ? string.Join("; ", errors) : null, context);
                 context.Logger.LogLine($"[processor] done — new={newCount} updates={updateApplied} dead-lettered={updateDeadLettered} review={reviewCount}");
             }
             catch (Exception ex)
             {
                 context.Logger.LogLine($"[processor] error: {ex}");
-                await UpdateSyncRecord(syncRecordId, "error", 0, 0, 0, 0, ex.Message, context);
+                if (!payload.IsReviewApproval)
+                    await UpdateSyncRecord(syncRecordId, "error", 0, 0, 0, 0, ex.Message, context);
                 throw;
             }
         }
@@ -171,7 +173,7 @@ public class Function
                 if (getResp.Item == null || getResp.Item.Count == 0)
                 {
                     context.Logger.LogLine($"[processor] update: id={existingId} not found, sending to review");
-                    await SendFailedUpdateToReviewQueue($"Update lookup failed: id={existingId} not found in DB.", update, sourceUrl);
+                    await SendFailedUpdateToReviewQueue($"Update lookup failed: id={existingId} not found in DB.", update, sourceUrl, syncedAt);
                     reviewed++;
                     continue;
                 }
@@ -189,7 +191,7 @@ public class Function
                 if (date == null || lat == null || lng == null)
                 {
                     context.Logger.LogLine($"[processor] update missing date/lat/lng lookup fields, sending to review");
-                    await SendFailedUpdateToReviewQueue("Update lookup failed: missing date, lat, or lng fields.", update, sourceUrl);
+                    await SendFailedUpdateToReviewQueue("Update lookup failed: missing date, lat, or lng fields.", update, sourceUrl, syncedAt);
                     reviewed++;
                     continue;
                 }
@@ -220,7 +222,7 @@ public class Function
                 if (closest.Count == 0)
                 {
                     context.Logger.LogLine($"[processor] update: no proximity match for {date} ({lat},{lng}), sending to review");
-                    await SendFailedUpdateToReviewQueue($"Update lookup failed: no event found near ({lat},{lng}) on {date}.", update, sourceUrl);
+                    await SendFailedUpdateToReviewQueue($"Update lookup failed: no event found near ({lat},{lng}) on {date}.", update, sourceUrl, syncedAt);
                     reviewed++;
                     continue;
                 }
@@ -228,7 +230,7 @@ public class Function
                 if (closest.Count > 1 && closest[1].dist < 1.0)
                 {
                     context.Logger.LogLine($"[processor] update: multiple proximity matches within 1km for {date} ({lat},{lng}), sending to review");
-                    await SendFailedUpdateToReviewQueue($"Update lookup ambiguous: multiple events within 1km of ({lat},{lng}) on {date}.", update, sourceUrl);
+                    await SendFailedUpdateToReviewQueue($"Update lookup ambiguous: multiple events within 1km of ({lat},{lng}) on {date}.", update, sourceUrl, syncedAt);
                     reviewed++;
                     continue;
                 }
@@ -332,11 +334,11 @@ public class Function
 
     // ── Ambiguous ───────────────────────────────────────────────────────────────
 
-    private async Task<int> ProcessAmbiguous(List<JsonElement> ambiguous, string? sourceUrl, ILambdaContext context)
+    private async Task<int> ProcessAmbiguous(List<JsonElement> ambiguous, string? sourceUrl, string? syncId, ILambdaContext context)
     {
         foreach (var item in ambiguous)
         {
-            await SendToReviewQueue(item, sourceUrl);
+            await SendToReviewQueue(item, sourceUrl, syncId);
             context.Logger.LogLine("[processor] sent ambiguous item to review queue");
         }
         return ambiguous.Count;
@@ -393,14 +395,11 @@ public class Function
 
     // ── SQS Helpers ─────────────────────────────────────────────────────────────
 
-    private async Task SendToReviewQueue(JsonElement ambiguousItem, string? sourceUrl)
+    private async Task SendToReviewQueue(JsonElement ambiguousItem, string? sourceUrl, string? syncId)
     {
         if (string.IsNullOrEmpty(ReviewQueueUrl)) return;
 
-        // Embed source_url so the API can build a SyncEnvelope on approval
-        var body = sourceUrl != null
-            ? JsonSerializer.Serialize(new { source_url = sourceUrl, item = ambiguousItem })
-            : ambiguousItem.GetRawText();
+        var body = JsonSerializer.Serialize(new { source_url = sourceUrl, sync_id = syncId, item = ambiguousItem });
 
         await _sqs.SendMessageAsync(new SendMessageRequest
         {
@@ -410,12 +409,12 @@ public class Function
         });
     }
 
-    private async Task SendFailedUpdateToReviewQueue(string note, UpdateEvent update, string? sourceUrl)
+    private async Task SendFailedUpdateToReviewQueue(string note, UpdateEvent update, string? sourceUrl, string? syncId)
     {
         if (string.IsNullOrEmpty(ReviewQueueUrl)) return;
 
         var item = new { note, as_update = update, as_new = (object?)null };
-        var body = JsonSerializer.Serialize(new { source_url = sourceUrl, item });
+        var body = JsonSerializer.Serialize(new { source_url = sourceUrl, sync_id = syncId, item });
 
         await _sqs.SendMessageAsync(new SendMessageRequest
         {
@@ -548,6 +547,9 @@ public class SyncEnvelope
 
     [System.Text.Json.Serialization.JsonPropertyName("ambiguous")]
     public List<JsonElement>? Ambiguous { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("is_review_approval")]
+    public bool IsReviewApproval { get; set; }
 }
 
 public class NewEvent
