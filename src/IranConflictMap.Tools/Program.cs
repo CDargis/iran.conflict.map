@@ -591,12 +591,13 @@ async Task DlqToReview(string[] opts)
             continue;
         }
 
-        emptyRetries = 0;
+        int newCount = 0;
         foreach (var msg in resp.Messages)
         {
-            if (received.Add(msg.MessageId))
-                all.Add(msg);
+            if (received.Add(msg.MessageId)) { all.Add(msg); newCount++; }
         }
+        if (newCount == 0) emptyRetries++;
+        else emptyRetries = 0;
     }
 
     Console.WriteLine($"Found {all.Count} message(s) in DLQ total.");
@@ -777,12 +778,13 @@ async Task NormalizeReview(string[] opts)
 
         if (resp.Messages.Count == 0) { emptyRetries++; continue; }
 
-        emptyRetries = 0;
+        int newCount = 0;
         foreach (var msg in resp.Messages)
         {
-            if (received.Add(msg.MessageId))
-                all.Add(msg);
+            if (received.Add(msg.MessageId)) { all.Add(msg); newCount++; }
         }
+        if (newCount == 0) emptyRetries++;
+        else emptyRetries = 0;
     }
 
     Console.WriteLine($"Found {all.Count} message(s) in review queue.");
