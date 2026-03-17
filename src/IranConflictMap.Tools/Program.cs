@@ -569,18 +569,28 @@ async Task DlqToReview(string[] opts)
     var all      = new List<Message>();
     var received = new HashSet<string>();
 
-    while (true)
+    // Drain the full queue using long polling (WaitTimeSeconds=20).
+    // Retry up to 3 consecutive empty responses before giving up, in case
+    // messages are temporarily invisible from a prior receive.
+    var emptyRetries = 0;
+    while (emptyRetries < 3)
     {
         var resp = await sqs.ReceiveMessageAsync(new ReceiveMessageRequest
         {
             QueueUrl                    = dlqUrl,
             MaxNumberOfMessages         = 10,
             VisibilityTimeout           = 30,
+            WaitTimeSeconds             = 20,
             MessageSystemAttributeNames = new List<string> { "All" }
         });
 
-        if (resp.Messages.Count == 0) break;
+        if (resp.Messages.Count == 0)
+        {
+            emptyRetries++;
+            continue;
+        }
 
+        emptyRetries = 0;
         foreach (var msg in resp.Messages)
         {
             if (received.Add(msg.MessageId))
