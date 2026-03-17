@@ -23,7 +23,8 @@ var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(S
     ["test-ctp-fetch"] = ("Fetch a criticalthreats.org article URL and show what text content is available", TestCtpFetch),
     ["test-ini-list"]  = ("Dump the INI_LIST slugs from the CTP Iran updates listing page", TestIniList),
     ["dlq-to-review"]      = ("Migrate DLQ messages matching a timestamp (--timestamp 'yyyy-MM-dd HH:mm:ss', ±60s window) to review queue", DlqToReview),
-    ["normalize-review"]   = ("Convert legacy bare UpdateEvent messages in review queue to wrapped format [--confirm]", NormalizeReview)
+    ["normalize-review"]   = ("Convert legacy bare UpdateEvent messages in review queue to wrapped format [--confirm]", NormalizeReview),
+    ["drain-review"]       = ("Save all review queue messages to review-backlog/ and delete from queue [--confirm]", DrainReview)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -871,6 +872,111 @@ async Task NormalizeReview(string[] opts)
     Console.WriteLine($"Done. {converted} message(s) converted.");
 }
 
+// ── drain-review ──────────────────────────────────────────────────────────────
+
+async Task DrainReview(string[] opts)
+{
+    var confirm     = opts.Contains("--confirm");
+    var outDir      = GetFlag(ref opts, "--out") ?? FindRepoRoot("review-backlog");
+    const string reviewName = "iran-conflict-map-review.fifo";
+
+    var sqs       = BuildSqsClient();
+    var reviewUrl = (await sqs.GetQueueUrlAsync(reviewName)).QueueUrl;
+
+    Console.WriteLine($"Review queue : {reviewUrl}");
+    Console.WriteLine($"Output dir   : {outDir}");
+    Console.WriteLine($"Mode         : {(confirm ? "LIVE — will save and delete" : "DRY RUN — pass --confirm to apply")}");
+    Console.WriteLine();
+
+    var all      = new List<Message>();
+    var received = new HashSet<string>();
+    var emptyRetries = 0;
+
+    while (emptyRetries < 3)
+    {
+        var resp = await sqs.ReceiveMessageAsync(new ReceiveMessageRequest
+        {
+            QueueUrl                    = reviewUrl,
+            MaxNumberOfMessages         = 10,
+            VisibilityTimeout           = 300,
+            WaitTimeSeconds             = 20,
+            MessageSystemAttributeNames = new List<string> { "All" }
+        });
+
+        if (resp.Messages.Count == 0) { emptyRetries++; continue; }
+
+        int newCount = 0;
+        foreach (var msg in resp.Messages)
+        {
+            if (received.Add(msg.MessageId)) { all.Add(msg); newCount++; }
+        }
+        if (newCount == 0) emptyRetries++;
+        else emptyRetries = 0;
+    }
+
+    Console.WriteLine($"Found {all.Count} message(s).");
+    if (all.Count == 0) return;
+
+    if (confirm)
+        Directory.CreateDirectory(outDir);
+
+    foreach (var msg in all)
+    {
+        // Use SentTimestamp for a meaningful filename prefix
+        var sentMs  = msg.Attributes.TryGetValue("SentTimestamp", out string? ts)
+            ? DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(ts)).UtcDateTime.ToString("yyyy-MM-ddTHH-mm-ss")
+            : "unknown";
+        var fileName = $"{sentMs}_{msg.MessageId[..8]}.json";
+        var filePath = Path.Combine(outDir, fileName);
+
+        // Pretty-print JSON if possible, otherwise write raw
+        string content;
+        try
+        {
+            var doc = JsonDocument.Parse(msg.Body);
+            content = System.Text.Json.JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch { content = msg.Body; }
+
+        Console.WriteLine($"  {fileName}");
+
+        if (confirm)
+        {
+            await File.WriteAllTextAsync(filePath, content);
+            await sqs.DeleteMessageAsync(new DeleteMessageRequest
+            {
+                QueueUrl      = reviewUrl,
+                ReceiptHandle = msg.ReceiptHandle
+            });
+        }
+    }
+
+    if (!confirm)
+    {
+        // Release visibility on all messages
+        foreach (var msg in all)
+        {
+            try
+            {
+                await sqs.ChangeMessageVisibilityAsync(new ChangeMessageVisibilityRequest
+                {
+                    QueueUrl          = reviewUrl,
+                    ReceiptHandle     = msg.ReceiptHandle,
+                    VisibilityTimeout = 0
+                });
+            }
+            catch (Amazon.SQS.AmazonSQSException) { }
+        }
+        Console.WriteLine();
+        Console.WriteLine("Re-run with --confirm to save and delete.");
+    }
+    else
+    {
+        Console.WriteLine();
+        Console.WriteLine($"Done. {all.Count} message(s) saved to {outDir} and deleted from queue.");
+    }
+}
+
 // Build a best-effort as_new PutRequest from a legacy bare UpdateEvent.
 // Uses lookup (date/lat/lng) + changes (already DynamoDB wire format) + entity="strike".
 // The processor overwrites id on write, so we omit it here.
@@ -990,4 +1096,19 @@ string? FindSeedDir()
         dir = parent;
     }
     return null;
+}
+
+string FindRepoRoot(string subdir)
+{
+    var dir = Directory.GetCurrentDirectory();
+    for (var i = 0; i < 6; i++)
+    {
+        if (Directory.Exists(Path.Combine(dir, ".git")))
+            return Path.Combine(dir, subdir);
+        var parent = Directory.GetParent(dir)?.FullName;
+        if (parent == null) break;
+        dir = parent;
+    }
+    // Fallback: relative to cwd
+    return Path.Combine(Directory.GetCurrentDirectory(), subdir);
 }

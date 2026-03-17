@@ -1,0 +1,32 @@
+{
+  "source_url": "",
+  "item": {
+    "note": "Update lookup failed: no event found near (33.3152,44.3661) on 2026-03-15.",
+    "as_update": {
+      "lookup": {
+        "date": "2026-03-15",
+        "lat": 33.3152,
+        "lng": 44.3661
+      },
+      "changes": {
+        "description": {
+          "S": "Kataib Hezbollah conducted a FPV drone attack on the former US Victory Base near Baghdad International Airport on March 15. No US forces are stationed at Camp Victory. The IRI also claimed 24 operations targeting enemy bases inside Iraq and elsewhere in the region on March 15, and Saraya Awliya al Dam claimed a rocket barrage at the same site."
+        },
+        "citations": {
+          "L": [
+            {
+              "S": "https://x.com/JoeTruzman/status/2032963872693563531?s=20"
+            },
+            {
+              "S": "https://t.me/ElamAlmoqawama/1585"
+            },
+            {
+              "S": "https://t.me/awlialdm/281"
+            }
+          ]
+        }
+      }
+    },
+    "as_new": null
+  }
+}

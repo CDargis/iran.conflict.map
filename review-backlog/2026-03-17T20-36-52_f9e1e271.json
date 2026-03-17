@@ -1,0 +1,32 @@
+{
+  "source_url": "",
+  "item": {
+    "note": "Update lookup failed: no event found near (31.8974,54.3569) on 2026-03-11.",
+    "as_update": {
+      "lookup": {
+        "date": "2026-03-11",
+        "lat": 31.8974,
+        "lng": 54.3569
+      },
+      "changes": {
+        "description": {
+          "S": "A BBC journalist reported on March 16, citing CENTCOM imagery, that the combined force struck a military depot site in Yazd, Yazd Province, on March 11. CENTCOM Commander Admiral Brad Cooper confirmed the depot was associated with \u0027IRGC missile command infrastructure\u0027 and used to build \u0027light and heavyweight torpedoes,\u0027 and stated that US strikes have shifted to targeting Iran\u0027s wider manufacturing apparatus and defense industrial base."
+        },
+        "target_type": {
+          "S": "military"
+        },
+        "citations": {
+          "L": [
+            {
+              "S": "https://x.com/FSeifikaran/status/2033557076035661988?s=20"
+            },
+            {
+              "S": "https://x.com/CENTCOM/status/2033510902532653154?s=20"
+            }
+          ]
+        }
+      }
+    },
+    "as_new": null
+  }
+}

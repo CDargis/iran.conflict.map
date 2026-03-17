@@ -1,0 +1,19 @@
+{
+  "source_url": "",
+  "item": {
+    "note": "Update lookup failed: no event found near (33.005,35.0942) on 2026-03-15.",
+    "as_update": {
+      "lookup": {
+        "date": "2026-03-15",
+        "lat": 33.005,
+        "lng": 35.0942
+      },
+      "changes": {
+        "description": {
+          "S": "Hezbollah claimed 23 attacks targeting Israeli forces and positions in northern Israel and southern Lebanon on March 15\u201316, including rocket and drone attacks along both sides of the Israel-Lebanon border. Hezbollah claimed a rocket barrage and drone squadron targeted Nahariya; Israeli media confirmed a direct impact on a structure in Nahariya on March 16."
+        }
+      }
+    },
+    "as_new": null
+  }
+}

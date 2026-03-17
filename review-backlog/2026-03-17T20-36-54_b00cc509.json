@@ -1,0 +1,29 @@
+{
+  "source_url": "",
+  "item": {
+    "note": "Update lookup failed: no event found near (25.2532,55.3657) on 2026-03-15.",
+    "as_update": {
+      "lookup": {
+        "date": "2026-03-15",
+        "lat": 25.2532,
+        "lng": 55.3657
+      },
+      "changes": {
+        "description": {
+          "S": "An Iranian drone struck the Dubai International Airport, UAE, on March 15, causing a fire at a nearby fuel tank. The strike was part of Iran\u0027s broader campaign targeting Gulf state infrastructure to impose economic and political pressure on the United States and Gulf states."
+        },
+        "citations": {
+          "L": [
+            {
+              "S": "https://x.com/no_itsmyturn/status/2033384408477036608"
+            },
+            {
+              "S": "https://www.bbc.com/news/articles/crl4gxgkkylo"
+            }
+          ]
+        }
+      }
+    },
+    "as_new": null
+  }
+}

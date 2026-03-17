@@ -1,0 +1,29 @@
+{
+  "source_url": "",
+  "item": {
+    "note": "Update lookup failed: no event found near (33.3667,35.6167) on 2026-03-15.",
+    "as_update": {
+      "lookup": {
+        "date": "2026-03-15",
+        "lat": 33.3667,
+        "lng": 35.6167
+      },
+      "changes": {
+        "description": {
+          "S": "The IDF struck a Hezbollah weapons depot in Khiam, southern Lebanon, on March 15. IDF ground forces had previously discovered the depot, and the IDF 91st Division found large quantities of combat equipment inside, including dozens of rockets, explosive devices, and rifles."
+        },
+        "citations": {
+          "L": [
+            {
+              "S": "https://x.com/Me1Ray/status/2033521165684416745"
+            },
+            {
+              "S": "https://x.com/AvichayAdraee/status/2033483477190844727"
+            }
+          ]
+        }
+      }
+    },
+    "as_new": null
+  }
+}
