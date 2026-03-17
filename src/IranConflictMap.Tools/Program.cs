@@ -22,7 +22,7 @@ var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(S
     ["test-ctp-url"]  = ("Test URL construction from email subject for a given raw email file", TestCtpUrl),
     ["test-ctp-fetch"] = ("Fetch a criticalthreats.org article URL and show what text content is available", TestCtpFetch),
     ["test-ini-list"]  = ("Dump the INI_LIST slugs from the CTP Iran updates listing page", TestIniList),
-    ["dlq-to-review"]  = ("Migrate the N most recent DLQ messages to review queue (default: 5)", DlqToReview)
+    ["dlq-to-review"]  = ("Migrate DLQ messages matching a timestamp (--timestamp 'yyyy-MM-dd HH:mm:ss', ±60s window) to review queue", DlqToReview)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -543,9 +543,15 @@ async Task TestIniList(string[] opts)
 // ── dlq-to-review ─────────────────────────────────────────────────────────────
 async Task DlqToReview(string[] opts)
 {
-    var confirm  = opts.Contains("--confirm");
-    var countStr = GetFlag(ref opts, "--count");
-    var topN     = countStr != null ? int.Parse(countStr) : 5;
+    var confirm      = opts.Contains("--confirm");
+    var tsFlag       = GetFlag(ref opts, "--timestamp");
+    var windowFlag   = GetFlag(ref opts, "--window");
+    var windowSecs   = windowFlag != null ? int.Parse(windowFlag) : 60;
+
+    if (tsFlag == null)
+        throw new Exception("Usage: dlq-to-review --timestamp 'yyyy-MM-dd HH:mm:ss' [--window <seconds>] [--confirm]");
+
+    var anchor = DateTime.Parse(tsFlag, null, System.Globalization.DateTimeStyles.AssumeUniversal).ToUniversalTime();
 
     const string dlqName    = "iran-conflict-map-dlq.fifo";
     const string reviewName = "iran-conflict-map-review.fifo";
@@ -554,13 +560,12 @@ async Task DlqToReview(string[] opts)
     var dlqUrl    = (await sqs.GetQueueUrlAsync(dlqName)).QueueUrl;
     var reviewUrl = (await sqs.GetQueueUrlAsync(reviewName)).QueueUrl;
 
-    Console.WriteLine($"DLQ    : {dlqUrl}");
-    Console.WriteLine($"Review : {reviewUrl}");
-    Console.WriteLine($"Top N  : {topN} most recent");
-    Console.WriteLine($"Mode   : {(confirm ? "LIVE — will migrate and delete" : "DRY RUN — pass --confirm to migrate")}");
+    Console.WriteLine($"DLQ       : {dlqUrl}");
+    Console.WriteLine($"Review    : {reviewUrl}");
+    Console.WriteLine($"Timestamp : {anchor:yyyy-MM-dd HH:mm:ss} UTC ±{windowSecs}s");
+    Console.WriteLine($"Mode      : {(confirm ? "LIVE — will migrate and delete" : "DRY RUN — pass --confirm to migrate")}");
     Console.WriteLine();
 
-    // Drain all visible DLQ messages, then pick the N most recent by SentTimestamp.
     var all      = new List<Message>();
     var received = new HashSet<string>();
 
@@ -583,23 +588,29 @@ async Task DlqToReview(string[] opts)
         }
     }
 
-    Console.WriteLine($"Found {all.Count} message(s) in DLQ.");
+    Console.WriteLine($"Found {all.Count} message(s) in DLQ total.");
 
-    var selected = all
-        .OrderByDescending(m => long.Parse(m.Attributes["SentTimestamp"]))
-        .Take(topN)
-        .ToList();
+    var selected = new List<Message>();
+    var skipped  = new List<Message>();
 
-    Console.WriteLine($"Selecting {selected.Count} most recent:");
-    foreach (var msg in selected)
+    foreach (var msg in all)
     {
         var sentUtc = DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(msg.Attributes["SentTimestamp"])).UtcDateTime;
-        Console.WriteLine($"  {msg.MessageId}  sent={sentUtc:yyyy-MM-dd HH:mm:ss}  body={msg.Body[..Math.Min(msg.Body.Length, 80)]}...");
+        var diff    = Math.Abs((sentUtc - anchor).TotalSeconds);
+        if (diff <= windowSecs)
+        {
+            selected.Add(msg);
+            Console.WriteLine($"  [match]  {msg.MessageId}  sent={sentUtc:yyyy-MM-dd HH:mm:ss}  diff={diff:F0}s  body={msg.Body[..Math.Min(msg.Body.Length, 80)]}...");
+        }
+        else
+        {
+            skipped.Add(msg);
+            Console.WriteLine($"  [skip]   {msg.MessageId}  sent={sentUtc:yyyy-MM-dd HH:mm:ss}  diff={diff:F0}s");
+        }
     }
 
-    // Release messages we won't migrate
-    var unselectedIds = new HashSet<string>(selected.Select(m => m.MessageId));
-    foreach (var msg in all.Where(m => !unselectedIds.Contains(m.MessageId)))
+    // Release skipped messages immediately
+    foreach (var msg in skipped)
     {
         await sqs.ChangeMessageVisibilityAsync(new ChangeMessageVisibilityRequest
         {
@@ -610,6 +621,8 @@ async Task DlqToReview(string[] opts)
     }
 
     Console.WriteLine();
+    Console.WriteLine($"Matched {selected.Count} message(s), skipped {skipped.Count}.");
+
     if (!confirm)
     {
         Console.WriteLine("Re-run with --confirm to migrate.");
