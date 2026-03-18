@@ -142,6 +142,13 @@ app.MapGet("/api/syncs", async (IAmazonDynamoDB dynamo) =>
     return Results.Ok(syncCache);
 });
 
+// ── URL normalization ──────────────────────────────────────────────────────────
+static string NormalizeReportUrl(string url)
+{
+    var uri = new Uri(url.Trim());
+    return $"{uri.Scheme}://{uri.Host.ToLowerInvariant()}{uri.AbsolutePath.TrimEnd('/').ToLowerInvariant()}";
+}
+
 // ── Auth helper ────────────────────────────────────────────────────────────────
 async Task<bool> ValidateSyncKey(HttpContext ctx, IAmazonSimpleSystemsManagement ssm)
 {
@@ -201,7 +208,8 @@ app.MapPost("/api/sync/submit-url", async (HttpContext ctx, IAmazonSimpleSystems
     if (string.IsNullOrEmpty(queueUrl))
         return Results.Problem("REPORT_QUEUE_URL not configured");
 
-    var messageBody = JsonSerializer.Serialize(new { url });
+    url = NormalizeReportUrl(url);
+    var messageBody = JsonSerializer.Serialize(new { run_id = DateTime.UtcNow.ToString("o"), url });
 
     await sqs.SendMessageAsync(new SendMessageRequest
     {

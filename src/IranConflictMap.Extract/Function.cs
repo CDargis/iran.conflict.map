@@ -246,7 +246,8 @@ public class Function
 
     private async Task EnqueueReportUrl(string url, string emailKey, string strategy, ILambdaContext ctx)
     {
-        var body = JsonSerializer.Serialize(new { url, email_key = emailKey, url_strategy = strategy });
+        url = NormalizeUrl(url);
+        var body = JsonSerializer.Serialize(new { run_id = DateTime.UtcNow.ToString("o"), url, email_key = emailKey, url_strategy = strategy });
 
         await _sqs.SendMessageAsync(new SendMessageRequest
         {
@@ -299,6 +300,13 @@ public class Function
         await _s3.CopyObjectAsync(EmailBucket, sourceKey, EmailBucket, destKey);
         await _s3.DeleteObjectAsync(EmailBucket, sourceKey);
         ctx.Logger.LogLine($"[extract] moved {sourceKey} → {destKey}");
+    }
+
+    // Strip query string, fragment, trailing slash; lowercase host and path
+    internal static string NormalizeUrl(string url)
+    {
+        var uri = new Uri(url.Trim());
+        return $"{uri.Scheme}://{uri.Host.ToLowerInvariant()}{uri.AbsolutePath.TrimEnd('/').ToLowerInvariant()}";
     }
 
     private static string Env(string key, string fallback) =>

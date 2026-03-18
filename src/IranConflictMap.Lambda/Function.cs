@@ -108,7 +108,7 @@ public class Function
                 item["updated_at"] = new AttributeValue { S = syncedAt };
             }
             if (!string.IsNullOrEmpty(sourceUrl))
-                item["created_source_url"] = new AttributeValue { S = sourceUrl };
+                item["source_url"] = new AttributeValue { S = sourceUrl };
 
             items.Add(item);
         }

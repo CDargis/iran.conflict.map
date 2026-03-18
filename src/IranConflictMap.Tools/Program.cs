@@ -61,7 +61,8 @@ async Task SubmitUrl(string[] opts)
     var sqs      = BuildSqsClient();
     var queueUrl = (await sqs.GetQueueUrlAsync(queueName)).QueueUrl;
 
-    var body = System.Text.Json.JsonSerializer.Serialize(new { url });
+    url = NormalizeReportUrl(url);
+    var body = System.Text.Json.JsonSerializer.Serialize(new { run_id = DateTime.UtcNow.ToString("o"), url });
 
     await sqs.SendMessageAsync(new SendMessageRequest
     {
@@ -1142,6 +1143,12 @@ async Task BatchDelete(IAmazonDynamoDB dynamo, string table, List<Dictionary<str
             if (remaining.Count > 0) await Task.Delay(200 * attempts);
         }
     }
+}
+
+string NormalizeReportUrl(string url)
+{
+    var uri = new Uri(url.Trim());
+    return $"{uri.Scheme}://{uri.Host.ToLowerInvariant()}{uri.AbsolutePath.TrimEnd('/').ToLowerInvariant()}";
 }
 
 string? GetFlag(ref string[] a, string flag)

@@ -57,7 +57,7 @@ public class Function
         description (String) — 1–3 sentence factual summary (new events only; never include in changes)
         casualties (Map) — { confirmed: N, estimated: N }
         notes (String, optional) — additive context confirmed by subsequent reports (e.g. "CENTCOM confirmed on March 16 that..."); append-only, do not repeat information already in description; omit on new events
-        source_url (String, optional) — the CTP-ISW report URL this event was extracted from; same value for every event extracted from a given report
+        source_url — do not include; stamped automatically from the report URL
         citations (List of Strings, optional) — URLs of primary sources cited inline in this event's topline paragraph; resolve each footnote marker (e.g. [i], [ii], [xv]) to its full URL from the footnote block at the bottom of the report; only include footnotes directly associated with this event's paragraph; omit if none
         disputed (Boolean, optional) — set to true if the event is contested, unverified, or denied by a party; omit if not disputed
 
@@ -68,7 +68,6 @@ public class Function
         critical — mass casualty event (50+ estimated), nuclear facility strike, decapitation strike, or major strategic escalation
 
         Granularity rule: Generate one event per distinct operation or topline paragraph. Do not log individual munitions within a barrage as separate events. A single coordinated wave of strikes on the same target type in the same location on the same date = one event.
-        Source URL rule: Set source_url to the full URL of the CTP-ISW report being processed. This is the same value for every event extracted from a given report.
         Citation mapping rule: The report contains inline footnote markers (e.g. [i], [ii], [xv]) within each topline paragraph, and a corresponding footnote block at the bottom resolving each marker to a URL. For each event, collect only the footnote markers within that event's paragraph, resolve them to their URLs, and include those in citations. Omit the field entirely if no footnotes are mappable.
         New vs update rule: Classify each extracted event as:
         new — not previously reported; assign the next available ID
@@ -116,10 +115,10 @@ public class Function
         var msg = JsonSerializer.Deserialize<ReportMessage>(messageBody)
             ?? throw new Exception($"Could not deserialize SQS message: {messageId}");
 
-        var reportUrl   = msg.Url;
-        var emailKey    = msg.EmailKey;     // null for manual submissions
-        var urlStrategy = msg.UrlStrategy;  // null for manual submissions
-        var runId       = DateTime.UtcNow.ToString("o");
+        var reportUrl   = NormalizeUrl(msg.Url);
+        var emailKey    = msg.EmailKey;                                    // null for manual submissions
+        var urlStrategy = msg.UrlStrategy;                                 // null for manual submissions
+        var runId       = msg.RunId ?? DateTime.UtcNow.ToString("o");     // stable across SQS retries
 
         context.Logger.LogLine($"[sync] run started: {runId}");
         context.Logger.LogLine($"[sync] url={reportUrl}  email_key={emailKey ?? "(none)"}  url_strategy={urlStrategy ?? "(manual)"}");
@@ -371,6 +370,13 @@ public class Function
         });
     }
 
+    // Strip query string, fragment, trailing slash; lowercase host and path
+    private static string NormalizeUrl(string url)
+    {
+        var uri = new Uri(url.Trim());
+        return $"{uri.Scheme}://{uri.Host.ToLowerInvariant()}{uri.AbsolutePath.TrimEnd('/').ToLowerInvariant()}";
+    }
+
     private static string Env(string key, string fallback) =>
         Environment.GetEnvironmentVariable(key) is { Length: > 0 } v ? v : fallback;
 }
@@ -378,6 +384,7 @@ public class Function
 // ── Message model ─────────────────────────────────────────────────────────────
 
 public record ReportMessage(
+    [property: JsonPropertyName("run_id")]       string? RunId,
     [property: JsonPropertyName("url")]          string  Url,
     [property: JsonPropertyName("email_key")]    string? EmailKey,
     [property: JsonPropertyName("url_strategy")] string? UrlStrategy
