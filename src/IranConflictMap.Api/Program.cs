@@ -112,31 +112,37 @@ app.MapGet("/api/syncs", async (IAmazonDynamoDB dynamo) =>
     var response = await dynamo.QueryAsync(new QueryRequest
     {
         TableName                 = tableName,
-        IndexName                 = "entity-timestamp-index",
+        IndexName                 = "entity-run-index",
         KeyConditionExpression    = "entity = :e",
         ExpressionAttributeValues = new Dictionary<string, AttributeValue>
         {
             [":e"] = new AttributeValue { S = "sync" }
         },
         ScanIndexForward = false,
-        Limit            = 10
+        Limit            = 50
     });
 
-    syncCache = response.Items.Select(item => (object)new
+    static object MapRun(Dictionary<string, AttributeValue> item) => new
     {
-        id                = item["id"].S,
-        timestamp         = item["timestamp"].S,
-        status            = item["status"].S,
+        run_id            = item.ContainsKey("run_id")           ? item["run_id"].S                      : "",
+        status            = item.ContainsKey("status")           ? item["status"].S                      : "",
         new_event_count   = item.ContainsKey("new_event_count")  ? int.Parse(item["new_event_count"].N)  : 0,
         update_count      = item.ContainsKey("update_count")     ? int.Parse(item["update_count"].N)     : 0,
         dead_letter_count = item.ContainsKey("dead_letter_count")? int.Parse(item["dead_letter_count"].N): 0,
         review_count      = item.ContainsKey("review_count")     ? int.Parse(item["review_count"].N)     : 0,
-        has_edits         = item.ContainsKey("has_edits")        && item["has_edits"].BOOL,
-        last_synced       = item.ContainsKey("last_synced")      ? item["last_synced"].S                 : "",
-        report_url        = item.ContainsKey("report_url")       ? item["report_url"].S                  : "",
         url_strategy      = item.ContainsKey("url_strategy")     ? item["url_strategy"].S                : "",
         error_message     = item.ContainsKey("error_message")    ? item["error_message"].S               : ""
-    }).ToList();
+    };
+
+    syncCache = response.Items
+        .GroupBy(item => item.ContainsKey("report_url") ? item["report_url"].S : "unknown")
+        .Take(10)
+        .Select(g => (object)new
+        {
+            url  = g.Key,
+            runs = g.Select(MapRun).ToList()
+        })
+        .ToList();
 
     syncCacheExpiry = DateTime.UtcNow.AddMinutes(5);
     return Results.Ok(syncCache);
@@ -305,15 +311,14 @@ app.MapPost("/api/review/resolve", async (HttpContext ctx, IAmazonSimpleSystemsM
                 TableName = syncsTable,
                 Item = new Dictionary<string, AttributeValue>
                 {
-                    ["id"]                = new() { S = runId },
+                    ["report_url"]        = new() { S = req.SourceUrl ?? "manual" },
+                    ["run_id"]            = new() { S = runId },
                     ["entity"]            = new() { S = "sync" },
-                    ["timestamp"]         = new() { S = runId },
                     ["status"]            = new() { S = "processing" },
                     ["new_event_count"]   = new() { N = "0" },
                     ["update_count"]      = new() { N = "0" },
                     ["dead_letter_count"] = new() { N = "0" },
-                    ["review_count"]      = new() { N = "0" },
-                    ["report_url"]        = new() { S = req.SourceUrl ?? "" }
+                    ["review_count"]      = new() { N = "0" }
                 }
             });
         }

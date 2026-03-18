@@ -90,20 +90,30 @@ public class IranConflictMapStack : Stack
             LogRetention = RetentionDays.TWO_WEEKS
         });
 
-        // ── DynamoDB Syncs Table ───────────────────────────────────────────────
-        var syncsTable = new Table(this, "SyncsTable", new TableProps
+        // ── DynamoDB Syncs Table (legacy — no longer written to, safe to delete) ────
+        new Table(this, "SyncsTable", new TableProps
         {
             TableName     = "syncs",
             PartitionKey  = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "id", Type = AttributeType.STRING },
             BillingMode   = BillingMode.PAY_PER_REQUEST,
+            RemovalPolicy = RemovalPolicy.DESTROY
+        });
+
+        // ── DynamoDB Syncs V2 Table (PK: report_url, SK: run_id) ──────────────
+        var syncsTable = new Table(this, "SyncsV2Table", new TableProps
+        {
+            TableName    = "syncs-v2",
+            PartitionKey = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "report_url", Type = AttributeType.STRING },
+            SortKey      = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "run_id",     Type = AttributeType.STRING },
+            BillingMode  = BillingMode.PAY_PER_REQUEST,
             RemovalPolicy = RemovalPolicy.RETAIN
         });
 
         syncsTable.AddGlobalSecondaryIndex(new GlobalSecondaryIndexProps
         {
-            IndexName      = "entity-timestamp-index",
-            PartitionKey   = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "entity",    Type = AttributeType.STRING },
-            SortKey        = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "timestamp", Type = AttributeType.STRING },
+            IndexName      = "entity-run-index",
+            PartitionKey   = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "entity", Type = AttributeType.STRING },
+            SortKey        = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "run_id", Type = AttributeType.STRING },
             ProjectionType = ProjectionType.ALL
         });
 

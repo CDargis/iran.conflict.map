@@ -155,26 +155,33 @@
     .review-actions { display: flex; gap: 8px; }
 
     /* ── Sync log ── */
-    .sync-entry {
+    .sync-url-row {
       padding: 6px 0;
       border-bottom: 1px solid var(--border);
       font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
-    .sync-entry-row { display: flex; align-items: center; gap: 10px; }
-    .sync-ts { color: var(--dim); min-width: 110px; }
+    .sync-url-slug { flex: 1; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sync-result.new   { color: var(--green); }
     .sync-result.error { color: var(--accent); }
     .sync-result.none  { color: var(--dim); }
-    .sync-review { color: var(--blue); margin-left: 4px; }
-    .sync-detail {
-      display: none;
+    .sync-run-list { display: none; padding: 4px 0 4px 16px; }
+    .sync-url-group.open .sync-run-list { display: block; }
+    .sync-run {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
       font-size: 10px;
-      color: var(--dim);
-      padding: 4px 0 0 120px;
-      word-break: break-all;
     }
-    .sync-entry.expandable { cursor: pointer; }
-    .sync-entry.expandable.open .sync-detail { display: block; }
+    .sync-run:last-child { border-bottom: none; }
+    .sync-ts { color: var(--dim); min-width: 110px; }
+    .sync-review { color: var(--blue); margin-left: 4px; }
+    .sync-error { color: var(--dim); font-size: 10px; padding: 2px 0 2px 120px; word-break: break-all; }
   </style>
 </head>
 <body>
@@ -425,48 +432,64 @@
 
   const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
-  function fmtSyncTs(iso) {
+  function fmtTs(iso) {
+    if (!iso) return '—';
     const d = new Date(iso);
     return `${MONTHS[d.getMonth()]} ${String(d.getDate()).padStart(2,'0')} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
   }
 
-  function syncLogHTML(syncs) {
-    if (!syncs || !syncs.length) return '<div style="color:var(--dim);font-size:11px">No syncs yet.</div>';
-    return syncs.map(s => {
-      const ts = fmtSyncTs(s.timestamp);
-      let cls = 'none', label = 'no changes';
-      if (['error','claude_error','fetch_error','no_url','no_email','no_events'].includes(s.status)) {
-        cls = 'error'; label = s.status.replace(/_/g, ' ');
-      } else if (s.status === 'partial') {
-        cls = 'error';
-        const parts = [];
-        if (s.new_event_count > 0) parts.push(`+${s.new_event_count}`);
-        if (s.dead_letter_count > 0) parts.push(`⚠ ${s.dead_letter_count} DLQ`);
-        label = parts.join(' / ') || 'partial';
-      } else if (s.new_event_count > 0 || s.update_count > 0) {
-        cls = 'new';
-        const parts = [];
-        if (s.new_event_count > 0) parts.push(`+${s.new_event_count} event${s.new_event_count > 1 ? 's' : ''}`);
-        if (s.update_count > 0) parts.push(`${s.update_count} update${s.update_count > 1 ? 's' : ''}`);
-        label = parts.join(' / ');
-      }
-      const reviewBadge = s.review_count > 0 ? `<span class="sync-review">↷ ${s.review_count} review</span>` : '';
-      const hasError   = !!s.error_message;
-      const hasSuccess = !!s.report_url && (s.status === 'success' || s.status === 'no_events');
-      const hasDetail  = hasError || hasSuccess;
-      let detail = '';
-      if (hasError) {
-        detail = `<div class="sync-detail">${escHtml(s.error_message)}</div>`;
-      } else if (hasSuccess) {
-        const strat = s.url_strategy ? `<br><span style="opacity:.6">via ${s.url_strategy.replace(/_/g,' ')}</span>` : '';
-        detail = `<div class="sync-detail"><a href="${escHtml(s.report_url)}" target="_blank" rel="noopener" style="color:var(--accent)">${escHtml(s.report_url)}</a>${strat}</div>`;
-      }
-      return `<div class="sync-entry${hasDetail ? ' expandable' : ''}">
-        <div class="sync-entry-row"${hasDetail ? ' onclick="this.closest(\'.sync-entry\').classList.toggle(\'open\')"' : ''}>
-          <span class="sync-ts">${ts}</span>
-          <span class="sync-result ${cls}">${label}${hasDetail ? ' ▾' : ''}</span>
+  function urlSlug(url) {
+    try { return new URL(url).pathname.replace(/^\/analysis\//, '').replace(/\/$/, '') || url; }
+    catch { return url; }
+  }
+
+  function runResult(run) {
+    let cls = 'none', label = 'no changes';
+    if (['error','claude_error','fetch_error','no_url','no_email','no_events'].includes(run.status)) {
+      cls = 'error'; label = run.status.replace(/_/g, ' ');
+    } else if (run.status === 'partial') {
+      cls = 'error';
+      const parts = [];
+      if (run.new_event_count > 0) parts.push(`+${run.new_event_count}`);
+      if (run.dead_letter_count > 0) parts.push(`⚠ ${run.dead_letter_count} DLQ`);
+      label = parts.join(' / ') || 'partial';
+    } else if (run.new_event_count > 0 || run.update_count > 0) {
+      cls = 'new';
+      const parts = [];
+      if (run.new_event_count > 0) parts.push(`+${run.new_event_count} event${run.new_event_count !== 1 ? 's' : ''}`);
+      if (run.update_count > 0) parts.push(`${run.update_count} update${run.update_count !== 1 ? 's' : ''}`);
+      label = parts.join(' / ');
+    }
+    return { cls, label };
+  }
+
+  function syncLogHTML(groups) {
+    if (!groups || !groups.length) return '<div style="color:var(--dim);font-size:11px">No syncs yet.</div>';
+    return groups.map((g, gi) => {
+      const latest = g.runs[0];
+      const { cls, label } = runResult(latest);
+      const reviewTotal = g.runs.reduce((sum, r) => sum + (r.review_count || 0), 0);
+      const reviewBadge = reviewTotal > 0 ? `<span class="sync-review">↷ ${reviewTotal} review</span>` : '';
+
+      const runsHTML = g.runs.map(run => {
+        const { cls: rc, label: rl } = runResult(run);
+        const strat = run.url_strategy ? ` <span style="opacity:.5">via ${run.url_strategy.replace(/_/g,' ')}</span>` : '';
+        const err = run.error_message ? `<div class="sync-error">${escHtml(run.error_message)}</div>` : '';
+        const rb = run.review_count > 0 ? `<span class="sync-review">↷ ${run.review_count}</span>` : '';
+        return `<div class="sync-run">
+          <span class="sync-ts">${fmtTs(run.run_id)}</span>
+          <span class="sync-result ${rc}">${rl}</span>${strat}${rb}
+        </div>${err}`;
+      }).join('');
+
+      return `<div class="sync-url-group" id="sg${gi}">
+        <div class="sync-url-row" onclick="document.getElementById('sg${gi}').classList.toggle('open')">
+          <span class="sync-ts">${fmtTs(latest.run_id)}</span>
+          <span class="sync-url-slug" title="${escHtml(g.url)}">${escHtml(urlSlug(g.url))}</span>
+          <span class="sync-result ${cls}">${label} ▾</span>
           ${reviewBadge}
-        </div>${detail}
+        </div>
+        <div class="sync-run-list">${runsHTML}</div>
       </div>`;
     }).join('');
   }

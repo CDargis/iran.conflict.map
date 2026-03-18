@@ -317,14 +317,14 @@ public class Function
             .Max() + 1;
     }
 
-    private async Task WriteSyncRecord(string id, string status, int newEventCount, int updateCount,
+    private async Task WriteSyncRecord(string runId, string status, int newEventCount, int updateCount,
         int ambigCount, string? errorMessage, string? reportUrl, string? urlStrategy = null)
     {
         var item = new Dictionary<string, AttributeValue>
         {
-            ["id"]                = new() { S = id },
+            ["report_url"]        = new() { S = reportUrl ?? "unknown" },
+            ["run_id"]            = new() { S = runId },
             ["entity"]            = new() { S = "sync" },
-            ["timestamp"]         = new() { S = id },
             ["status"]            = new() { S = status },
             ["new_event_count"]   = new() { N = newEventCount.ToString() },
             ["update_count"]      = new() { N = updateCount.ToString() },
@@ -332,8 +332,6 @@ public class Function
         };
         if (!string.IsNullOrEmpty(errorMessage))
             item["error_message"] = new() { S = errorMessage.Length > 1000 ? errorMessage[..1000] : errorMessage };
-        if (!string.IsNullOrEmpty(reportUrl))
-            item["report_url"] = new() { S = reportUrl };
         if (!string.IsNullOrEmpty(urlStrategy))
             item["url_strategy"] = new() { S = urlStrategy };
 

@@ -44,7 +44,8 @@ public class Function
                 ?? throw new Exception("Failed to deserialize SQS message body");
 
             // synced_at == runId written by Sync Lambda — use it to update the existing record
-            var syncRecordId = payload.SyncedAt ?? DateTime.UtcNow.ToString("o");
+            var syncReportUrl = payload.SourceUrl ?? "unknown";
+            var syncRecordId  = payload.SyncedAt ?? DateTime.UtcNow.ToString("o");
 
             try
             {
@@ -72,7 +73,7 @@ public class Function
                 if (reviewCount > 0) errors.Add($"{reviewCount} pending review");
 
                 if (!payload.IsReviewApproval)
-                    await UpdateSyncRecord(syncRecordId, status, newCount, updateApplied, updateDeadLettered, reviewCount,
+                    await UpdateSyncRecord(syncReportUrl, syncRecordId, status, newCount, updateApplied, updateDeadLettered, reviewCount,
                         errors.Count > 0 ? string.Join("; ", errors) : null, context);
                 context.Logger.LogLine($"[processor] done — new={newCount} updates={updateApplied} dead-lettered={updateDeadLettered} review={reviewCount}");
             }
@@ -80,7 +81,7 @@ public class Function
             {
                 context.Logger.LogLine($"[processor] error: {ex}");
                 if (!payload.IsReviewApproval)
-                    await UpdateSyncRecord(syncRecordId, "error", 0, 0, 0, 0, ex.Message, context);
+                    await UpdateSyncRecord(syncReportUrl, syncRecordId, "error", 0, 0, 0, 0, ex.Message, context);
                 throw;
             }
         }
@@ -406,12 +407,12 @@ public class Function
             .Max() + 1;
     }
 
-    private async Task UpdateSyncRecord(string id, string status, int newCount, int updateCount,
+    private async Task UpdateSyncRecord(string reportUrl, string runId, string status, int newCount, int updateCount,
         int deadLetterCount, int reviewCount, string? errorMessage, ILambdaContext context)
     {
-        // Always set entity/timestamp so this acts as an upsert (handles review-approval envelopes
+        // Always set entity so this acts as an upsert (handles review-approval envelopes
         // that arrive without a prior "processing" record written by the Sync Lambda).
-        var updateExpr = "SET #s = :status, new_event_count = :new, update_count = :upd, dead_letter_count = :dlq, review_count = :rev, entity = :entity, #ts = :ts";
+        var updateExpr = "SET #s = :status, new_event_count = :new, update_count = :upd, dead_letter_count = :dlq, review_count = :rev, entity = :entity";
         var attrValues = new Dictionary<string, AttributeValue>
         {
             [":status"] = new() { S = status },
@@ -419,8 +420,7 @@ public class Function
             [":upd"]    = new() { N = updateCount.ToString() },
             [":dlq"]    = new() { N = deadLetterCount.ToString() },
             [":rev"]    = new() { N = reviewCount.ToString() },
-            [":entity"] = new() { S = "sync" },
-            [":ts"]     = new() { S = id }
+            [":entity"] = new() { S = "sync" }
         };
 
         if (errorMessage != null)
@@ -432,9 +432,13 @@ public class Function
         await _dynamo.UpdateItemAsync(new UpdateItemRequest
         {
             TableName                 = SyncsTable,
-            Key                       = new Dictionary<string, AttributeValue> { ["id"] = new() { S = id } },
+            Key                       = new Dictionary<string, AttributeValue>
+            {
+                ["report_url"] = new() { S = reportUrl },
+                ["run_id"]     = new() { S = runId }
+            },
             UpdateExpression          = updateExpr,
-            ExpressionAttributeNames  = new Dictionary<string, string> { ["#s"] = "status", ["#ts"] = "timestamp" },
+            ExpressionAttributeNames  = new Dictionary<string, string> { ["#s"] = "status" },
             ExpressionAttributeValues = attrValues
         });
     }
