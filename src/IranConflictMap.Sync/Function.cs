@@ -54,8 +54,9 @@ public class Function
         target_type (String) — one of: military, maritime, nuclear, command, civilian
         actor (String) — free text, the attacking party (e.g. US, Israel, Iran, Saudi Arabia, Houthi, etc.)
         severity (String) — one of: low, medium, high, critical
-        description (String) — 1–3 sentence factual summary
+        description (String) — 1–3 sentence factual summary (new events only; never include in changes)
         casualties (Map) — { confirmed: N, estimated: N }
+        notes (String, optional) — additive context confirmed by subsequent reports (e.g. "CENTCOM confirmed on March 16 that..."); append-only, do not repeat information already in description; omit on new events
         source_url (String, optional) — the CTP-ISW report URL this event was extracted from; same value for every event extracted from a given report
         citations (List of Strings, optional) — URLs of primary sources cited inline in this event's topline paragraph; resolve each footnote marker (e.g. [i], [ii], [xv]) to its full URL from the footnote block at the bottom of the report; only include footnotes directly associated with this event's paragraph; omit if none
         disputed (Boolean, optional) — set to true if the event is contested, unverified, or denied by a party; omit if not disputed
@@ -71,7 +72,7 @@ public class Function
         Citation mapping rule: The report contains inline footnote markers (e.g. [i], [ii], [xv]) within each topline paragraph, and a corresponding footnote block at the bottom resolving each marker to a URL. For each event, collect only the footnote markers within that event's paragraph, resolve them to their URLs, and include those in citations. Omit the field entirely if no footnotes are mappable.
         New vs update rule: Classify each extracted event as:
         new — not previously reported; assign the next available ID
-        update — reported in a prior report, this report adds detail or corrects it; include only changed fields plus date, lat, and lng as lookup keys (lat/lng as plain decimal numbers, not DynamoDB wire format); omit location and actor from the lookup
+        update — reported in a prior report, this report adds detail or corrects it; include only changed fields plus date, lat, and lng as lookup keys (lat/lng as plain decimal numbers, not DynamoDB wire format); omit location and actor from the lookup; never include description in changes — use notes instead for any newly confirmed detail
         ambiguous — cannot confidently determine whether new or update; include a "note" explaining the uncertainty, a complete "as_new" item (same PutRequest/Item wire format as new events), and an "as_update" payload (same lookup/changes format as updates); only use ambiguous when genuinely uncertain — prefer new or update if you can reasonably classify the event
 
         Output format — return a single JSON object:

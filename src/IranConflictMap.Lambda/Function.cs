@@ -59,7 +59,7 @@ public class Function
                 if (payload.Updates is { Count: > 0 })
                 {
                     int updateReviewed;
-                    (updateApplied, updateDeadLettered, updateReviewed) = await ProcessUpdates(payload.Updates, payload.SourceUrl, payload.SyncedAt, context);
+                    (updateApplied, updateDeadLettered, updateReviewed) = await ProcessUpdates(payload.Updates, payload.SourceUrl, payload.SyncedAt, payload.IsReviewApproval, context);
                     reviewCount += updateReviewed;
                 }
 
@@ -142,7 +142,7 @@ public class Function
 
     // ── Updates ─────────────────────────────────────────────────────────────────
 
-    private async Task<(int applied, int deadLettered, int reviewed)> ProcessUpdates(List<UpdateEvent> updates, string? sourceUrl, string? syncedAt, ILambdaContext context)
+    private async Task<(int applied, int deadLettered, int reviewed)> ProcessUpdates(List<UpdateEvent> updates, string? sourceUrl, string? syncedAt, bool isReviewApproval, ILambdaContext context)
     {
         var applied = 0;
         var deadLettered = 0;
@@ -181,8 +181,17 @@ public class Function
                     continue;
                 }
 
-                await ApplyUpdate(existingId, getResp.Item, update.Changes, sourceUrl, syncedAt, context);
-                applied++;
+                if (isReviewApproval)
+                {
+                    await ApplyUpdate(existingId, getResp.Item, update.Changes, sourceUrl, syncedAt, context);
+                    applied++;
+                }
+                else
+                {
+                    context.Logger.LogLine($"[processor] update: matched id={existingId}, sending to review");
+                    await SendMatchedUpdateToReviewQueue($"Matched by id={existingId}.", existingId, getResp.Item, update, sourceUrl, syncedAt);
+                    reviewed++;
+                }
             }
             else
             {
@@ -240,9 +249,19 @@ public class Function
 
                 var existing = closest[0].item;
                 existingId = existing["id"].S;
-                context.Logger.LogLine($"[processor] update: proximity match id={existingId} dist={closest[0].dist:F2}km");
-                await ApplyUpdate(existingId, existing, update.Changes, sourceUrl, syncedAt, context);
-                applied++;
+
+                if (isReviewApproval)
+                {
+                    context.Logger.LogLine($"[processor] update: proximity match id={existingId} dist={closest[0].dist:F2}km");
+                    await ApplyUpdate(existingId, existing, update.Changes, sourceUrl, syncedAt, context);
+                    applied++;
+                }
+                else
+                {
+                    context.Logger.LogLine($"[processor] update: proximity match id={existingId} dist={closest[0].dist:F2}km, sending to review");
+                    await SendMatchedUpdateToReviewQueue($"Proximity match: id={existingId}, dist={closest[0].dist:F2}km.", existingId, existing, update, sourceUrl, syncedAt);
+                    reviewed++;
+                }
             }
         }
 
@@ -256,8 +275,8 @@ public class Function
 
         foreach (var (field, value) in changes)
         {
-            // Skip lookup fields — they're not changes
-            if (field is "date" or "location" or "actor" or "id") continue;
+            // Skip lookup fields and description — description is set at creation and not updatable
+            if (field is "date" or "location" or "actor" or "id" or "description") continue;
 
             if (field == "citations")
             {
@@ -284,6 +303,23 @@ public class Function
                         L = existingCitations.Select(u => new AttributeValue { S = u }).ToList()
                     }
                 };
+            }
+            else if (field == "notes")
+            {
+                // Append: each incoming note becomes a new entry in the notes list
+                var incomingAttr = ToDynamoAttributeValue(value);
+                if (incomingAttr?.S != null)
+                {
+                    var existingNotes = existing.TryGetValue("notes", out var nl) && nl.L != null
+                        ? nl.L.ToList()
+                        : new List<AttributeValue>();
+                    existingNotes.Add(new AttributeValue { S = incomingAttr.S });
+                    updates[field] = new AttributeValueUpdate
+                    {
+                        Action = AttributeAction.PUT,
+                        Value  = new AttributeValue { L = existingNotes }
+                    };
+                }
             }
             else
             {
@@ -419,6 +455,21 @@ public class Function
         });
     }
 
+    private async Task SendMatchedUpdateToReviewQueue(string note, string existingId, Dictionary<string, AttributeValue> existingItem, UpdateEvent update, string? sourceUrl, string? syncId)
+    {
+        if (string.IsNullOrEmpty(ReviewQueueUrl)) return;
+
+        var item = new { note, existing_id = existingId, existing_record = SimplifyItem(existingItem), as_update = update, as_new = (object?)null };
+        var body = JsonSerializer.Serialize(new { source_url = sourceUrl, sync_id = syncId, item });
+
+        await _sqs.SendMessageAsync(new SendMessageRequest
+        {
+            QueueUrl       = ReviewQueueUrl,
+            MessageBody    = body,
+            MessageGroupId = "review"
+        });
+    }
+
     private async Task SendFailedUpdateToReviewQueue(string note, UpdateEvent update, string? sourceUrl, string? syncId)
     {
         if (string.IsNullOrEmpty(ReviewQueueUrl)) return;
@@ -533,6 +584,19 @@ public class Function
             if (val.TryGetProperty("S", out var s)) return s.GetString();
         }
         return null;
+    }
+
+    // Returns a flat string/number map of an existing DynamoDB item for review message readability.
+    private static Dictionary<string, object?> SimplifyItem(Dictionary<string, AttributeValue> item)
+    {
+        var result = new Dictionary<string, object?>();
+        foreach (var (key, val) in item)
+        {
+            if (val.S != null)        result[key] = val.S;
+            else if (val.N != null)   result[key] = val.N;
+            else if (val.IsBOOLSet)   result[key] = val.BOOL;
+        }
+        return result;
     }
 
     private static string Env(string key, string fallback) =>

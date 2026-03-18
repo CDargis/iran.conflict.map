@@ -325,27 +325,37 @@
   }
 
   function reviewItemHTML(item, i) {
-    const hasNew    = !!item.as_new;
-    const hasUpdate = !!item.as_update;
+    const hasExisting = !!item.existing_record;
+    const hasNew      = !!item.as_new;
+    const hasUpdate   = !!item.as_update;
 
     const missing = hasNew ? missingNewFields(item.as_new) : [];
     const newWarning = missing.length
       ? `<div style="font-size:10px;color:var(--accent);margin-bottom:6px">⚠ missing fields: ${missing.join(', ')}</div>`
       : '';
 
-    const newCol = hasNew
-      ? `<div class="review-payload">
+    // Left column: existing record (matched updates) or as_new (ambiguous)
+    let leftCol;
+    if (hasExisting) {
+      leftCol = `<div class="review-payload">
+           <div class="review-payload-label">Existing Record${item.existing_id ? ` — id ${escHtml(String(item.existing_id))}` : ''}</div>
+           <pre>${escHtml(JSON.stringify(item.existing_record, null, 2))}</pre>
+         </div>`;
+    } else if (hasNew) {
+      leftCol = `<div class="review-payload">
            <div class="review-payload-label">As New</div>
            ${newWarning}<pre>${escHtml(JSON.stringify(item.as_new, null, 2))}</pre>
-         </div>`
-      : `<div class="review-payload unavailable">
+         </div>`;
+    } else {
+      leftCol = `<div class="review-payload unavailable">
            <div class="review-payload-label">As New</div>
            <div style="font-size:10px;color:var(--dim)">not available</div>
          </div>`;
+    }
 
     const updateCol = hasUpdate
       ? `<div class="review-payload">
-           <div class="review-payload-label">As Update</div>
+           <div class="review-payload-label">${hasExisting ? 'Proposed Changes' : 'As Update'}</div>
            <pre>${escHtml(JSON.stringify(item.as_update, null, 2))}</pre>
          </div>`
       : `<div class="review-payload unavailable">
@@ -356,9 +366,9 @@
     return `<div class="review-item">
       <div class="review-note">${escHtml(item.note || 'No note provided.')}</div>
       ${item.source_url ? `<div class="review-source"><a href="${escHtml(item.source_url)}" target="_blank" rel="noopener">${escHtml(item.source_url)}</a></div>` : ''}
-      <div class="review-payloads">${newCol}${updateCol}</div>
+      <div class="review-payloads">${leftCol}${updateCol}</div>
       <div class="review-actions">
-        ${hasNew    ? `<button class="btn green" onclick="resolveReview(${i},'new')" ${missing.length ? 'disabled title="Missing required fields"' : ''}>Approve New</button>` : ''}
+        ${hasNew && !hasExisting ? `<button class="btn green" onclick="resolveReview(${i},'new')" ${missing.length ? 'disabled title="Missing required fields"' : ''}>Approve New</button>` : ''}
         ${hasUpdate ? `<button class="btn blue"  onclick="resolveReview(${i},'update')">Approve Update</button>` : ''}
         <button class="btn dim" onclick="resolveReview(${i},'discard')">Discard</button>
       </div>
