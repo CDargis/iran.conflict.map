@@ -77,8 +77,8 @@ public class Function
         Output format — return a single JSON object:
         {
           "new": [ { "PutRequest": { "Item": { ... DynamoDB wire format ... } } }, ... ],
-          "updates": [ { "lookup": { "date": "...", "lat": 0.0, "lng": 0.0 }, "changes": { ... } }, ... ],
-          "ambiguous": [ { "note": "...", "as_new": { "PutRequest": { "Item": { ... DynamoDB wire format ... } } }, "as_update": { "lookup": { "date": "...", "lat": 0.0, "lng": 0.0 }, "changes": { ... } } }, ... ]
+          "updates": [ { "lookup": { "date": "...", "lat": 0.0, "lng": 0.0 }, "changes": { ... DynamoDB wire format ... } }, ... ],
+          "ambiguous": [ { "note": "...", "as_new": { "PutRequest": { "Item": { ... DynamoDB wire format ... } } }, "as_update": { "lookup": { "date": "...", "lat": 0.0, "lng": 0.0 }, "changes": { ... DynamoDB wire format ... } } }, ... ]
         }
         Only include "disputed" when genuinely contested. Only include "citations" when footnotes are mappable. Only include fields in "changes" that are actually changing.
         """;
