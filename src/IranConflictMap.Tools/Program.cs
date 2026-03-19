@@ -1006,7 +1006,9 @@ async Task DedupStrikes(string[] opts)
             ? Math.Round(double.Parse(latVal.N), 4) : 0;
         double lng = item.TryGetValue("lng", out AttributeValue? lngVal) && lngVal.N != null
             ? Math.Round(double.Parse(lngVal.N), 4) : 0;
-        return $"{lat:F4},{lng:F4}";
+        string desc = item.TryGetValue("description", out AttributeValue? descVal) && descVal.S != null
+            ? descVal.S.Trim().ToLowerInvariant()[..Math.Min(descVal.S.Length, 40)] : "";
+        return $"{lat:F4},{lng:F4}|{desc}";
     }
 
     Dictionary<string, List<Dictionary<string, AttributeValue>>> groups =
@@ -1021,7 +1023,8 @@ async Task DedupStrikes(string[] opts)
         if (group.Count == 1) continue;
 
         dupGroupCount++;
-        Console.WriteLine($"\nDuplicate group @ ({coordKey}) — {group.Count} items:");
+        string displayKey = coordKey.Contains('|') ? coordKey[..coordKey.IndexOf('|')] : coordKey;
+        Console.WriteLine($"\nDuplicate group @ ({displayKey}) — {group.Count} items:");
 
         // Keep the item with the most attributes; tie-break: earliest id
         Dictionary<string, AttributeValue> keeper = group
