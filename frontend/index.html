@@ -1176,7 +1176,10 @@ function loadSyncLog(){
   fetch('/api/syncs')
     .then(r=>r.ok?r.json():[])
     .then(data=>{
-      const html=syncLogHTML(data);
+      // API returns [{url, runs:[]}] — flatten to per-run entries for the simple log
+      const flat=data.flatMap(g=>g.runs.map(r=>({...r,timestamp:r.run_id,report_url:g.url})))
+                     .sort((a,b)=>b.timestamp.localeCompare(a.timestamp));
+      const html=syncLogHTML(flat);
       document.getElementById('desktop-sync-log').innerHTML=html;
       document.getElementById('mobile-sync-log').innerHTML=html;
     })
