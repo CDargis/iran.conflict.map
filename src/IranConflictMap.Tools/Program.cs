@@ -26,7 +26,8 @@ var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(S
     ["normalize-review"]   = ("Convert legacy bare UpdateEvent messages in review queue to wrapped format [--confirm]", NormalizeReview),
     ["drain-review"]       = ("Save all review queue messages to review-backlog/ and delete from queue [--confirm]", DrainReview),
     ["drain-dlq"]          = ("Save all DLQ messages to dlq-backlog/ and delete from queue [--confirm]", DrainDlq),
-    ["send-envelope"]      = ("Send a SyncEnvelope JSON file to the processor queue [--file <path>] [--confirm]", SendEnvelope)
+    ["send-envelope"]      = ("Send a SyncEnvelope JSON file to the processor queue [--file <path>] [--confirm]", SendEnvelope),
+    ["dedup-strikes"]      = ("Find and remove duplicate strikes by coordinates for a given date [--date yyyy-MM-dd] [--confirm]", DedupStrikes)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -943,6 +944,129 @@ async Task SendEnvelope(string[] opts)
 
     Console.WriteLine();
     Console.WriteLine($"Done. Envelope sent — {newCount} new event(s) queued for processing.");
+}
+
+// ── dedup-strikes ─────────────────────────────────────────────────────────────
+
+async Task DedupStrikes(string[] opts)
+{
+    var confirm  = opts.Contains("--confirm");
+    var dateFlag = GetFlag(ref opts, "--date");
+
+    if (dateFlag == null)
+        throw new Exception("Usage: dedup-strikes --date yyyy-MM-dd [--confirm]");
+
+    const string tableName = "strikes";
+    const string indexName = "entity-date-index";
+
+    var dynamo = BuildDynamoClient();
+
+    Console.WriteLine($"Table  : {tableName}");
+    Console.WriteLine($"Date   : {dateFlag}");
+    Console.WriteLine($"Mode   : {(confirm ? "LIVE — will delete duplicates" : "DRY RUN — pass --confirm to delete")}");
+    Console.WriteLine();
+
+    // ── 1. Query all strikes for the given date via GSI ──────────────────────
+    var items    = new List<Dictionary<string, AttributeValue>>();
+    Dictionary<string, AttributeValue>? lastKey = null;
+
+    do
+    {
+        var resp = await dynamo.QueryAsync(new QueryRequest
+        {
+            TableName                 = tableName,
+            IndexName                 = indexName,
+            KeyConditionExpression    = "#ent = :ent AND #dt = :dt",
+            ExpressionAttributeNames  = new Dictionary<string, string>
+            {
+                ["#ent"] = "entity",
+                ["#dt"]  = "date"
+            },
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":ent"] = new AttributeValue { S = "strike" },
+                [":dt"]  = new AttributeValue { S = dateFlag }
+            },
+            ExclusiveStartKey = lastKey
+        });
+
+        items.AddRange(resp.Items);
+        lastKey = resp.LastEvaluatedKey?.Count > 0 ? resp.LastEvaluatedKey : null;
+    }
+    while (lastKey != null);
+
+    Console.WriteLine($"Found {items.Count} strike(s) on {dateFlag}.");
+
+    if (items.Count == 0) return;
+
+    // ── 2. Group by (lat, lng) rounded to 4 decimal places ───────────────────
+    static string CoordKey(Dictionary<string, AttributeValue> item)
+    {
+        double lat = item.TryGetValue("lat", out AttributeValue? latVal) && latVal.N != null
+            ? Math.Round(double.Parse(latVal.N), 4) : 0;
+        double lng = item.TryGetValue("lng", out AttributeValue? lngVal) && lngVal.N != null
+            ? Math.Round(double.Parse(lngVal.N), 4) : 0;
+        return $"{lat:F4},{lng:F4}";
+    }
+
+    Dictionary<string, List<Dictionary<string, AttributeValue>>> groups =
+        items.GroupBy(CoordKey)
+             .ToDictionary(g => g.Key, g => g.ToList());
+
+    List<Dictionary<string, AttributeValue>> duplicates = new();
+    int dupGroupCount = 0;
+
+    foreach (var (coordKey, group) in groups.OrderBy(g => g.Key))
+    {
+        if (group.Count == 1) continue;
+
+        dupGroupCount++;
+        Console.WriteLine($"\nDuplicate group @ ({coordKey}) — {group.Count} items:");
+
+        // Keep the item with the most attributes; tie-break: earliest id
+        Dictionary<string, AttributeValue> keeper = group
+            .OrderByDescending(i => i.Count)
+            .ThenBy(i => i.TryGetValue("id", out AttributeValue? idVal) ? idVal.S ?? "" : "")
+            .First();
+
+        foreach (Dictionary<string, AttributeValue> item in group)
+        {
+            bool isKeeper = item.TryGetValue("id", out AttributeValue? itemId) &&
+                            keeper.TryGetValue("id", out AttributeValue? keeperId) &&
+                            itemId.S == keeperId.S;
+
+            string id          = item.TryGetValue("id",          out AttributeValue? iv) ? iv.S ?? "?" : "?";
+            string description = item.TryGetValue("description", out AttributeValue? dv) ? (dv.S ?? "").Replace('\n', ' ')[..Math.Min((dv.S ?? "").Length, 60)] : "(no description)";
+            int    fieldCount  = item.Count;
+
+            Console.WriteLine($"  [{(isKeeper ? "KEEP" : "DEL ")}] id={id}  fields={fieldCount}  desc={description}");
+
+            if (!isKeeper)
+            {
+                duplicates.Add(new Dictionary<string, AttributeValue> { ["id"] = item["id"] });
+            }
+        }
+    }
+
+    Console.WriteLine();
+
+    if (dupGroupCount == 0)
+    {
+        Console.WriteLine("No duplicates found.");
+        return;
+    }
+
+    Console.WriteLine($"Duplicate groups: {dupGroupCount}  Items to delete: {duplicates.Count}");
+
+    if (!confirm)
+    {
+        Console.WriteLine("Re-run with --confirm to delete.");
+        return;
+    }
+
+    Console.Write("Deleting... ");
+    await BatchDelete(dynamo, tableName, duplicates);
+    Console.WriteLine($"done. {duplicates.Count} item(s) deleted.");
 }
 
 // ── DrainQueue (shared) ───────────────────────────────────────────────────────
