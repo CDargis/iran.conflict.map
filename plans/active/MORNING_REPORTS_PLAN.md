@@ -137,6 +137,40 @@ If that's too much overhead initially, start with audit rows only and drop `upda
 - Should "walked back" events go to the review queue rather than being auto-deleted?
 - Do we want a `source: "morning"` field for audit purposes even after preliminary is resolved?
 
+## Impact Assessment — Changes from 2026-03-18
+
+### "All matched updates go to review" interaction
+
+Today's change routes every matched update through the review queue. This has a significant
+effect on Option A (smart merge):
+
+- When the evening report matches a morning preliminary event, that update goes to review
+- With potentially many morning events, this could mean dozens of manual approvals for what
+  should be an automatic morning→evening resolution
+- **Option A becomes significantly more complex** in this architecture unless a bypass is added
+  for preliminary→confirmed transitions (e.g. `is_preliminary_resolution` flag)
+
+**Option B (nuke-and-replace) is unaffected and now even more attractive:**
+- Delete step runs before Claude processes the evening report — no review queue involved
+- Evening events are all classified as new (no existing records to match against)
+- New events bypass the review queue entirely
+- The complication simply doesn't exist
+
+### Other changes — all compatible
+
+| Change | Impact |
+|---|---|
+| `run_id` stamped at enqueue | Compatible — morning syncs get stable run IDs |
+| URL normalization at enqueue | Beneficial — morning URLs normalized same as evening |
+| `notes` additive / `description` banned | No overlap with morning report fields |
+| `syncs-v2` (report_url PK + run_id SK) | Compatible — morning/evening URLs are distinct, separate partitions |
+| `source_url` consolidation on sync records | No conflict — plan's `source` field is on the strikes table, different concept |
+
+### Naming note
+The plan defines a `source` field on strike events (`"morning"` | omitted). This is unrelated
+to `source_url` on sync records. No collision, but worth keeping in mind during implementation
+to avoid confusion across the two tables.
+
 ## Not Building Yet
 URL source is unresolved. Nothing in this plan should be implemented until the discovery
 mechanism is figured out. This document is for architectural alignment only.
