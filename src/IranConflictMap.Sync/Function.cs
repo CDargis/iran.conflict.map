@@ -44,7 +44,7 @@ public class Function
         I'm building an Iran/Middle East conflict map. I need you to process a CTP-ISW Iran update report and extract strike events into structured DynamoDB data.
         Schema:
 
-        id (String) — unique numeric string, increment from the last ID I give you (new events only)
+        id — do not include; assigned automatically
         entity (String) — always "strike" (GSI partition key, required)
         date (String) — ISO 8601, YYYY-MM-DD
         title (String) — short event title
@@ -70,7 +70,7 @@ public class Function
         Granularity rule: Generate one event per distinct operation or topline paragraph. Do not log individual munitions within a barrage as separate events. A single coordinated wave of strikes on the same target type in the same location on the same date = one event.
         Citation mapping rule: The report contains inline footnote markers (e.g. [i], [ii], [xv]) within each topline paragraph, and a corresponding footnote block at the bottom resolving each marker to a URL. For each event, collect only the footnote markers within that event's paragraph, resolve them to their URLs, and include those in citations. Omit the field entirely if no footnotes are mappable.
         New vs update rule: Classify each extracted event as:
-        new — not previously reported; assign the next available ID
+        new — not previously reported; do not include id, it is assigned automatically
         update — reported in a prior report, this report adds detail or corrects it; include only changed fields plus date, lat, and lng as lookup keys (lat/lng as plain decimal numbers, not DynamoDB wire format); omit location and actor from the lookup; never include description in changes — use notes instead for any newly confirmed detail
         ambiguous — cannot confidently determine whether new or update; include a "note" explaining the uncertainty, a complete "as_new" item (same PutRequest/Item wire format as new events), and an "as_update" payload (same lookup/changes format as updates); only use ambiguous when genuinely uncertain — prefer new or update if you can reasonably classify the event
 
@@ -123,6 +123,22 @@ public class Function
         context.Logger.LogLine($"[sync] run started: {runId}");
         context.Logger.LogLine($"[sync] url={reportUrl}  email_key={emailKey ?? "(none)"}  url_strategy={urlStrategy ?? "(manual)"}");
 
+        // ── Idempotency check — skip if this run_id was already processed ─────
+        var existingSync = await _dynamo.GetItemAsync(new GetItemRequest
+        {
+            TableName = SyncsTable,
+            Key       = new Dictionary<string, AttributeValue>
+            {
+                ["report_url"] = new() { S = reportUrl },
+                ["run_id"]     = new() { S = runId }
+            }
+        });
+        if (existingSync.Item != null && existingSync.Item.Count > 0)
+        {
+            context.Logger.LogLine($"[sync] run_id={runId} already has a sync record (status={existingSync.Item.GetValueOrDefault("status")?.S ?? "unknown"}) — skipping to prevent duplicate writes");
+            return;
+        }
+
         try
         {
             var (anthropicKey, lastSynced) = await ReadSsmParams();
@@ -139,10 +155,9 @@ public class Function
             }
 
             // ── 2. Call Claude ────────────────────────────────────────────────
-            var nextId = await GetNextId();
-            context.Logger.LogLine($"[sync] calling Claude, nextId={nextId}");
+            context.Logger.LogLine("[sync] calling Claude");
 
-            var claudeJson = await CallClaude(reportText, reportUrl, lastSynced, nextId, anthropicKey, context);
+            var claudeJson = await CallClaude(reportText, reportUrl, lastSynced, anthropicKey, context);
             if (claudeJson == null)
             {
                 context.Logger.LogLine("[sync] Claude returned no usable response");
@@ -151,14 +166,50 @@ public class Function
                 return;
             }
 
-            // ── 3. Push to processor SQS ──────────────────────────────────────
+            // ── 3. Stamp GUIDs on new events ──────────────────────────────────
+            var claudeDoc        = JsonDocument.Parse(claudeJson).RootElement;
+            JsonElement? newWithIds = null;
+            if (claudeDoc.TryGetProperty("new", out var newArr) && newArr.ValueKind == JsonValueKind.Array)
+            {
+                using var ms     = new System.IO.MemoryStream();
+                using var writer = new System.Text.Json.Utf8JsonWriter(ms);
+                writer.WriteStartArray();
+                foreach (JsonElement evt in newArr.EnumerateArray())
+                {
+                    string newId = Guid.NewGuid().ToString();
+                    writer.WriteStartObject();
+                    writer.WritePropertyName("PutRequest");
+                    writer.WriteStartObject();
+                    writer.WritePropertyName("Item");
+                    writer.WriteStartObject();
+                    writer.WritePropertyName("id");
+                    writer.WriteStartObject(); writer.WriteString("S", newId); writer.WriteEndObject();
+                    if (evt.TryGetProperty("PutRequest", out JsonElement pr) && pr.TryGetProperty("Item", out JsonElement item))
+                    {
+                        foreach (JsonProperty prop in item.EnumerateObject())
+                        {
+                            if (prop.Name == "id") continue; // discard any id Claude may have included
+                            writer.WritePropertyName(prop.Name);
+                            prop.Value.WriteTo(writer);
+                        }
+                    }
+                    writer.WriteEndObject(); // Item
+                    writer.WriteEndObject(); // PutRequest
+                    writer.WriteEndObject(); // event
+                    context.Logger.LogLine($"[sync] stamped id={newId} on new event");
+                }
+                writer.WriteEndArray();
+                writer.Flush();
+                newWithIds = JsonDocument.Parse(ms.ToArray()).RootElement;
+            }
+
+            // ── 4. Push to processor SQS ──────────────────────────────────────
             // runId is used as synced_at so the Processor can UpdateItem the same record
-            var claudeDoc = JsonDocument.Parse(claudeJson).RootElement;
-            var envelope  = JsonSerializer.Serialize(new
+            var envelope = JsonSerializer.Serialize(new
             {
                 source_url = reportUrl,
                 synced_at  = runId,
-                @new       = claudeDoc.TryGetProperty("new",       out var n) ? n : (JsonElement?)null,
+                @new       = newWithIds,
                 updates    = claudeDoc.TryGetProperty("updates",   out var u) ? u : (JsonElement?)null,
                 ambiguous  = claudeDoc.TryGetProperty("ambiguous", out var a) ? a : (JsonElement?)null
             });
@@ -174,7 +225,7 @@ public class Function
             });
             context.Logger.LogLine("[sync] Claude response pushed to processor queue");
 
-            // ── 4. Move email to processed (only if we have an email key) ─────
+            // ── 5. Move email to processed (only if we have an email key) ─────
             if (!string.IsNullOrEmpty(emailKey))
                 await MoveS3Object(emailKey, "processed/" + emailKey["inbox/".Length..], context);
 
@@ -216,14 +267,12 @@ public class Function
     // ── Claude ────────────────────────────────────────────────────────────────
 
     private async Task<string?> CallClaude(
-        string reportText, string reportUrl, string lastSynced, int nextId, string apiKey, ILambdaContext ctx)
+        string reportText, string reportUrl, string lastSynced, string apiKey, ILambdaContext ctx)
     {
-        var lastId = nextId - 1;
         var userMessage =
-            $"The last used ID is {lastId}. " +
             $"Events already logged cover dates up to {lastSynced}. " +
             $"The source_url for all new events in this report is: {reportUrl}\n\n" +
-            $"Please process the following CTP-ISW report and generate output starting from ID {nextId}:\n\n" +
+            $"Please process the following CTP-ISW report:\n\n" +
             reportText;
 
         var requestBody = JsonSerializer.Serialize(new
@@ -303,19 +352,6 @@ public class Function
     }
 
     // ── DynamoDB ──────────────────────────────────────────────────────────────
-
-    private async Task<int> GetNextId()
-    {
-        var response = await _dynamo.ScanAsync(new ScanRequest
-        {
-            TableName            = StrikesTable,
-            ProjectionExpression = "id"
-        });
-        return response.Items
-            .Select(i => int.TryParse(i["id"].S, out var n) ? n : 0)
-            .DefaultIfEmpty(0)
-            .Max() + 1;
-    }
 
     private async Task WriteSyncRecord(string runId, string status, int newEventCount, int updateCount,
         int ambigCount, string? errorMessage, string? reportUrl, string? urlStrategy = null)

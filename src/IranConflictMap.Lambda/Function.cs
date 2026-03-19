@@ -91,16 +91,17 @@ public class Function
 
     private async Task<int> ProcessNewEvents(List<NewEvent> newEvents, string? sourceUrl, string? syncedAt, ILambdaContext context)
     {
-        var nextId = await GetNextId();
         var items = new List<Dictionary<string, AttributeValue>>();
 
-        foreach (var evt in newEvents)
+        foreach (NewEvent evt in newEvents)
         {
-            var item = ToDynamoItem(evt.PutRequest.Item);
+            Dictionary<string, AttributeValue> item = ToDynamoItem(evt.PutRequest.Item);
 
-            // Override the ID with our auto-incremented value
-            item["id"] = new AttributeValue { S = nextId.ToString() };
-            nextId++;
+            // id must be pre-stamped by the Sync Lambda — throw if missing
+            if (!item.TryGetValue("id", out AttributeValue? idAttr) || string.IsNullOrEmpty(idAttr.S))
+                throw new Exception("New event is missing pre-stamped id field — envelope may have been produced by an older version of the Sync Lambda");
+
+            context.Logger.LogLine($"[processor] new event id={idAttr.S}");
 
             // Audit fields
             if (!string.IsNullOrEmpty(syncedAt))
@@ -113,8 +114,6 @@ public class Function
 
             items.Add(item);
         }
-
-        var firstId = nextId - items.Count;
 
         // BatchWriteItem in chunks of 25; retry unprocessed items
         for (var i = 0; i < items.Count; i += 25)
@@ -137,7 +136,7 @@ public class Function
                 context.Logger.LogLine($"[processor] warning: {remaining.Values.Sum(r => r.Count)} items still unprocessed after retries");
         }
 
-        context.Logger.LogLine($"[processor] wrote {items.Count} new events (IDs {firstId}..{nextId - 1})");
+        context.Logger.LogLine($"[processor] wrote {items.Count} new events");
         return items.Count;
     }
 
@@ -392,20 +391,6 @@ public class Function
     }
 
     // ── DynamoDB Helpers ────────────────────────────────────────────────────────
-
-    private async Task<int> GetNextId()
-    {
-        var response = await _dynamo.ScanAsync(new ScanRequest
-        {
-            TableName = StrikesTable,
-            ProjectionExpression = "id"
-        });
-
-        return response.Items
-            .Select(i => int.TryParse(i["id"].S, out var n) ? n : 0)
-            .DefaultIfEmpty(0)
-            .Max() + 1;
-    }
 
     private async Task UpdateSyncRecord(string reportUrl, string runId, string status, int newCount, int updateCount,
         int deadLetterCount, int reviewCount, string? errorMessage, ILambdaContext context)
