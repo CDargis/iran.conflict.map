@@ -1018,7 +1018,7 @@ function feedHTML(data){
     const ac=resolvedActorColors[s.actor]||actorColor(s.actor)||'var(--dim)';
     const sc=SEV_COLOR[s.severity]||'var(--dim)';
     return `
-    <div class="strike-item target-${s.target_type}" data-id="${s.id}" onclick="focusStrike(${s.id})" style="border-left:3px solid ${ac}">
+    <div class="strike-item target-${s.target_type}" data-id="${s.id}" onclick="focusStrike('${s.id}')" style="border-left:3px solid ${ac}">
       <div class="strike-date" style="display:flex;align-items:center;gap:6px">
         <span>${s.date}</span>
         <span style="font-size:8px;font-weight:700;color:${sc};text-transform:uppercase;letter-spacing:.05em">${s.severity||''}</span>
