@@ -208,33 +208,52 @@ public class Function
                     continue;
                 }
 
-                var queryResp = await _dynamo.QueryAsync(new QueryRequest
+                // Query ±1 day to handle off-by-one date errors in Claude's lookup
+                DateTime parsedDate   = DateTime.Parse(date);
+                string[] datesToQuery = new[]
                 {
-                    TableName                 = StrikesTable,
-                    IndexName                 = StrikesGsi,
-                    KeyConditionExpression    = "entity = :entity AND #d = :date",
-                    ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date" },
-                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-                    {
-                        [":entity"] = new AttributeValue { S = "strike" },
-                        [":date"]   = new AttributeValue { S = date }
-                    }
-                });
+                    parsedDate.AddDays(-1).ToString("yyyy-MM-dd"),
+                    date,
+                    parsedDate.AddDays(1).ToString("yyyy-MM-dd")
+                };
 
-                // Find closest event within 10km
+                List<Dictionary<string, AttributeValue>> allCandidates = new();
+                foreach (string queryDate in datesToQuery)
+                {
+                    var queryResp = await _dynamo.QueryAsync(new QueryRequest
+                    {
+                        TableName                 = StrikesTable,
+                        IndexName                 = StrikesGsi,
+                        KeyConditionExpression    = "entity = :entity AND #d = :date",
+                        ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date" },
+                        ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                        {
+                            [":entity"] = new AttributeValue { S = "strike" },
+                            [":date"]   = new AttributeValue { S = queryDate }
+                        }
+                    });
+                    allCandidates.AddRange(queryResp.Items);
+                }
+
+                // Rank all candidates by distance; track nearest regardless of threshold
                 const double ThresholdKm = 10.0;
-                var closest = queryResp.Items
+                var ranked = allCandidates
                     .Where(i => i.ContainsKey("lat") && i.ContainsKey("lng"))
                     .Select(i => (item: i, dist: HaversineKm(lat.Value, lng.Value,
                         double.Parse(i["lat"].N), double.Parse(i["lng"].N))))
-                    .Where(x => x.dist <= ThresholdKm)
                     .OrderBy(x => x.dist)
                     .ToList();
 
+                string nearestDesc = ranked.Count > 0
+                    ? $"Nearest: id={ranked[0].item["id"].S} dist={ranked[0].dist:F1}km date={ranked[0].item.GetValueOrDefault("date")?.S} title={(ranked[0].item.TryGetValue("title", out AttributeValue? tv) ? tv.S : "?")}"
+                    : "No candidates found in ±1 day window.";
+
+                var closest = ranked.Where(x => x.dist <= ThresholdKm).ToList();
+
                 if (closest.Count == 0)
                 {
-                    context.Logger.LogLine($"[processor] update: no proximity match for {date} ({lat},{lng}), sending to review");
-                    await SendFailedUpdateToReviewQueue($"Update lookup failed: no event found near ({lat},{lng}) on {date}.", update, sourceUrl, syncedAt);
+                    context.Logger.LogLine($"[processor] update: no proximity match for {date} ({lat},{lng}) in ±1 day — {nearestDesc}, sending to review");
+                    await SendFailedUpdateToReviewQueue($"Update lookup failed: no event within {ThresholdKm}km of ({lat},{lng}) on {date} ±1 day. {nearestDesc}", update, sourceUrl, syncedAt);
                     reviewed++;
                     continue;
                 }
@@ -242,24 +261,28 @@ public class Function
                 if (closest.Count > 1 && closest[1].dist < 1.0)
                 {
                     context.Logger.LogLine($"[processor] update: multiple proximity matches within 1km for {date} ({lat},{lng}), sending to review");
-                    await SendFailedUpdateToReviewQueue($"Update lookup ambiguous: multiple events within 1km of ({lat},{lng}) on {date}.", update, sourceUrl, syncedAt);
+                    await SendFailedUpdateToReviewQueue($"Update lookup ambiguous: multiple events within 1km of ({lat},{lng}) on {date} ±1 day. {nearestDesc}", update, sourceUrl, syncedAt);
                     reviewed++;
                     continue;
                 }
 
                 var existing = closest[0].item;
                 existingId = existing["id"].S;
+                string matchedDate = existing.TryGetValue("date", out AttributeValue? matchDateVal) ? matchDateVal.S ?? date : date;
 
                 if (isReviewApproval)
                 {
-                    context.Logger.LogLine($"[processor] update: proximity match id={existingId} dist={closest[0].dist:F2}km");
+                    context.Logger.LogLine($"[processor] update: proximity match id={existingId} dist={closest[0].dist:F2}km date={matchedDate}");
                     await ApplyUpdate(existingId, existing, update.Changes, sourceUrl, syncedAt, context);
                     applied++;
                 }
                 else
                 {
-                    context.Logger.LogLine($"[processor] update: proximity match id={existingId} dist={closest[0].dist:F2}km, sending to review");
-                    await SendMatchedUpdateToReviewQueue($"Proximity match: id={existingId}, dist={closest[0].dist:F2}km.", existingId, existing, update, sourceUrl, syncedAt);
+                    string matchNote = matchedDate != date
+                        ? $"Proximity match: id={existingId}, dist={closest[0].dist:F2}km. Note: lookup date was {date} but matched event is dated {matchedDate}."
+                        : $"Proximity match: id={existingId}, dist={closest[0].dist:F2}km.";
+                    context.Logger.LogLine($"[processor] update: {matchNote}, sending to review");
+                    await SendMatchedUpdateToReviewQueue(matchNote, existingId, existing, update, sourceUrl, syncedAt);
                     reviewed++;
                 }
             }
