@@ -332,7 +332,7 @@ app.MapPost("/api/review/resolve", async (HttpContext ctx, IAmazonSimpleSystemsM
                 source_url         = req.SourceUrl ?? "",
                 synced_at          = runId,
                 is_review_approval = req.SyncId != null,
-                @new               = new[] { req.AsNew.Value },
+                @new               = new[] { StampNewEventId(req.AsNew.Value) },
                 updates            = (object?)null,
                 ambiguous          = (object?)null
             });
@@ -373,6 +373,38 @@ app.MapPost("/api/review/resolve", async (HttpContext ctx, IAmazonSimpleSystemsM
 });
 
 app.Run();
+
+// Stamps a fresh GUID onto the Item of a PutRequest/Item JsonElement if id is absent.
+static JsonElement StampNewEventId(JsonElement putRequest)
+{
+    if (!putRequest.TryGetProperty("PutRequest", out JsonElement pr) ||
+        !pr.TryGetProperty("Item", out JsonElement item))
+        return putRequest;
+
+    // If already has an id, return as-is
+    if (item.TryGetProperty("id", out _))
+        return putRequest;
+
+    using System.IO.MemoryStream ms = new();
+    using System.Text.Json.Utf8JsonWriter writer = new(ms);
+    writer.WriteStartObject();                     // PutRequest wrapper
+    writer.WritePropertyName("PutRequest");
+    writer.WriteStartObject();
+    writer.WritePropertyName("Item");
+    writer.WriteStartObject();
+    writer.WritePropertyName("id");
+    writer.WriteStartObject(); writer.WriteString("S", Guid.NewGuid().ToString()); writer.WriteEndObject();
+    foreach (System.Text.Json.JsonProperty prop in item.EnumerateObject())
+    {
+        writer.WritePropertyName(prop.Name);
+        prop.Value.WriteTo(writer);
+    }
+    writer.WriteEndObject();                       // Item
+    writer.WriteEndObject();                       // PutRequest
+    writer.WriteEndObject();
+    writer.Flush();
+    return JsonDocument.Parse(ms.ToArray()).RootElement;
+}
 
 record SubmitUrlRequest([property: System.Text.Json.Serialization.JsonPropertyName("url")] string? Url);
 
