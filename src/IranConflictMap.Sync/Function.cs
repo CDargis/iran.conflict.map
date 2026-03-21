@@ -25,7 +25,7 @@ public class Function
         MaxAutomaticRedirections = 10
     })
     {
-        Timeout = TimeSpan.FromMinutes(4)
+        Timeout = System.Threading.Timeout.InfiniteTimeSpan  // timeout via Lambda CancellationToken instead
     };
 
     private readonly IAmazonDynamoDB                  _dynamo;
@@ -123,6 +123,10 @@ public class Function
         context.Logger.LogLine($"[sync] run started: {runId}");
         context.Logger.LogLine($"[sync] url={reportUrl}  email_key={emailKey ?? "(none)"}  url_strategy={urlStrategy ?? "(manual)"}");
 
+        // Cancel a few seconds before Lambda times out so we can log and write the sync record cleanly
+        using var cts = new System.Threading.CancellationTokenSource(context.RemainingTime - TimeSpan.FromSeconds(10));
+        System.Threading.CancellationToken token = cts.Token;
+
         // ── Idempotency check — skip if this run_id was already processed ─────
         var existingSync = await _dynamo.GetItemAsync(new GetItemRequest
         {
@@ -145,7 +149,7 @@ public class Function
             context.Logger.LogLine($"[sync] last_synced={lastSynced}");
 
             // ── 1. Fetch report page ──────────────────────────────────────────
-            var reportText = await FetchReportPage(reportUrl, context);
+            var reportText = await FetchReportPage(reportUrl, context, token);
             if (string.IsNullOrWhiteSpace(reportText))
             {
                 context.Logger.LogLine("[sync] report page returned empty content");
@@ -157,7 +161,7 @@ public class Function
             // ── 2. Call Claude ────────────────────────────────────────────────
             context.Logger.LogLine("[sync] calling Claude");
 
-            var claudeJson = await CallClaude(reportText, reportUrl, lastSynced, anthropicKey, context);
+            var claudeJson = await CallClaude(reportText, reportUrl, lastSynced, anthropicKey, context, token);
             if (claudeJson == null)
             {
                 context.Logger.LogLine("[sync] Claude returned no usable response");
@@ -244,11 +248,21 @@ public class Function
 
     // ── Report fetch ──────────────────────────────────────────────────────────
 
-    private async Task<string> FetchReportPage(string url, ILambdaContext ctx)
+    private async Task<string> FetchReportPage(string url, ILambdaContext ctx, System.Threading.CancellationToken token)
     {
         try
         {
-            var html = await Http.GetStringAsync(url);
+            using var response = await Http.GetAsync(url, token);
+            ctx.Logger.LogLine($"[sync] fetch response: {(int)response.StatusCode} {response.StatusCode}");
+
+            var html = await response.Content.ReadAsStringAsync(token);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                ctx.Logger.LogLine($"[sync] fetch non-success — body preview: {html[..Math.Min(html.Length, 500)]}");
+                return "";
+            }
+
             ctx.Logger.LogLine($"[sync] fetched {html.Length} chars from report page");
 
             var text = Regex.Replace(html, @"<[^>]+>", " ");
@@ -257,9 +271,14 @@ public class Function
 
             return text.Length > 100_000 ? text[..100_000] : text;
         }
+        catch (OperationCanceledException)
+        {
+            ctx.Logger.LogLine("[sync] fetch cancelled — Lambda timeout approaching");
+            throw;
+        }
         catch (Exception ex)
         {
-            ctx.Logger.LogLine($"[sync] fetch error: {ex.Message}");
+            ctx.Logger.LogLine($"[sync] fetch error: {ex.GetType().Name}: {ex.Message}");
             return "";
         }
     }
@@ -267,7 +286,8 @@ public class Function
     // ── Claude ────────────────────────────────────────────────────────────────
 
     private async Task<string?> CallClaude(
-        string reportText, string reportUrl, string lastSynced, string apiKey, ILambdaContext ctx)
+        string reportText, string reportUrl, string lastSynced, string apiKey, ILambdaContext ctx,
+        System.Threading.CancellationToken token)
     {
         var userMessage =
             $"Events already logged cover dates up to {lastSynced}. " +
@@ -290,8 +310,8 @@ public class Function
         req.Headers.Add("x-api-key", apiKey);
         req.Headers.Add("anthropic-version", "2023-06-01");
 
-        var res     = await Http.SendAsync(req);
-        var resBody = await res.Content.ReadAsStringAsync();
+        var res     = await Http.SendAsync(req, token);
+        var resBody = await res.Content.ReadAsStringAsync(token);
         ctx.Logger.LogLine($"[sync] Claude status: {res.StatusCode}");
 
         if (!res.IsSuccessStatusCode)
@@ -306,6 +326,7 @@ public class Function
         if (string.IsNullOrWhiteSpace(text))
         {
             ctx.Logger.LogLine("[sync] Claude returned empty text");
+            ctx.Logger.LogLine($"[sync] raw response body: {resBody[..Math.Min(resBody.Length, 1000)]}");
             return null;
         }
 
@@ -313,7 +334,7 @@ public class Function
         var end   = text.LastIndexOf('}');
         if (start == -1 || end == -1 || end <= start)
         {
-            ctx.Logger.LogLine($"[sync] no JSON object in Claude response: {text[..Math.Min(text.Length, 300)]}");
+            ctx.Logger.LogLine($"[sync] no JSON object in Claude response: {text[..Math.Min(text.Length, 1000)]}");
             return null;
         }
 
@@ -328,16 +349,22 @@ public class Function
 
             if (!hasNew && !hasUpdates && !hasAmbig)
             {
-                ctx.Logger.LogLine("[sync] Claude response missing all three expected arrays");
+                ctx.Logger.LogLine($"[sync] Claude response missing all three expected arrays — json: {jsonText[..Math.Min(jsonText.Length, 1000)]}");
                 return null;
             }
 
             ctx.Logger.LogLine($"[sync] Claude response valid: new={nv.GetArrayLength()} updates={uv.GetArrayLength()} ambiguous={av.GetArrayLength()}");
             return jsonText;
         }
+        catch (OperationCanceledException)
+        {
+            ctx.Logger.LogLine("[sync] Claude call cancelled — Lambda timeout approaching");
+            throw;
+        }
         catch (JsonException ex)
         {
             ctx.Logger.LogLine($"[sync] Claude JSON parse error: {ex.Message}");
+            ctx.Logger.LogLine($"[sync] raw Claude text: {text[..Math.Min(text.Length, 1000)]}");
             return null;
         }
     }
