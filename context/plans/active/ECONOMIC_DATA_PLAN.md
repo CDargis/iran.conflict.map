@@ -261,17 +261,24 @@ Brent time-series for the multi-day sparkline and chart. Queries `iran-conflict-
 
 **Query parameters:**
 - `?from=YYYY-MM-DD&to=YYYY-MM-DD` — date range (inclusive). Required.
-- `?resolution=latest_per_day` (default) or `?resolution=all` — one price per day or every intraday row.
 
-**Implementation:** `Scan` on `iran-conflict-map-brent-prices` with `FilterExpression: #date BETWEEN :from AND :to`. The table is small (~3 rows/day, <10K items/year), so a scan is acceptable. For `latest_per_day`, group in-memory by `date` and keep the row with the latest `timestamp`. A GSI on `date` can be added later if scan performance ever becomes an issue.
+**Resolution logic (hardcoded, not client-configurable):**
+- For all dates before today: return only the latest reading per day (group by `date`, keep row with latest `timestamp`).
+- For today: return all readings accumulated so far.
+
+This gives historical days one data point each and gives today higher resolution as readings accumulate throughout the day — the right edge of the chart updates intraday while the left edge stays stable.
+
+**Implementation:** `Scan` on `iran-conflict-map-brent-prices` with `FilterExpression: #date BETWEEN :from AND :to`. The table is small (~3 rows/day, <10K items/year), so a scan is acceptable. Group in-memory: for dates before today keep only the latest-timestamp row; for today include all rows. A GSI on `date` can be added later if scan performance ever becomes an issue.
 
 **Response:**
 ```json
 [
   { "date": "2026-03-21", "brent_price": 84.90, "timestamp": "2026-03-21T16:00:00Z" },
+  { "date": "2026-03-22", "brent_price": 85.10, "timestamp": "2026-03-22T08:00:00Z" },
   { "date": "2026-03-22", "brent_price": 85.23, "timestamp": "2026-03-22T16:00:00Z" }
 ]
 ```
+*(Here 2026-03-22 is today — two intraday readings returned. Yesterday has one.)*
 
 **Caching:** 5-minute in-memory cache on both endpoints. Negligible staleness given the 8-hour write cadence.
 
@@ -287,14 +294,15 @@ All changes are in `frontend/index.html` (vanilla JS, no build step).
 
 Two distinct frontend use cases exist for Brent price data, each backed by a different API call:
 
-**Use case 1 — Nav bar sparkline (30-day trailing, one price per day)**
-- Fetches `GET /api/economic/brent?from=[30 days ago]&to=[today]&resolution=latest_per_day`
-- One data point per day; renders a compact trend line
+**Use case 1 — Nav bar sparkline (30-day trailing)**
+- Fetches `GET /api/economic/brent?from=[30 days ago]&to=[today]`
+- Historical days return one data point each (latest reading of that day); today returns all intraday readings accumulated so far
+- This means the right edge of the chart has higher resolution and updates throughout the day — by design, not configurable
 - Loaded once on page load, not re-fetched on date navigation
 
-**Use case 2 — Full intraday chart (all readings for a selected range)**
-- Fetches `GET /api/economic/brent?from=...&to=...&resolution=all`
-- Multiple points per day showing intraday movement
+**Use case 2 — Full intraday chart**
+- Same endpoint: `GET /api/economic/brent?from=...&to=...`
+- The same hardcoded resolution logic applies — today's intraday readings are already included
 - This use case is identified but the frontend component is not yet designed — treat as a future addition beyond the initial implementation scope
 
 **Sparkline markup** (nav bar):
@@ -616,7 +624,7 @@ Not recommended. Too tedious, no structured interface exists for it.
 ## 9. Open Questions / Decisions Needed
 
 ### 9A. How Many Brent Rows to Surface Per Day
-**Status: Blocking for API and frontend implementation.** `iran-conflict-map-brent-prices` accumulates ~3 rows per day. The current plan uses "latest wins" for the `GET /api/economic` merged view (single price per date) and exposes all rows via `GET /api/economic/brent` with a `?resolution=` toggle. Confirm this split is acceptable before implementing the API layer.
+**Status: Resolved.** `GET /api/economic` (merged view) always uses the latest reading per date. `GET /api/economic/brent` hardcodes: historical dates return one row each (latest timestamp), today returns all accumulated readings. No `resolution` parameter — the behavior is fixed by the API. This gives the sparkline's right edge higher intraday resolution while keeping historical days stable.
 
 ### 9B. ECONOMIC Row Multi-Row Handling (Re-sync)
 **Status: Blocking for API implementation.** Because the SK embeds the sync timestamp, re-processing a report creates a second ECONOMIC row for the same date rather than overwriting the first. The API currently takes the latest ECONOMIC row by SK sort order. Decide:
