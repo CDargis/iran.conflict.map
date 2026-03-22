@@ -257,10 +257,12 @@ Merge into one response object. Each source is independently nullable if no row 
 
 ### Endpoint 2: `GET /api/economic/brent`
 
-Brent time-series for the multi-day sparkline and chart. Queries `iran-conflict-map-brent-prices` directly.
+Brent time-series for the chart. Queries `iran-conflict-map-brent-prices` directly.
+
+The chart always covers the full dataset range (2026-02-28 to today) and is loaded once on page load. The `from`/`to` parameters exist for flexibility but the frontend always passes the full range — the endpoint does not need to support arbitrary date windows as a first-class use case.
 
 **Query parameters:**
-- `?from=YYYY-MM-DD&to=YYYY-MM-DD` — date range (inclusive). Required.
+- `?from=YYYY-MM-DD&to=YYYY-MM-DD` — date range (inclusive). Frontend passes `from=2026-02-28&to=[today]`.
 
 **Resolution logic (hardcoded, not client-configurable):**
 - For all dates before today: return only the latest reading per day (group by `date`, keep row with latest `timestamp`).
@@ -294,26 +296,29 @@ All changes are in `frontend/index.html` (vanilla JS, no build step).
 
 Two distinct frontend use cases exist for Brent price data, each backed by a different API call:
 
-**Use case 1 — Nav bar sparkline (30-day trailing)**
-- Fetches `GET /api/economic/brent?from=[30 days ago]&to=[today]`
-- Historical days return one data point each (latest reading of that day); today returns all intraday readings accumulated so far
-- This means the right edge of the chart has higher resolution and updates throughout the day — by design, not configurable
-- Loaded once on page load, not re-fetched on date navigation
+**Chart behavior:**
+- Fetches `GET /api/economic/brent?from=2026-02-28&to=[today]` once on page load
+- Covers the full dataset range — not a rolling window, not date-navigation-aware
+- Historical days return one data point each (latest reading of that day); today returns all intraday readings accumulated so far — right edge has higher resolution, by design
+- Does **not** re-fetch or re-render when the user navigates dates
 
-**Use case 2 — Full intraday chart**
-- Same endpoint: `GET /api/economic/brent?from=...&to=...`
-- The same hardcoded resolution logic applies — today's intraday readings are already included
-- This use case is identified but the frontend component is not yet designed — treat as a future addition beyond the initial implementation scope
+**Date marker:**
+- A vertical line on the chart tracks the currently selected map date as the user navigates
+- Lets the user see "when this event happened, oil was at this price"
+- Implemented by re-drawing the marker SVG element on each date change — the underlying data and polyline do not change
 
 **Sparkline markup** (nav bar):
 ```html
 <div class="brent-sparkline-container">
-  <svg id="brent-sparkline" width="200" height="32"></svg>
+  <svg id="brent-sparkline" width="200" height="32">
+    <polyline id="brent-line" />
+    <line id="brent-date-marker" y1="0" y2="32" stroke="#94a3b8" stroke-width="1" />
+  </svg>
   <span id="brent-label">— $/bbl</span>
 </div>
 ```
 
-**Rendering:** Vanilla JS — scale data points to the SVG viewport using `min`/`max`, draw a `<polyline>`. Color: amber (`#f59e0b`). The `brent-label` shows the most recent price. On hover, optionally show `fetched_at`.
+**Rendering:** Vanilla JS — scale data points to the SVG viewport using `min`/`max`, draw a `<polyline>`. Color: amber (`#f59e0b`). The `brent-label` shows the most recent price. The date marker `x` position is computed from the selected date's position in the data range. On hover, optionally show `fetched_at`.
 
 **Empty state:** Hide the container with `display:none` if the API returns no data.
 
