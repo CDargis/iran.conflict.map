@@ -118,7 +118,7 @@ Response shape:
 { "name": "brent_crude_oil", "price": 85.23, "updated": 1742680200 }
 ```
 
-- Free tier: 50,000 requests/month — at 6 calls/day that's ~180/month, well within limit.
+- Free tier: 50,000 requests/month — at 3 calls/day that's ~90/month, well within limit.
 - `updated` is a Unix timestamp of the last ICE quote.
 - No rate-limit concerns.
 - Registration: https://api-ninjas.com — free, instant API key.
@@ -136,7 +136,7 @@ Response shape:
 { "status": "success", "data": { "price": 85.23, "formatted": "85.23 USD", "currency": "USD", "code": "BRENT_CRUDE_USD", "created_at": "2026-03-22T14:30:00.000Z", "type": "spot_price" } }
 ```
 
-- Free tier: 1,000 requests/month — at 6 calls/day that's ~180/month, within limit but tighter than API Ninjas.
+- Free tier: 1,000 requests/month — at 3 calls/day that's ~90/month, within limit.
 - `created_at` is the ICE quote timestamp in ISO 8601 — store this as `brent_fetched_at`.
 - Registration: https://oilpriceapi.com — free tier available.
 
@@ -263,9 +263,9 @@ New endpoint — see section 4.
 
 ### 3D. Brent Price Lambda — New (`src/IranConflictMap.Brent/Function.cs`)
 
-A small new Lambda triggered by EventBridge on a fixed schedule (every 4–6 hours). Its only job: fetch the current Brent price and upsert `brent_close` + `brent_fetched_at` for today's date.
+A small new Lambda triggered by EventBridge on a fixed schedule (every 8 hours). Its only job: fetch the current Brent price and upsert `brent_close` + `brent_fetched_at` for today's date.
 
-**Trigger:** EventBridge scheduled rule — `rate(4 hours)` or `cron(0 0/4 * * ? *)`. ICE is open Sunday 23:00 – Friday 22:00 UTC; no need to gate on market hours, the commodity API will simply return the last known quote when markets are closed.
+**Trigger:** EventBridge scheduled rule — `rate(8 hours)` or `cron(0 0/8 * * ? *)`. ICE is open Sunday 23:00 – Friday 22:00 UTC; no need to gate on market hours, the commodity API will simply return the last known quote when markets are closed.
 
 **Logic:**
 1. Call `FetchBrentPriceAsync()` (same method, extracted to shared code or duplicated — project is small enough that duplication is fine).
@@ -331,7 +331,7 @@ Added to `Program.cs` alongside the existing strike/sync endpoints.
 
 **Implementation:** Query the `entity-date-index` GSI with `entity = "economic"` and `date BETWEEN [start] AND [end]` for range queries, or `date = [date]` for single-date lookup. Mirror the pattern used in `GET /api/strikes`.
 
-**Caching:** 5-minute in-memory cache keyed on query parameters, identical to the strikes caching pattern. Since the Brent Lambda updates prices every 4 hours, a 5-minute cache introduces negligible additional staleness.
+**Caching:** 5-minute in-memory cache keyed on query parameters, identical to the strikes caching pattern. Since the Brent Lambda updates prices every 8 hours, a 5-minute cache introduces negligible additional staleness.
 
 **Auth:** None (public, same as `/api/strikes`).
 
@@ -469,7 +469,7 @@ Rule brentSchedule = new Rule(this, "BrentSchedule", new RuleProps
 brentSchedule.AddTarget(new LambdaFunction(brentFunction));
 ```
 
-Rate of `4 hours` means ~6 invocations/day (~180/month). Adjust to `6 hours` (~4/day) if the free tier needs headroom.
+Rate of `8 hours` means ~3 invocations/day (~90/month), comfortably within API Ninjas' free tier.
 
 ### 6D. IAM Grants
 
@@ -626,7 +626,7 @@ Not recommended. Too tedious, no structured interface exists for it.
 1. Create `src/IranConflictMap.Brent/` project with `Function.cs`.
 2. Implement `FetchBrentPriceAsync()` and the `UpdateItemAsync` write.
 3. Deploy. Invoke manually to verify it writes `brent_close` and `brent_fetched_at` for today's date in DynamoDB.
-4. Verify the EventBridge schedule triggers it automatically (check CloudWatch Logs after 4 hours, or manually trigger from console).
+4. Verify the EventBridge schedule triggers it automatically (check CloudWatch Logs after 8 hours, or manually trigger from console).
 
 ### Step 3 — Sync Lambda: Brent price call at report time
 1. Add `FetchBrentPriceAsync()` to `src/IranConflictMap.Sync/Function.cs` (can share implementation or duplicate — small enough that duplication is fine).
@@ -675,7 +675,7 @@ Not recommended. Too tedious, no structured interface exists for it.
 Current plan: Claude defaults to `"open"` when the report is silent and `"unknown"` when the report explicitly acknowledges uncertainty. Verify this is the right semantic — `"open"` could be misleading if the report simply didn't cover the Strait that day. Alternative: default `"unknown"` always and only set `"open"` when the report explicitly confirms unrestricted transit. This is safer but will result in more `"unknown"` entries.
 
 ### 9D. Intraday Price vs. Daily Close
-**Resolved: intraday.** The Brent Price Lambda runs every 4 hours throughout the day, so the stored price is always the most recent ICE quote at time of fetch. This is not the official daily settlement price (published by ICE after market close), but for a conflict map showing market reaction to geopolitical events, a live intraday quote is preferable to a lagged official close. If official settlement prices are ever needed, the EIA API (next-day lag) is the only free option.
+**Resolved: intraday.** The Brent Price Lambda runs every 8 hours throughout the day, so the stored price is always the most recent ICE quote at time of fetch. This is not the official daily settlement price (published by ICE after market close), but for a conflict map showing market reaction to geopolitical events, a live intraday quote is preferable to a lagged official close. If official settlement prices are ever needed, the EIA API (next-day lag) is the only free option.
 
 ### 9E. Brent Fetch Timestamp in UI
 The strip shows "Brent $85.23" captured at a specific time. Consider whether to surface the timestamp at all — options:
