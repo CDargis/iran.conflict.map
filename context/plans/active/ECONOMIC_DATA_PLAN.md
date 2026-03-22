@@ -2,9 +2,9 @@
 
 ## Overview
 
-Add structured economic indicators (Tier 1) and Claude-extracted economic signals (Tier 2) to the pipeline and frontend. Near-real-time Brent crude prices (sourced from ICE via a commodity API) are fetched in the Sync Lambda alongside existing CTP-ISW report processing. Claude's extraction prompt is expanded to pull economic signals from the same report text. A new DynamoDB table holds per-day economic records. The API gets a new endpoint, and the frontend gains a sparkline, an indicator strip, and an economic tab in the event feed.
+Add structured economic indicators (Tier 1) and Claude-extracted economic signals (Tier 2) to the pipeline and frontend. Brent crude prices (sourced from ICE via a commodity API) are fetched by a **new dedicated Lambda on an EventBridge schedule (every 4–6 hours)**, keeping the price current throughout the day independent of report ingestion. Claude's extraction prompt is expanded in the existing Sync Lambda to pull economic signals (Tier 2) when a CTP-ISW report is processed. A new DynamoDB table holds per-day economic records. The API gets a new endpoint, and the frontend gains a sparkline, an indicator strip, and an economic tab in the event feed.
 
-Nothing is deployed as a standalone Lambda. All changes extend existing resources.
+One new Lambda is added (Brent price poller). The Sync Lambda gains Claude prompt expansion and a Brent price fetch at report time. All other changes extend existing resources.
 
 ---
 
@@ -118,9 +118,9 @@ Response shape:
 { "name": "brent_crude_oil", "price": 85.23, "updated": 1742680200 }
 ```
 
-- Free tier: 50,000 requests/month — far more than needed.
+- Free tier: 50,000 requests/month — at 6 calls/day that's ~180/month, well within limit.
 - `updated` is a Unix timestamp of the last ICE quote.
-- No rate-limit concerns for one daily call.
+- No rate-limit concerns.
 - Registration: https://api-ninjas.com — free, instant API key.
 
 **Option 2 — Oil Price API** (`oilpriceapi.com`)
@@ -136,7 +136,7 @@ Response shape:
 { "status": "success", "data": { "price": 85.23, "formatted": "85.23 USD", "currency": "USD", "code": "BRENT_CRUDE_USD", "created_at": "2026-03-22T14:30:00.000Z", "type": "spot_price" } }
 ```
 
-- Free tier: 1,000 requests/month — sufficient for one call/day.
+- Free tier: 1,000 requests/month — at 6 calls/day that's ~180/month, within limit but tighter than API Ninjas.
 - `created_at` is the ICE quote timestamp in ISO 8601 — store this as `brent_fetched_at`.
 - Registration: https://oilpriceapi.com — free tier available.
 
@@ -164,15 +164,15 @@ Response shape:
 
 ### 3A. Sync Lambda (`src/IranConflictMap.Sync/Function.cs`)
 
-Two additions: a commodity API HTTP call for Brent price and an expanded Claude prompt. Both happen within the existing handler, after the report text is fetched and before the SyncEnvelope is pushed to the processor queue.
+One addition: an expanded Claude prompt. The Sync Lambda also fetches the current Brent price at report time and includes it in the economic PutItem — but intraday price refreshes between report syncs are handled by the new Brent Price Lambda (section 3D), not here.
 
-#### Brent Price Call
+#### Brent Price Call at Report Time
 
-After `FetchReportTextAsync` succeeds, call the commodity API (API Ninjas or Oil Price API) for the current Brent price. New private method: `FetchBrentPriceAsync()` returning `(decimal? Price, string? FetchedAt)` where `FetchedAt` is an ISO 8601 timestamp.
+After `FetchReportTextAsync` succeeds, call the commodity API for the current Brent price. New private method: `FetchBrentPriceAsync()` returning `(decimal? Price, string? FetchedAt)`.
 
-- If the call fails (network error, bad API key, malformed response), log a warning and continue with `null`/`null`. **Do not fail the sync.** Brent data is supplemental.
-- Use the existing static `HttpClient` already in the Sync Lambda — same pattern as `FetchReportTextAsync`.
-- The commodity API key is read at cold start from SSM (`/iran-conflict-map/brent_api_key`) using `GetParameterAsync` with `WithDecryption = true`, mirroring the existing Anthropic key pattern.
+- If the call fails, log a warning and continue with `null`/`null`. **Do not fail the sync.**
+- Use the existing static `HttpClient` — same pattern as `FetchReportTextAsync`.
+- The commodity API key is read at cold start from SSM (`/iran-conflict-map/brent_api_key`) via `GetParameterAsync` with `WithDecryption = true`, mirroring the existing Anthropic key pattern.
 
 #### Expanded Claude Prompt
 
@@ -212,7 +212,7 @@ The JSON response parser (which already handles a top-level object from Claude's
 
 #### Writing the Economic Record
 
-After parsing the Claude response, the Sync Lambda writes directly to `iran-conflict-map-economic` via `PutItemAsync`. This does **not** route through the processor queue — economic data has no proximity matching, review queue, or dedup requirements.
+After parsing the Claude response, the Sync Lambda writes a **full record** to `iran-conflict-map-economic` via `PutItemAsync` (all fields, Brent price included). This does **not** route through the processor queue. The PutItem overwrites any stub record created by prior Brent Lambda runs for the same date — that is intentional since the Sync Lambda fetches a fresh Brent price and adds the Claude-extracted fields.
 
 ```csharp
 // After Claude parse, before enqueuing to processor
@@ -247,7 +247,7 @@ await _dynamoDb.PutItemAsync(new PutItemRequest
 });
 ```
 
-**Re-sync behavior:** PutItem replaces the existing record. If a date is re-synced (DLQ retry, manual trigger), economic data refreshes with the current live price and a new `brent_fetched_at` timestamp.
+**Re-sync behavior:** PutItem replaces the existing record. If a date is re-synced (DLQ retry, manual trigger), all fields including Brent price refresh. The Brent Price Lambda's subsequent UpdateItem calls will continue refreshing `brent_close`/`brent_fetched_at` without touching the Claude-extracted fields.
 
 #### SyncEnvelope / Processor Impact
 
@@ -260,6 +260,43 @@ No changes required.
 ### 3C. API Lambda (`src/IranConflictMap.Api/Program.cs`)
 
 New endpoint — see section 4.
+
+### 3D. Brent Price Lambda — New (`src/IranConflictMap.Brent/Function.cs`)
+
+A small new Lambda triggered by EventBridge on a fixed schedule (every 4–6 hours). Its only job: fetch the current Brent price and upsert `brent_close` + `brent_fetched_at` for today's date.
+
+**Trigger:** EventBridge scheduled rule — `rate(4 hours)` or `cron(0 0/4 * * ? *)`. ICE is open Sunday 23:00 – Friday 22:00 UTC; no need to gate on market hours, the commodity API will simply return the last known quote when markets are closed.
+
+**Logic:**
+1. Call `FetchBrentPriceAsync()` (same method, extracted to shared code or duplicated — project is small enough that duplication is fine).
+2. If call fails, log and exit cleanly. Do not throw.
+3. Write to `iran-conflict-map-economic` via **`UpdateItemAsync`** — only sets Brent fields, leaves all other fields (hormuz_status, economic_notes, source_url, synced_at) untouched:
+
+```csharp
+await _dynamoDb.UpdateItemAsync(new UpdateItemRequest
+{
+    TableName = _economicTableName,
+    Key = new Dictionary<string, AttributeValue>
+    {
+        ["date"] = new AttributeValue { S = DateTime.UtcNow.ToString("yyyy-MM-dd") },
+    },
+    UpdateExpression = "SET brent_close = :price, brent_fetched_at = :ts, entity = if_not_exists(entity, :entity)",
+    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+    {
+        [":price"]  = new AttributeValue { N = price.ToString("F2") },
+        [":ts"]     = new AttributeValue { S = fetchedAt },
+        [":entity"] = new AttributeValue { S = "economic" },
+    },
+});
+```
+
+The `if_not_exists(entity, :entity)` ensures the GSI partition key is set when the Brent Lambda creates a new stub record before the day's report has been synced.
+
+**Interaction with Sync Lambda:** The two Lambdas write to the same date-keyed record but touch different fields. Sync Lambda does a full PutItem when the report arrives (typically ~18:00 ET), which includes a fresh Brent price at that moment. Brent Lambda UpdateItem runs every 4 hours and only updates price fields. There is no write conflict — the Sync Lambda's PutItem will overwrite any Brent Lambda stub, and subsequent Brent Lambda UpdateItem calls will correctly add to the now-complete record.
+
+**New files required:**
+- `src/IranConflictMap.Brent/Function.cs` — Lambda handler
+- `src/IranConflictMap.Brent/IranConflictMap.Brent.csproj` — project file (same structure as other Lambdas)
 
 ---
 
@@ -294,7 +331,7 @@ Added to `Program.cs` alongside the existing strike/sync endpoints.
 
 **Implementation:** Query the `entity-date-index` GSI with `entity = "economic"` and `date BETWEEN [start] AND [end]` for range queries, or `date = [date]` for single-date lookup. Mirror the pattern used in `GET /api/strikes`.
 
-**Caching:** 5-minute in-memory cache keyed on query parameters, identical to the strikes caching pattern.
+**Caching:** 5-minute in-memory cache keyed on query parameters, identical to the strikes caching pattern. Since the Brent Lambda updates prices every 4 hours, a 5-minute cache introduces negligible additional staleness.
 
 **Auth:** None (public, same as `/api/strikes`).
 
@@ -397,29 +434,69 @@ TableV2 economicTable = new TableV2(this, "EconomicTable", new TablePropsV2
 });
 ```
 
-### 6B. IAM Grants
+### 6B. Brent Price Lambda
 
 ```csharp
-economicTable.GrantWriteData(syncFunction);
+Function brentFunction = new Function(this, "BrentFunction", new FunctionProps
+{
+    FunctionName = "iran-conflict-map-brent",
+    Runtime      = Runtime.PROVIDED_AL2023,
+    Architecture = Architecture.ARM_64,
+    Handler      = "bootstrap",
+    Code         = Code.FromAsset("src/IranConflictMap.Brent", new AssetOptions
+    {
+        Bundling = /* same CDK bundling config as other .NET Lambdas in the stack */
+    }),
+    Timeout      = Duration.Seconds(30),  // Simple HTTP call + one DynamoDB write
+    MemorySize   = 256,
+    Environment  = new Dictionary<string, string>
+    {
+        ["BRENT_API_KEY_PARAM"] = "/iran-conflict-map/brent_api_key",
+        ["ECONOMIC_TABLE_NAME"] = economicTable.TableName,
+    },
+});
+```
+
+### 6C. EventBridge Schedule
+
+```csharp
+Rule brentSchedule = new Rule(this, "BrentSchedule", new RuleProps
+{
+    RuleName = "iran-conflict-map-brent-schedule",
+    Schedule = Schedule.Rate(Duration.Hours(4)),
+});
+
+brentSchedule.AddTarget(new LambdaFunction(brentFunction));
+```
+
+Rate of `4 hours` means ~6 invocations/day (~180/month). Adjust to `6 hours` (~4/day) if the free tier needs headroom.
+
+### 6D. IAM Grants
+
+```csharp
+economicTable.GrantWriteData(syncFunction);   // PutItem (full record at report time)
+economicTable.GrantWriteData(brentFunction);  // UpdateItem (price fields only)
 economicTable.GrantReadData(apiFunction);
 ```
 
-### 6C. Environment Variables
+### 6E. Environment Variables
 
 ```csharp
-// Sync Lambda
-syncFunction.AddEnvironment("BRENT_API_KEY_PARAM",  "/iran-conflict-map/brent_api_key");
+// Sync Lambda (existing block — add these two lines)
+syncFunction.AddEnvironment("BRENT_API_KEY_PARAM", "/iran-conflict-map/brent_api_key");
 syncFunction.AddEnvironment("ECONOMIC_TABLE_NAME",  economicTable.TableName);
 
-// API Lambda
+// Brent Lambda (set in FunctionProps above)
+
+// API Lambda (existing block — add this line)
 apiFunction.AddEnvironment("ECONOMIC_TABLE_NAME",   economicTable.TableName);
 ```
 
-The Brent API key is read at runtime by the Sync Lambda via SSM `GetParameterAsync` (`WithDecryption = true`), same pattern as the existing Anthropic key. Do not inline the value as an env var.
+Both the Sync and Brent Lambdas read the commodity API key at runtime from SSM via `GetParameterAsync` (`WithDecryption = true`). Do not inline the value as an env var.
 
-### 6D. SSM Parameter for Brent API Key
+### 6F. SSM Parameter for Brent API Key
 
-The parameter is a SecureString created out-of-band (not by CDK, since the value isn't in source):
+Created out-of-band (value not in source):
 
 ```bash
 aws ssm put-parameter \
@@ -429,7 +506,7 @@ aws ssm put-parameter \
   --region us-east-1
 ```
 
-In the CDK stack, grant the Sync Lambda read access:
+Grant both Lambdas SSM read access in CDK:
 
 ```csharp
 IStringParameter brentKeyParam = StringParameter.FromSecureStringParameterAttributes(
@@ -441,11 +518,12 @@ IStringParameter brentKeyParam = StringParameter.FromSecureStringParameterAttrib
     });
 
 brentKeyParam.GrantRead(syncFunction);
+brentKeyParam.GrantRead(brentFunction);
 ```
 
-### 6E. No Other New Resources
+### 6G. No Other New Resources
 
-No new SQS queues, S3 buckets, or EventBridge rules needed.
+No new SQS queues or S3 buckets needed.
 
 ---
 
@@ -537,41 +615,48 @@ Not recommended. Too tedious, no structured interface exists for it.
 ## 8. Implementation Sequencing
 
 ### Step 1 — CDK infrastructure (deploy first, no code changes)
-1. Add the `iran-conflict-map-economic` DynamoDB table + GSI to the CDK stack.
-2. Add IAM grants for Sync and API Lambdas.
-3. Add SSM parameter reference + grant for Brent API key.
-4. Deploy: `cdk deploy`. Verify table exists in console.
-5. Manually create SSM parameter: `aws ssm put-parameter --name /iran-conflict-map/brent_api_key --value "..." --type SecureString`.
+1. Add the `iran-conflict-map-economic` DynamoDB table + GSI.
+2. Add the Brent Price Lambda (`iran-conflict-map-brent`) with EventBridge schedule.
+3. Add IAM grants for Sync, Brent, and API Lambdas.
+4. Add SSM parameter reference + grant for Brent API key (both Lambdas).
+5. Deploy: `cdk deploy`. Verify table exists and Brent Lambda is created in console.
+6. Create SSM parameter: `aws ssm put-parameter --name /iran-conflict-map/brent_api_key --value "..." --type SecureString`.
 
-### Step 2 — Sync Lambda: Brent price call
-1. Add `FetchBrentPriceAsync()` to `Function.cs`. Wire into handler after `FetchReportTextAsync`.
+### Step 2 — Brent Price Lambda: initial implementation
+1. Create `src/IranConflictMap.Brent/` project with `Function.cs`.
+2. Implement `FetchBrentPriceAsync()` and the `UpdateItemAsync` write.
+3. Deploy. Invoke manually to verify it writes `brent_close` and `brent_fetched_at` for today's date in DynamoDB.
+4. Verify the EventBridge schedule triggers it automatically (check CloudWatch Logs after 4 hours, or manually trigger from console).
+
+### Step 3 — Sync Lambda: Brent price call at report time
+1. Add `FetchBrentPriceAsync()` to `src/IranConflictMap.Sync/Function.cs` (can share implementation or duplicate — small enough that duplication is fine).
 2. Log the result. Do not write to DynamoDB yet.
-3. Deploy. Trigger manual sync, verify call succeeds and logs a price in CloudWatch.
+3. Deploy. Trigger manual sync, verify Brent price is logged in CloudWatch.
 
-### Step 3 — Sync Lambda: Expanded Claude prompt + economic DynamoDB write
-1. Expand `SystemPrompt` constant with the economic extraction block.
+### Step 4 — Sync Lambda: Expanded Claude prompt + economic DynamoDB write
+1. Expand `SystemPrompt` with the economic extraction block.
 2. Add `EconomicExtraction` record/class (`HormuzStatus`, `OilExportVolumeMbd`, `EconomicNotes`).
-3. Update JSON parse logic to extract `economic` key from Claude response.
-4. Add `PutItemAsync` call for the economic table.
-5. Deploy. Trigger sync. Verify economic record in DynamoDB with correct fields.
+3. Update JSON parse logic to extract the `economic` key from Claude response.
+4. Add `PutItemAsync` (full record including Brent price) for the economic table.
+5. Deploy. Trigger sync. Verify full economic record in DynamoDB — all fields present.
 
-### Step 4 — API Lambda: `/api/economic` endpoint
+### Step 5 — API Lambda: `/api/economic` endpoint
 1. Add `GET /api/economic` to `Program.cs`.
 2. Implement GSI query + 5-minute cache.
-3. Deploy. Verify endpoint via curl.
+3. Deploy. Verify via curl.
 
-### Step 5 — Backfill
+### Step 6 — Backfill
 1. Add `backfill-economic` command to Tools project.
-2. Run with `--no-claude` first to populate Brent prices for all historical trading days.
-3. Verify sparkline data is present via the new API endpoint.
-4. Optionally run Tier 2 backfill.
+2. Run `--no-claude` to populate Brent prices for all historical trading days via EIA.
+3. Verify sparkline data via the new API endpoint.
+4. Optionally run Tier 2 (Claude) backfill.
 
-### Step 6 — Frontend: sparkline + indicator strip
+### Step 7 — Frontend: sparkline + indicator strip
 1. Add sparkline SVG and indicator strip markup to `index.html`.
 2. Add JS: fetch `/api/economic?days=30`, render sparkline, populate strip.
-3. Deploy via CDK (triggers `BucketDeployment`).
+3. Deploy via CDK.
 
-### Step 7 — Frontend: economic tab
+### Step 8 — Frontend: economic tab
 1. Add "Economic" tab button and panel to the bottom sheet.
 2. Add JS: fetch and render economic notes when tab is selected.
 3. Deploy.
@@ -590,7 +675,7 @@ Not recommended. Too tedious, no structured interface exists for it.
 Current plan: Claude defaults to `"open"` when the report is silent and `"unknown"` when the report explicitly acknowledges uncertainty. Verify this is the right semantic — `"open"` could be misleading if the report simply didn't cover the Strait that day. Alternative: default `"unknown"` always and only set `"open"` when the report explicitly confirms unrestricted transit. This is safer but will result in more `"unknown"` entries.
 
 ### 9D. Intraday Price vs. Daily Close
-Near-real-time sources return the current intraday quote at the time the Lambda runs (typically ~18:00 ET when CTP-ISW publishes). This is not the official ICE daily settlement price, which is published after market close. For a conflict map, the intraday price at time-of-sync is probably preferable — it reflects the market's current reaction to the day's events rather than yesterday's close. This is the assumed approach. If official settlement prices are needed for any reason, EIA (next-day lag) is the only free option.
+**Resolved: intraday.** The Brent Price Lambda runs every 4 hours throughout the day, so the stored price is always the most recent ICE quote at time of fetch. This is not the official daily settlement price (published by ICE after market close), but for a conflict map showing market reaction to geopolitical events, a live intraday quote is preferable to a lagged official close. If official settlement prices are ever needed, the EIA API (next-day lag) is the only free option.
 
 ### 9E. Brent Fetch Timestamp in UI
 The strip shows "Brent $85.23" captured at a specific time. Consider whether to surface the timestamp at all — options:
@@ -613,6 +698,7 @@ Once morning reports are implemented (see `context/plans/active/MORNING_REPORTS_
 
 | Area | File |
 |------|------|
+| Brent Price Lambda (new) | `src/IranConflictMap.Brent/Function.cs` (create) |
 | Sync Lambda handler + prompt | `src/IranConflictMap.Sync/Function.cs` |
 | Processor Lambda (no changes) | `src/IranConflictMap.Lambda/Function.cs` |
 | API Lambda endpoints | `src/IranConflictMap.Api/Program.cs` |
