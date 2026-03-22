@@ -102,11 +102,9 @@ The clean separation is worth the minor overhead of one new table. The risk of t
 
 Brent crude trades on the **ICE (Intercontinental Exchange)**, not NYSE or a US stock exchange. The benchmark is the ICE Brent Crude futures contract. "Brent spot price" in financial data is derived from nearby futures. EIA and FRED publish end-of-day settlement prices sourced from ICE, but with a 1–2 business day reporting lag — which makes them unsuitable here. We want today's price at time of sync.
 
-### Primary Recommendation: API Ninjas or Oil Price API
+### Confirmed: API Ninjas (`api-ninjas.com`)
 
-Both sources pull from ICE and deliver near-real-time quotes (minutes-delayed, sufficient for a daily conflict map context). Both have free tiers that cover one call per day with room to spare.
-
-**Option 1 — API Ninjas** (`api-ninjas.com`)
+Pulls from ICE, near-real-time quotes (minutes-delayed). Simple API, straightforward response shape.
 
 ```
 GET https://api.api-ninjas.com/v1/commodityprice?name=brent_crude_oil
@@ -118,29 +116,9 @@ Response shape:
 { "name": "brent_crude_oil", "price": 85.23, "updated": 1742680200 }
 ```
 
-- Free tier: 50,000 requests/month — at 3 calls/day that's ~90/month, well within limit.
 - `updated` is a Unix timestamp of the last ICE quote.
-- No rate-limit concerns.
-- Registration: https://api-ninjas.com — free, instant API key.
-
-**Option 2 — Oil Price API** (`oilpriceapi.com`)
-
-```
-GET https://api.oilpriceapi.com/v1/prices/latest
-    ?by_code=BRENT_CRUDE_USD
-Headers: Authorization: Token {KEY}
-```
-
-Response shape:
-```json
-{ "status": "success", "data": { "price": 85.23, "formatted": "85.23 USD", "currency": "USD", "code": "BRENT_CRUDE_USD", "created_at": "2026-03-22T14:30:00.000Z", "type": "spot_price" } }
-```
-
-- Free tier: 1,000 requests/month — at 3 calls/day that's ~90/month, within limit.
-- `created_at` is the ICE quote timestamp in ISO 8601 — store this as `brent_fetched_at`.
-- Registration: https://oilpriceapi.com — free tier available.
-
-**Recommendation:** Either works. API Ninjas has a more generous free tier and simpler response shape. Oil Price API's `created_at` field maps more naturally to the schema. Pick based on whichever key is easier to obtain; the Lambda call is trivial to swap.
+- **Commercial use requires a paid plan.** The free tier is non-commercial only. At ~90 requests/month the usage cost should be minimal.
+- No rate-limit concerns at this volume.
 
 ---
 
@@ -148,8 +126,8 @@ Response shape:
 
 | Source | Pros | Cons |
 |--------|------|------|
-| **API Ninjas** | Near-real-time (ICE), generous free tier, simple API | Third-party service, not an official exchange feed |
-| **Oil Price API** | Near-real-time (ICE), ISO timestamp in response | Smaller free tier (1K req/month) |
+| **API Ninjas** ✓ | Near-real-time (ICE), simple API, ~90 req/month | Paid plan required for commercial use |
+| **Oil Price API** | Near-real-time (ICE), ISO timestamp in response | Free tier is limited; commercial terms unclear |
 | **Alpha Vantage** | Free tier, near-real-time | Rate-limited to 25 req/day on free tier; Brent history requires premium |
 | **Yahoo Finance (unofficial)** | No API key, ticker `BZ=F` | Unofficial scraping; futures ≠ spot; no SLA; legally gray |
 | **EIA Open Data** | Free, official US govt data, history since 1987 | **1–2 business day lag — not acceptable for today's price** |
@@ -469,7 +447,7 @@ Rule brentSchedule = new Rule(this, "BrentSchedule", new RuleProps
 brentSchedule.AddTarget(new LambdaFunction(brentFunction));
 ```
 
-Rate of `8 hours` means ~3 invocations/day (~90/month), comfortably within API Ninjas' free tier.
+Rate of `8 hours` means ~3 invocations/day (~90/month) — minimal cost on API Ninjas' paid plan.
 
 ### 6D. IAM Grants
 
@@ -668,8 +646,8 @@ Not recommended. Too tedious, no structured interface exists for it.
 ### 9A. Schema: Option A vs B
 **Status: Blocking.** See Section 1. Recommendation is Option A (separate table). Confirm before Step 1.
 
-### 9B. Which Commodity API to Use
-**Status: Blocking for Step 2.** Choose API Ninjas or Oil Price API (see Section 2). Register for the key — both are free and instant. Store in SSM as `/iran-conflict-map/brent_api_key` before deploying Step 2.
+### 9B. API Ninjas Paid Plan + SSM Key
+**Status: Blocking for Step 2.** Register for an API Ninjas paid plan (commercial use requires it; at ~90 req/month the cost is minimal). Store the key in SSM: `aws ssm put-parameter --name /iran-conflict-map/brent_api_key --value "..." --type SecureString --region us-east-1`. Must be done before deploying Step 2.
 
 ### 9C. Hormuz Status Default Behavior
 Current plan: Claude defaults to `"open"` when the report is silent and `"unknown"` when the report explicitly acknowledges uncertainty. Verify this is the right semantic — `"open"` could be misleading if the report simply didn't cover the Strait that day. Alternative: default `"unknown"` always and only set `"open"` when the report explicitly confirms unrestricted transit. This is safer but will result in more `"unknown"` entries.
