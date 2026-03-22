@@ -532,16 +532,16 @@
     }
 
     .nav-arrow {
-      width: 52px; height: 100%;
+      width: 64px; height: 100%;
       background: none; border: none; cursor: pointer;
-      color: var(--dim); font-size: 18px; line-height: 1;
+      color: var(--text); font-size: 26px; line-height: 1;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
       transition: color .15s, background .15s;
       -webkit-tap-highlight-color: transparent;
     }
-    .nav-arrow:hover:not(:disabled) { color: var(--text); background: rgba(255,255,255,.03); }
-    .nav-arrow:active:not(:disabled) { color: #fff; }
+    .nav-arrow:hover:not(:disabled) { color: #fff; background: rgba(255,255,255,.05); }
+    .nav-arrow:active:not(:disabled) { color: #fff; background: rgba(255,255,255,.08); }
     .nav-arrow:disabled { color: var(--border); cursor: default; }
 
     /* Date display — centered between arrows */
