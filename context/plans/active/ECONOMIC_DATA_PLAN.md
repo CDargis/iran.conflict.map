@@ -2,97 +2,63 @@
 
 ## Overview
 
-Add structured economic indicators (Tier 1) and Claude-extracted economic signals (Tier 2) to the pipeline and frontend. Brent crude prices (sourced from ICE via a commodity API) are fetched by a **new dedicated Lambda on an EventBridge schedule (every 4–6 hours)**, keeping the price current throughout the day independent of report ingestion. Claude's extraction prompt is expanded in the existing Sync Lambda to pull economic signals (Tier 2) when a CTP-ISW report is processed. A new DynamoDB table holds per-day economic records. The API gets a new endpoint, and the frontend gains a sparkline, an indicator strip, and an economic tab in the event feed.
+Add structured economic indicators (Tier 1) and Claude-extracted economic signals (Tier 2) to the pipeline and frontend. Brent crude prices (sourced from ICE via a commodity API) are fetched by a **new dedicated Lambda on an EventBridge schedule (every 8 hours)**, keeping the price current throughout the day independent of report ingestion. Claude's extraction prompt is expanded in the existing Sync Lambda to pull economic signals (Tier 2) when a CTP-ISW report is processed. A new DynamoDB table holds per-day economic records. The API gets a new endpoint, and the frontend gains a sparkline, an indicator strip, and an economic tab in the event feed.
 
 One new Lambda is added (Brent price poller). The Sync Lambda gains Claude prompt expansion and a Brent price fetch at report time. All other changes extend existing resources.
 
 ---
 
-## 1. Schema Design — Open Question
+## 1. Schema Design
 
-The schema approach is a real decision point. Two concrete options:
+**Decided:** Separate `iran-conflict-map-economic` table (keeps strike table clean), using a composite key design internally — single-table pattern *within* the economic table. The Brent Price Lambda and Sync Lambda each write their own independent rows with no coordination between them. PK is the calendar date; SK encodes the row type and timestamp.
 
 ---
 
-### Option A — Separate `iran-conflict-map-economic` table (Recommended)
+### Table: `iran-conflict-map-economic`
 
-One record per calendar day, keyed on the CTP-ISW report date.
+**Keys:** PK = `date` (YYYY-MM-DD), SK = `sk` (type-prefixed ISO timestamp)
 
 ```typescript
-interface EconomicRecord {
-  date: string;                         // PK — YYYY-MM-DD (report date)
-  entity: "economic";                   // Constant — used for GSI range queries
+// BRENT row — written by the Brent Price Lambda on each scheduled invocation
+interface BrentRow {
+  date: string;          // PK — YYYY-MM-DD
+  sk: string;            // SK — "BRENT#2026-03-22T08:00:00Z"
+  entity_type: "BRENT";  // GSI PK
+  price: number;         // USD/barrel from Crude Price API
+  fetched_at: string;    // ISO 8601 — same timestamp embedded in sk
+}
 
-  // Tier 1 — commodity API sourced (ICE Brent)
-  brent_close: number | null;           // USD/barrel; null if API call failed
-  brent_fetched_at: string | null;      // ISO 8601 timestamp of when the price was fetched
-
-  // Tier 1 — Claude-extracted from report
+// ECONOMIC row — written by the Sync Lambda when a CTP-ISW report is processed
+interface EconomicRow {
+  date: string;                         // PK — YYYY-MM-DD
+  sk: string;                           // SK — "ECONOMIC#2026-03-22T18:12:00Z" (= synced_at)
+  entity_type: "ECONOMIC";              // GSI PK
   hormuz_status: "open" | "restricted" | "closed" | "unknown";
-  oil_export_volume_mbd: number | null; // Million barrels/day; null if not reported
-
-  // Tier 2 — Claude-extracted freeform signals
-  economic_notes: string[];             // Sanctions, Treasury actions, infrastructure, etc.
-
-  // Provenance
-  source_url: string;                   // CTP-ISW report URL
-  synced_at: string;                    // ISO 8601; overwritten on re-sync
+  oil_export_volume_mbd: number | null;
+  economic_notes: string[];
+  source_url: string;
+  synced_at: string;                    // ISO 8601 — same timestamp embedded in sk
 }
 ```
 
 **Key design:**
-- PK is `date` (String). One record per day; re-running a sync for the same date does a PutItem overwrite.
-- A GSI (`entity-date-index`, PK: `entity`, SK: `date`) enables efficient range queries for the sparkline. This mirrors the existing `entity-date-index` on the strikes table — same access pattern.
-- `brent_close` and `brent_fetched_at` are stored together so the UI can show the price alongside when it was captured. Near-real-time sources still have some delay (minutes, not days), and capturing the fetch timestamp makes that transparent.
+- Two Lambdas, two row types, zero coordination. The Brent Lambda does a simple PutItem on each invocation. The Sync Lambda does a simple PutItem when a report is processed. Neither reads or modifies the other's rows.
+- Multiple BRENT rows per day are expected (~3, one per scheduled invocation). Multiple ECONOMIC rows for the same date can occur if a report is re-synced.
+- The API queries by PK (date), receives all rows for that date, splits by SK prefix (`BRENT#` vs `ECONOMIC#`), and merges into a response object. Open questions about which rows to surface — see Section 9.
 
-**Pros:**
-- Clean separation from strike data; no cross-contamination of very different record shapes.
-- Existing strike table queries are completely unaffected — no risk of accidentally returning economic records.
-- Economic data has different access patterns (range scan for sparkline; point lookup for tab) that are cleaner on a dedicated table.
-- Easier to reason about, cheaper to debug, trivial to drop if requirements change.
-- Follows the same provisioning model as existing tables (PAY_PER_REQUEST, RETAIN removal policy).
+### GSI: `entity-type-sk-index`
 
-**Cons:**
-- New table to manage, provision, and grant IAM for (minor).
-- Doesn't follow a strict single-table DynamoDB pattern (this project already uses two tables, so not a real concern).
+Required for the multi-day Brent price chart (cannot query across PK values without a GSI).
 
----
+- **GSI PK:** `entity_type` (String) — `"BRENT"` or `"ECONOMIC"`
+- **GSI SK:** `sk` (String) — lexicographic sort order matches chronological order since values are ISO 8601 timestamps
 
-### Option B — Add economic records to the existing `strikes` table
-
-Use the same `strikes` table with `entity: "economic"` to store economic records. The existing `entity-date-index` GSI already supports this pattern (it's a generic entity+date index).
-
-```typescript
-// In the strikes table, an economic record would look like:
-interface EconomicRecordInStrikesTable {
-  id: string;         // GUID (required by table PK; synthetic for economic records)
-  entity: "economic"; // New entity value; reuses existing GSI
-  date: string;       // SK on entity-date-index
-  brent_close?: number;
-  hormuz_status?: string;
-  economic_notes?: string[];
-  // ... all other economic fields
-  // Note: lat, lng, severity, actor, etc. are absent — sparse item
-}
+Query pattern for the 30-day Brent chart:
 ```
-
-**Pros:**
-- No new table; reuses existing GSI infrastructure.
-- Pure single-table DynamoDB design.
-
-**Cons:**
-- The strikes table's GSI (`entity-date-index`) is currently used to scan all items with `entity = "strike"`. Adding `entity = "economic"` items to the same table means API queries for strikes must be careful to filter — currently they rely on `entity = "strike"` which would continue to work, but it's a silent trap.
-- Economic and strike records have almost no field overlap. Sparse items with many null/absent fields are technically fine in DynamoDB but cognitively confusing.
-- Makes the strikes table's semantics muddier: it stops being a "strike events" table and becomes "all conflict-related records."
-- The API Lambda's strikes caching and Processor Lambda logic would need to be verified to not accidentally touch economic records.
-
----
-
-### Recommendation: **Option A**
-
-The clean separation is worth the minor overhead of one new table. The risk of the single-table approach contaminating existing strike queries isn't worth the "elegance" of fewer tables, especially since this project already uses multiple tables.
-
-**Decision needed:** Confirm Option A before Step 1 of implementation.
+entity_type = "BRENT"
+AND sk BETWEEN "BRENT#2026-02-22T00:00:00Z" AND "BRENT#2026-03-22T23:59:59Z"
+```
+Returns all BRENT rows across all dates in the range, sorted chronologically. The API then reduces to one price per date (latest) for the sparkline, or returns all intraday points for the full chart.
 
 ---
 
@@ -142,15 +108,7 @@ Response shape (to be verified against actual docs):
 
 ### 3A. Sync Lambda (`src/IranConflictMap.Sync/Function.cs`)
 
-One addition: an expanded Claude prompt. The Sync Lambda also fetches the current Brent price at report time and includes it in the economic PutItem — but intraday price refreshes between report syncs are handled by the new Brent Price Lambda (section 3D), not here.
-
-#### Brent Price Call at Report Time
-
-After `FetchReportTextAsync` succeeds, call the commodity API for the current Brent price. New private method: `FetchBrentPriceAsync()` returning `(decimal? Price, string? FetchedAt)`.
-
-- If the call fails, log a warning and continue with `null`/`null`. **Do not fail the sync.**
-- Use the existing static `HttpClient` — same pattern as `FetchReportTextAsync`.
-- The commodity API key is read at cold start from SSM (`/iran-conflict-map/brent_api_key`) via `GetParameterAsync` with `WithDecryption = true`, mirroring the existing Anthropic key pattern.
+One addition: an expanded Claude prompt that extracts economic signals, and a new DynamoDB write for the `ECONOMIC` row. The Sync Lambda does **not** call the Brent price API — that is entirely the Brent Price Lambda's responsibility. The two Lambdas write independent rows and do not coordinate.
 
 #### Expanded Claude Prompt
 
@@ -188,22 +146,19 @@ The "economic" object is always present in the response, even if all fields are 
 
 The JSON response parser (which already handles a top-level object from Claude's text response, stripping markdown code fences) will naturally pick up the `economic` key once the prompt asks for it.
 
-#### Writing the Economic Record
+#### Writing the ECONOMIC Row
 
-After parsing the Claude response, the Sync Lambda writes a **full record** to `iran-conflict-map-economic` via `PutItemAsync` (all fields, Brent price included). This does **not** route through the processor queue. The PutItem overwrites any stub record created by prior Brent Lambda runs for the same date — that is intentional since the Sync Lambda fetches a fresh Brent price and adds the Claude-extracted fields.
+After parsing the Claude response, the Sync Lambda writes an `ECONOMIC` row to `iran-conflict-map-economic` via `PutItemAsync`. No Brent fields — those are exclusively the Brent Lambda's domain.
 
 ```csharp
-// After Claude parse, before enqueuing to processor
+string syncedAt = DateTime.UtcNow.ToString("o");
+string sk       = $"ECONOMIC#{syncedAt}";
+
 Dictionary<string, AttributeValue> economicItem = new()
 {
     ["date"]                   = new AttributeValue { S = reportDate },
-    ["entity"]                 = new AttributeValue { S = "economic" },
-    ["brent_close"]            = brentPrice.Price.HasValue
-                                   ? new AttributeValue { N = brentPrice.Price.Value.ToString("F2") }
-                                   : new AttributeValue { NULL = true },
-    ["brent_fetched_at"]       = brentPrice.FetchedAt != null
-                                   ? new AttributeValue { S = brentPrice.FetchedAt }
-                                   : new AttributeValue { NULL = true },
+    ["sk"]                     = new AttributeValue { S = sk },
+    ["entity_type"]            = new AttributeValue { S = "ECONOMIC" },
     ["hormuz_status"]          = new AttributeValue { S = economic.HormuzStatus ?? "unknown" },
     ["oil_export_volume_mbd"]  = economic.OilExportVolumeMbd.HasValue
                                    ? new AttributeValue { N = economic.OilExportVolumeMbd.Value.ToString("F3") }
@@ -215,17 +170,17 @@ Dictionary<string, AttributeValue> economicItem = new()
                                              .ToList()
                                    },
     ["source_url"]             = new AttributeValue { S = sourceUrl },
-    ["synced_at"]              = new AttributeValue { S = DateTime.UtcNow.ToString("o") },
+    ["synced_at"]              = new AttributeValue { S = syncedAt },
 };
 
 await _dynamoDb.PutItemAsync(new PutItemRequest
 {
-    TableName = _economicTableName,  // from env var ECONOMIC_TABLE_NAME
+    TableName = _economicTableName,
     Item = economicItem,
 });
 ```
 
-**Re-sync behavior:** PutItem replaces the existing record. If a date is re-synced (DLQ retry, manual trigger), all fields including Brent price refresh. The Brent Price Lambda's subsequent UpdateItem calls will continue refreshing `brent_close`/`brent_fetched_at` without touching the Claude-extracted fields.
+**Re-sync behavior:** Because the SK embeds the timestamp, a re-sync creates a *new* ECONOMIC row rather than overwriting the previous one. Multiple ECONOMIC rows may exist for the same date. How the API handles this (latest wins vs. aggregate) is an open question — see Section 9.
 
 #### SyncEnvelope / Processor Impact
 
@@ -241,36 +196,34 @@ New endpoint — see section 4.
 
 ### 3D. Brent Price Lambda — New (`src/IranConflictMap.Brent/Function.cs`)
 
-A small new Lambda triggered by EventBridge on a fixed schedule (every 8 hours). Its only job: fetch the current Brent price and upsert `brent_close` + `brent_fetched_at` for today's date.
+A small new Lambda triggered by EventBridge on a fixed schedule (every 8 hours). Its only job: fetch the current Brent price and insert a `BRENT` row for today's date. No coordination with the Sync Lambda — it writes its own independent rows.
 
-**Trigger:** EventBridge scheduled rule — `rate(8 hours)` or `cron(0 0/8 * * ? *)`. ICE is open Sunday 23:00 – Friday 22:00 UTC; no need to gate on market hours, the commodity API will simply return the last known quote when markets are closed.
+**Trigger:** EventBridge scheduled rule — `rate(8 hours)` or `cron(0 0/8 * * ? *)`. ICE is open Sunday 23:00 – Friday 22:00 UTC; no need to gate on market hours, the commodity API returns the last known quote when markets are closed.
 
 **Logic:**
-1. Call `FetchBrentPriceAsync()` (same method, extracted to shared code or duplicated — project is small enough that duplication is fine).
+1. Call `FetchBrentPriceAsync()`.
 2. If call fails, log and exit cleanly. Do not throw.
-3. Write to `iran-conflict-map-economic` via **`UpdateItemAsync`** — only sets Brent fields, leaves all other fields (hormuz_status, economic_notes, source_url, synced_at) untouched:
+3. Write a `BRENT` row via **`PutItemAsync`** — simple insert, no coordination needed:
 
 ```csharp
-await _dynamoDb.UpdateItemAsync(new UpdateItemRequest
+string fetchedAt = DateTime.UtcNow.ToString("o");
+string sk        = $"BRENT#{fetchedAt}";
+
+await _dynamoDb.PutItemAsync(new PutItemRequest
 {
     TableName = _economicTableName,
-    Key = new Dictionary<string, AttributeValue>
+    Item = new Dictionary<string, AttributeValue>
     {
-        ["date"] = new AttributeValue { S = DateTime.UtcNow.ToString("yyyy-MM-dd") },
-    },
-    UpdateExpression = "SET brent_close = :price, brent_fetched_at = :ts, entity = if_not_exists(entity, :entity)",
-    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-    {
-        [":price"]  = new AttributeValue { N = price.ToString("F2") },
-        [":ts"]     = new AttributeValue { S = fetchedAt },
-        [":entity"] = new AttributeValue { S = "economic" },
+        ["date"]        = new AttributeValue { S = DateTime.UtcNow.ToString("yyyy-MM-dd") },
+        ["sk"]          = new AttributeValue { S = sk },
+        ["entity_type"] = new AttributeValue { S = "BRENT" },
+        ["price"]       = new AttributeValue { N = price.ToString("F2") },
+        ["fetched_at"]  = new AttributeValue { S = fetchedAt },
     },
 });
 ```
 
-The `if_not_exists(entity, :entity)` ensures the GSI partition key is set when the Brent Lambda creates a new stub record before the day's report has been synced.
-
-**Interaction with Sync Lambda:** The two Lambdas write to the same date-keyed record but touch different fields. Sync Lambda does a full PutItem when the report arrives (typically ~18:00 ET), which includes a fresh Brent price at that moment. Brent Lambda UpdateItem runs every 4 hours and only updates price fields. There is no write conflict — the Sync Lambda's PutItem will overwrite any Brent Lambda stub, and subsequent Brent Lambda UpdateItem calls will correctly add to the now-complete record.
+Each invocation inserts a new row. ~3 rows accumulate per day. No row is ever overwritten.
 
 **New files required:**
 - `src/IranConflictMap.Brent/Function.cs` — Lambda handler
@@ -280,38 +233,57 @@ The `if_not_exists(entity, :entity)` ensures the GSI partition key is set when t
 
 ## 4. API Changes
 
-### New Endpoint: `GET /api/economic`
+Two new endpoints serve different frontend use cases: per-day combined economic data (for the tab and indicator strip) and a Brent time-series (for the multi-day chart). The API is responsible for merging raw DynamoDB rows by SK prefix before returning.
 
-Added to `Program.cs` alongside the existing strike/sync endpoints.
+### Endpoint 1: `GET /api/economic`
+
+Per-day combined view. Queries by PK, splits rows by SK prefix, merges into one object per date.
 
 **Query parameters:**
-- `?days=N` — return the last N days of records (default `30`, max `90`). Used by the sparkline.
-- `?date=YYYY-MM-DD` — single record for a specific date.
-- These are mutually exclusive; `date` takes precedence if both are provided.
+- `?date=YYYY-MM-DD` — single date; used by the economic tab and indicator strip.
+- `?days=N` — last N days (default `30`, max `90`); returns one merged object per day.
 
-**Response (array form, `?days=N`):**
+**Implementation:** For each requested date, `Query` by PK (`date = "YYYY-MM-DD"`), receiving all rows for that date. Split by SK prefix:
+- BRENT rows → take the latest by `sk` sort order for `brent_price` / `brent_fetched_at`
+- ECONOMIC rows → take the latest by `sk` sort order for `hormuz_status`, `oil_export_volume_mbd`, `economic_notes`, `source_url`
+
+**Response per date:**
+```json
+{
+  "date": "2026-03-22",
+  "brent_price": 85.23,
+  "brent_fetched_at": "2026-03-22T16:00:00Z",
+  "hormuz_status": "open",
+  "oil_export_volume_mbd": null,
+  "economic_notes": ["OFAC designated three Iranian tankers..."],
+  "source_url": "https://www.criticalthreats.org/analysis/iran-update-march-22-2026",
+  "synced_at": "2026-03-22T18:12:00Z"
+}
+```
+
+Returns 404 (single date) or empty array (range) if no rows exist. `brent_price` and ECONOMIC fields are each independently nullable if that row type hasn't been written yet for the date.
+
+### Endpoint 2: `GET /api/economic/brent`
+
+Brent time-series for the multi-day chart. Uses the `entity-type-sk-index` GSI to query across dates efficiently.
+
+**Query parameters:**
+- `?from=YYYY-MM-DD&to=YYYY-MM-DD` — date range (inclusive). Required.
+- `?resolution=latest_per_day` (default) or `?resolution=all` — whether to return one price per day (latest reading) or every intraday BRENT row.
+
+**Implementation:** GSI query: `entity_type = "BRENT"` with `sk BETWEEN "BRENT#{from}T00:00:00Z" AND "BRENT#{to}T23:59:59Z"`. For `latest_per_day`, group by date and keep last item per group.
+
+**Response:**
 ```json
 [
-  {
-    "date": "2026-03-21",
-    "brent_close": 85.23,
-    "brent_fetched_at": "2026-03-22T14:30:00Z",
-    "hormuz_status": "open",
-    "oil_export_volume_mbd": null,
-    "economic_notes": ["OFAC designated three Iranian tankers operating under Venezuelan flag..."],
-    "source_url": "https://www.criticalthreats.org/analysis/iran-update-march-21-2026",
-    "synced_at": "2026-03-22T04:12:00Z"
-  }
+  { "date": "2026-03-21", "price": 84.90, "fetched_at": "2026-03-21T16:00:00Z" },
+  { "date": "2026-03-22", "price": 85.23, "fetched_at": "2026-03-22T16:00:00Z" }
 ]
 ```
 
-**Response (single record, `?date=YYYY-MM-DD`):** Same shape, not wrapped in array. Returns 404 if no record exists for that date.
+**Caching:** 5-minute in-memory cache on both endpoints. Since the Brent Lambda writes every 8 hours, this introduces negligible staleness.
 
-**Implementation:** Query the `entity-date-index` GSI with `entity = "economic"` and `date BETWEEN [start] AND [end]` for range queries, or `date = [date]` for single-date lookup. Mirror the pattern used in `GET /api/strikes`.
-
-**Caching:** 5-minute in-memory cache keyed on query parameters, identical to the strikes caching pattern. Since the Brent Lambda updates prices every 8 hours, a 5-minute cache introduces negligible additional staleness.
-
-**Auth:** None (public, same as `/api/strikes`).
+**Auth:** None (public).
 
 ---
 
@@ -321,9 +293,19 @@ All changes are in `frontend/index.html` (vanilla JS, no build step).
 
 ### 5A. Brent Crude Sparkline
 
-**Placement:** Below the date navigation arrows, centered, spanning the nav bar width. The arrows stay at their current size; the sparkline occupies the space beneath them.
+Two distinct frontend use cases exist for Brent price data, each backed by a different API call:
 
-**Markup** (added to the topbar/date-nav zone):
+**Use case 1 — Nav bar sparkline (30-day trailing, one price per day)**
+- Fetches `GET /api/economic/brent?from=[30 days ago]&to=[today]&resolution=latest_per_day`
+- One data point per day; renders a compact trend line
+- Loaded once on page load, not re-fetched on date navigation
+
+**Use case 2 — Full intraday chart (all readings for a selected range)**
+- Fetches `GET /api/economic/brent?from=...&to=...&resolution=all`
+- Multiple points per day showing intraday movement
+- This use case is identified but the frontend component is not yet designed — treat as a future addition beyond the initial implementation scope
+
+**Sparkline markup** (nav bar):
 ```html
 <div class="brent-sparkline-container">
   <svg id="brent-sparkline" width="200" height="32"></svg>
@@ -331,11 +313,9 @@ All changes are in `frontend/index.html` (vanilla JS, no build step).
 </div>
 ```
 
-**Rendering:** Vanilla JS — scale 30 data points to the SVG viewport using `min`/`max`, draw a `<polyline>`. Color: amber (`#f59e0b`). The `brent-label` shows the most recent price. On hover, optionally show the `brent_fetched_at` timestamp.
+**Rendering:** Vanilla JS — scale data points to the SVG viewport using `min`/`max`, draw a `<polyline>`. Color: amber (`#f59e0b`). The `brent-label` shows the most recent price. On hover, optionally show `fetched_at`.
 
-**Data fetch:** On page load, call `GET /api/economic?days=30`. Cache in a module-level variable. Not re-fetched on date navigation — sparkline is always 30-day trailing, independent of the selected map date.
-
-**Empty state:** If no economic records exist yet, hide the container with `display:none`.
+**Empty state:** Hide the container with `display:none` if the API returns no data.
 
 ### 5B. Slim Indicator Strip
 
@@ -397,15 +377,16 @@ Third tab added to the bottom sheet alongside "Strikes" and "Syncs".
 TableV2 economicTable = new TableV2(this, "EconomicTable", new TablePropsV2
 {
     TableName = "iran-conflict-map-economic",
-    PartitionKey = new Attribute { Name = "date", Type = AttributeType.STRING },
-    BillingMode = BillingMode.PAY_PER_REQUEST,
+    PartitionKey = new Attribute { Name = "date",        Type = AttributeType.STRING },
+    SortKey      = new Attribute { Name = "sk",          Type = AttributeType.STRING },
+    BillingMode  = BillingMode.PAY_PER_REQUEST,
     GlobalSecondaryIndexes = new[]
     {
         new GlobalSecondaryIndexPropsV2
         {
-            IndexName = "entity-date-index",
-            PartitionKey = new Attribute { Name = "entity", Type = AttributeType.STRING },
-            SortKey    = new Attribute { Name = "date",   Type = AttributeType.STRING },
+            IndexName     = "entity-type-sk-index",
+            PartitionKey  = new Attribute { Name = "entity_type", Type = AttributeType.STRING },
+            SortKey       = new Attribute { Name = "sk",          Type = AttributeType.STRING },
         }
     },
     RemovalPolicy = RemovalPolicy.RETAIN,
@@ -452,8 +433,8 @@ Rate of `8 hours` means ~3 invocations/day (~90/month) — within Crude Price AP
 ### 6D. IAM Grants
 
 ```csharp
-economicTable.GrantWriteData(syncFunction);   // PutItem (full record at report time)
-economicTable.GrantWriteData(brentFunction);  // UpdateItem (price fields only)
+economicTable.GrantWriteData(syncFunction);   // PutItem — ECONOMIC rows
+economicTable.GrantWriteData(brentFunction);  // PutItem — BRENT rows
 economicTable.GrantReadData(apiFunction);
 ```
 
@@ -534,15 +515,15 @@ The EIA key for backfill is separate from the live Brent API key. Register a fre
 
 **Implementation:** Add a `backfill-economic` command to `src/IranConflictMap.Tools/Program.cs`. It:
 1. Calls EIA API with the full date range, using a key passed via CLI arg or env var.
-2. For each returned `(period, value)` pair, writes a minimal economic record to DynamoDB:
-   - `brent_close` populated from EIA settlement price; `brent_fetched_at` set to the backfill run time (not the settlement date — make this obvious in logs).
-   - `hormuz_status = "unknown"` (not yet extracted).
-   - `oil_export_volume_mbd = null`.
-   - `economic_notes = []`.
-   - `source_url = ""` (no report URL for these placeholder records).
-3. Does NOT overwrite records that already have a non-empty `source_url` (use `ConditionExpression: attribute_not_exists(source_url) OR source_url = :empty`).
+2. For each returned `(period, value)` pair, writes one `BRENT` row to DynamoDB matching the live schema:
+   - `date` = EIA `period` (YYYY-MM-DD)
+   - `sk` = `"BRENT#{period}T00:00:00Z"` — the sentinel timestamp marks it as a historical settlement, not an intraday fetch
+   - `entity_type` = `"BRENT"`
+   - `price` = EIA settlement value (decimal)
+   - `fetched_at` = backfill run time (log clearly that this is the run time, not the settlement time)
+3. Uses `PutItemAsync` with `ConditionExpression: attribute_not_exists(sk)` to avoid overwriting any row already written by the live Lambda for the same SK.
 
-This creates placeholder Brent price records for all historical trading days. When a date is later re-synced through the live pipeline, the PutItem overwrites the placeholder with full Brent + Claude data.
+Historical BRENT rows coexist with live rows in the same table. The API and sparkline treat them identically.
 
 **For weekends/holidays:** The sparkline should carry-forward the last known price for gap dates. Handle this in the frontend — connect adjacent data points without gaps.
 
@@ -643,32 +624,49 @@ Not recommended. Too tedious, no structured interface exists for it.
 
 ## 9. Open Questions / Decisions Needed
 
-### 9A. Schema: Option A vs B
-**Status: Blocking.** See Section 1. Recommendation is Option A (separate table). Confirm before Step 1.
+### 9A. How Many BRENT Rows to Surface Per Day
+**Status: Blocking for API and frontend implementation.** The table accumulates ~3 BRENT rows per day. When a user looks at a specific date, should the API return:
+- **Latest only** — one price per date, simplest for the indicator strip and sparkline
+- **All intraday** — full array for the detailed chart use case
 
-### 9B. Crude Price API Key + SSM
+The current plan uses "latest wins" for the `GET /api/economic` merged view and returns all (or latest-per-day) via `GET /api/economic/brent` depending on `?resolution=`. Confirm this is the right split before implementing.
+
+### 9B. ECONOMIC Row Multi-Row Handling (Re-sync)
+**Status: Blocking for API implementation.** Because the SK embeds the sync timestamp, re-processing a report creates a second ECONOMIC row for the same date rather than overwriting the first. The API currently takes the latest ECONOMIC row by SK sort order. Decide:
+- **Latest wins** (current plan) — simple, may discard a more complete earlier extraction if a re-sync produces fewer notes
+- **Merge** — union `economic_notes`, take latest `hormuz_status`; more complex but more resilient to partial re-extractions
+- **Immutable** — first write wins; use `ConditionExpression: attribute_not_exists(sk)` on the ECONOMIC PutItem (similar to the strike event's immutable `description` design)
+
+### 9C. API Response Shape: Merged Object vs Separate Arrays
+**Status: Blocking for frontend implementation.** The current plan has the API merge BRENT and ECONOMIC rows into one combined object per date before returning. Alternative: return raw row arrays and let the frontend compose:
+```json
+{ "brent_rows": [...], "economic_rows": [...] }
+```
+Merged is simpler for the frontend but puts more logic in the API. Separate arrays are more flexible but require the frontend to know the schema. Decide before implementing `GET /api/economic`.
+
+### 9D. Crude Price API Key + SSM
 **Status: Blocking for Step 2.** Register at crudepriceapi.com (free, no credit card). Store the key in SSM: `aws ssm put-parameter --name /iran-conflict-map/brent_api_key --value "..." --type SecureString --region us-east-1`. Verify the actual response shape against the docs before implementing `FetchBrentPriceAsync()` — the shape in this plan is an approximation.
 
-### 9C. Hormuz Status Default Behavior
+### 9E. Hormuz Status Default Behavior
 Current plan: Claude defaults to `"open"` when the report is silent and `"unknown"` when the report explicitly acknowledges uncertainty. Verify this is the right semantic — `"open"` could be misleading if the report simply didn't cover the Strait that day. Alternative: default `"unknown"` always and only set `"open"` when the report explicitly confirms unrestricted transit. This is safer but will result in more `"unknown"` entries.
 
-### 9D. Intraday Price vs. Daily Close
+### 9F. Intraday Price vs. Daily Close
 **Resolved: intraday.** The Brent Price Lambda runs every 8 hours throughout the day, so the stored price is always the most recent ICE quote at time of fetch. This is not the official daily settlement price (published by ICE after market close), but for a conflict map showing market reaction to geopolitical events, a live intraday quote is preferable to a lagged official close. If official settlement prices are ever needed, the EIA API (next-day lag) is the only free option.
 
-### 9E. Brent Fetch Timestamp in UI
+### 9G. Brent Fetch Timestamp in UI
 The strip shows "Brent $85.23" captured at a specific time. Consider whether to surface the timestamp at all — options:
 - Show nothing; just the price (cleanest for a non-trading audience).
 - Show "Brent $85.23 · as of 2:30 PM ET" on hover.
 - Show nothing unless `brent_fetched_at` is more than 24 hours old (staleness warning only).
 
-### 9F. Sparkline Width and Mobile Layout
+### 9H. Sparkline Width and Mobile Layout
 200px × 32px was estimated. After implementing, check on mobile (the existing `.topbar` is `position:fixed; top:0`). The indicator strip adds ~28px more vertical space. On small screens this could compress the map. Consider making the strip optional/collapsible, or merging sparkline + strip into a single compact row.
 
-### 9G. Backfill Tier 2 — Cost and Scope
+### 9I. Backfill Tier 2 — Cost and Scope
 Claude API cost for backfilling ~22 days of reports is negligible. Main constraint is whether old CTP-ISW report pages are still accessible. Verify before investing time in the backfill command. Run `tools test-ctp-fetch` against a Feb 2026 URL to confirm accessibility.
 
-### 9H. Multiple Syncs per Day (Morning Reports)
-Once morning reports are implemented (see `context/plans/active/MORNING_REPORTS_PLAN.md`), a date may be synced twice. The second sync's PutItem overwrites the economic record. This is acceptable — Claude's second extraction has more complete information. If this causes data loss in practice, add `UpdateItem` that merges `economic_notes` arrays instead of replacing.
+### 9J. Multiple Syncs per Day (Morning Reports)
+Once morning reports are implemented (see `context/plans/active/MORNING_REPORTS_PLAN.md`), a date may produce two ECONOMIC rows — one from the morning report sync, one from the evening. This is naturally handled by the composite key design: each gets its own SK. How the API surfaces them (latest only, or merged) is covered by 9B above.
 
 ---
 
