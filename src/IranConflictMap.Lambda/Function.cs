@@ -252,6 +252,15 @@ public class Function
 
                 if (closest.Count == 0)
                 {
+                    if (isReviewApproval && ranked.Count > 0)
+                    {
+                        // Human approved — apply to nearest regardless of threshold
+                        context.Logger.LogLine($"[processor] update: review approval, applying to nearest despite threshold — {nearestDesc}");
+                        existingId = ranked[0].item["id"].S;
+                        await ApplyUpdate(existingId, ranked[0].item, update.Changes, sourceUrl, syncedAt, context);
+                        applied++;
+                        continue;
+                    }
                     context.Logger.LogLine($"[processor] update: no proximity match for {date} ({lat},{lng}) in ±1 day — {nearestDesc}, sending to review");
                     await SendFailedUpdateToReviewQueue($"Update lookup failed: no event within {ThresholdKm}km of ({lat},{lng}) on {date} ±1 day. {nearestDesc}", update, sourceUrl, syncedAt);
                     reviewed++;
@@ -260,6 +269,15 @@ public class Function
 
                 if (closest.Count > 1 && closest[1].dist < 1.0)
                 {
+                    if (isReviewApproval)
+                    {
+                        // Human approved — apply to closest despite ambiguity
+                        context.Logger.LogLine($"[processor] update: review approval, applying to closest despite ambiguity — {nearestDesc}");
+                        existingId = closest[0].item["id"].S;
+                        await ApplyUpdate(existingId, closest[0].item, update.Changes, sourceUrl, syncedAt, context);
+                        applied++;
+                        continue;
+                    }
                     context.Logger.LogLine($"[processor] update: multiple proximity matches within 1km for {date} ({lat},{lng}), sending to review");
                     await SendFailedUpdateToReviewQueue($"Update lookup ambiguous: multiple events within 1km of ({lat},{lng}) on {date} ±1 day. {nearestDesc}", update, sourceUrl, syncedAt);
                     reviewed++;
