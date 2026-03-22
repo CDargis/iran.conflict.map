@@ -102,23 +102,23 @@ The clean separation is worth the minor overhead of one new table. The risk of t
 
 Brent crude trades on the **ICE (Intercontinental Exchange)**, not NYSE or a US stock exchange. The benchmark is the ICE Brent Crude futures contract. "Brent spot price" in financial data is derived from nearby futures. EIA and FRED publish end-of-day settlement prices sourced from ICE, but with a 1–2 business day reporting lag — which makes them unsuitable here. We want today's price at time of sync.
 
-### Confirmed: API Ninjas (`api-ninjas.com`)
+### Confirmed: Crude Price API (`crudepriceapi.com`)
 
-Pulls from ICE, near-real-time quotes (minutes-delayed). Simple API, straightforward response shape.
+Updates every 5 minutes, free forever (100 requests/month, no credit card required). At 3 calls/day (~90/month) we stay within the free tier with buffer.
 
 ```
-GET https://api.api-ninjas.com/v1/commodityprice?name=brent_crude_oil
-Headers: X-Api-Key: {KEY}
+GET https://api.crudepriceapi.com/v1/prices/latest
+Headers: Authorization: Token {KEY}
 ```
 
-Response shape:
+Response shape (to be verified against actual docs):
 ```json
-{ "name": "brent_crude_oil", "price": 85.23, "updated": 1742680200 }
+{ "price": 85.23, "currency": "USD", "updated_at": "2026-03-22T14:30:00.000Z" }
 ```
 
-- `updated` is a Unix timestamp of the last ICE quote.
-- **Commercial use requires a paid plan.** The free tier is non-commercial only. At ~90 requests/month the usage cost should be minimal.
-- No rate-limit concerns at this volume.
+- `updated_at` is the quote timestamp — store as `brent_fetched_at`.
+- Free tier: 100 requests/month, no credit card, no commercial use restrictions noted.
+- No rate-limit concerns at ~90 req/month.
 
 ---
 
@@ -126,8 +126,8 @@ Response shape:
 
 | Source | Pros | Cons |
 |--------|------|------|
-| **API Ninjas** ✓ | Near-real-time (ICE), simple API, ~90 req/month | Paid plan required for commercial use |
-| **Oil Price API** | Near-real-time (ICE), ISO timestamp in response | Free tier is limited; commercial terms unclear |
+| **Crude Price API** ✓ | Free forever (100 req/month), no CC, 5-min updates | Third-party service; response shape unverified until key obtained |
+| **Oil Price API** | Near-real-time (ICE), ISO timestamp in response | Free tier limited; commercial terms unclear |
 | **Alpha Vantage** | Free tier, near-real-time | Rate-limited to 25 req/day on free tier; Brent history requires premium |
 | **Yahoo Finance (unofficial)** | No API key, ticker `BZ=F` | Unofficial scraping; futures ≠ spot; no SLA; legally gray |
 | **EIA Open Data** | Free, official US govt data, history since 1987 | **1–2 business day lag — not acceptable for today's price** |
@@ -447,7 +447,7 @@ Rule brentSchedule = new Rule(this, "BrentSchedule", new RuleProps
 brentSchedule.AddTarget(new LambdaFunction(brentFunction));
 ```
 
-Rate of `8 hours` means ~3 invocations/day (~90/month) — minimal cost on API Ninjas' paid plan.
+Rate of `8 hours` means ~3 invocations/day (~90/month) — within Crude Price API's free tier of 100 req/month.
 
 ### 6D. IAM Grants
 
@@ -479,7 +479,7 @@ Created out-of-band (value not in source):
 ```bash
 aws ssm put-parameter \
   --name /iran-conflict-map/brent_api_key \
-  --value "YOUR_API_NINJAS_OR_OILPRICE_KEY" \
+  --value "YOUR_CRUDE_PRICE_API_KEY" \
   --type SecureString \
   --region us-east-1
 ```
@@ -511,7 +511,7 @@ Data goes back to 2026-02-28. Without backfill, the sparkline will be incomplete
 
 ### 7A. Tier 1 Backfill — Brent Prices (Straightforward)
 
-For historical dates, EIA is the right source even though it's unsuitable for live syncs. Historical settlement prices are exactly what we want for past dates, and the 1–2 day lag is irrelevant when backfilling records from weeks ago. The near-real-time sources (API Ninjas, Oil Price API) are not designed for date-range historical fetches.
+For historical dates, EIA is the right source even though it's unsuitable for live syncs. Historical settlement prices are exactly what we want for past dates, and the 1–2 day lag is irrelevant when backfilling records from weeks ago. The near-real-time sources (Crude Price API, Oil Price API) are not designed for date-range historical fetches.
 
 EIA provides historical Brent prices in a single API call:
 
@@ -646,8 +646,8 @@ Not recommended. Too tedious, no structured interface exists for it.
 ### 9A. Schema: Option A vs B
 **Status: Blocking.** See Section 1. Recommendation is Option A (separate table). Confirm before Step 1.
 
-### 9B. API Ninjas Paid Plan + SSM Key
-**Status: Blocking for Step 2.** Register for an API Ninjas paid plan (commercial use requires it; at ~90 req/month the cost is minimal). Store the key in SSM: `aws ssm put-parameter --name /iran-conflict-map/brent_api_key --value "..." --type SecureString --region us-east-1`. Must be done before deploying Step 2.
+### 9B. Crude Price API Key + SSM
+**Status: Blocking for Step 2.** Register at crudepriceapi.com (free, no credit card). Store the key in SSM: `aws ssm put-parameter --name /iran-conflict-map/brent_api_key --value "..." --type SecureString --region us-east-1`. Verify the actual response shape against the docs before implementing `FetchBrentPriceAsync()` — the shape in this plan is an approximation.
 
 ### 9C. Hormuz Status Default Behavior
 Current plan: Claude defaults to `"open"` when the report is silent and `"unknown"` when the report explicitly acknowledges uncertainty. Verify this is the right semantic — `"open"` could be misleading if the report simply didn't cover the Strait that day. Alternative: default `"unknown"` always and only set `"open"` when the report explicitly confirms unrestricted transit. This is safer but will result in more `"unknown"` entries.
