@@ -512,7 +512,7 @@
 
     #desktop-shell { display: none; }
 
-    /* ── TIME SLIDER ── */
+    /* ── DATE NAV ── */
     #timebar {
       position: fixed;
       top: calc(var(--header-h) + var(--filter-h));
@@ -520,14 +520,35 @@
       height: var(--time-h);
       background: var(--panel);
       border-bottom: 1px solid var(--border);
-      display: flex; align-items: center;
-      padding: 0 14px; gap: 12px; z-index: 800;
+      display: flex; align-items: stretch;
+      z-index: 800;
     }
-    #timebar-date {
+
+    /* Container for the full navigation zone — will house sparkline, economic strip, etc. */
+    #date-nav {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+
+    .nav-arrow {
+      width: 52px; height: 100%;
+      background: none; border: none; cursor: pointer;
+      color: var(--dim); font-size: 18px; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: color .15s, background .15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .nav-arrow:hover:not(:disabled) { color: var(--text); background: rgba(255,255,255,.03); }
+    .nav-arrow:active:not(:disabled) { color: #fff; }
+    .nav-arrow:disabled { color: var(--border); cursor: default; }
+
+    /* Date display — centered between arrows */
+    #date-display {
       display: flex; flex-direction: column; align-items: center;
-      flex-shrink: 0; line-height: 1; gap: 2px;
-      padding-right: 12px;
-      border-right: 1px solid var(--border);
+      justify-content: center; line-height: 1; gap: 2px;
+      min-width: 100px;
     }
     .td-month {
       font-size: 8px; letter-spacing: .2em; color: var(--dim);
@@ -537,64 +558,6 @@
       font-size: 24px; font-family: var(--sans); font-weight: 700;
       color: #fff; line-height: 1;
     }
-    .time-slider-wrap { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-    .time-track-wrap { position: relative; height: 18px; display: flex; align-items: center; }
-    .time-track-bg {
-      position: absolute; left: 0; right: 0; height: 2px;
-      background: var(--border); border-radius: 1px;
-    }
-    .time-track-fill {
-      position: absolute; left: 0; height: 2px;
-      background: var(--accent); opacity: .6; border-radius: 1px;
-      pointer-events: none; transition: width .1s linear;
-    }
-    .time-ticks {
-      display: flex; align-items: flex-end; height: 7px;
-      padding: 0 7px; pointer-events: none;
-    }
-    .time-tick {
-      flex: 1; height: 3px; border-radius: 1px;
-      background: var(--border); margin: 0 1px;
-      transition: background .1s, opacity .1s;
-    }
-    .time-tick.past { background: var(--accent); opacity: .45; }
-    .time-track-wrap input[type=range] {
-      position: absolute; width: 100%;
-      -webkit-appearance: none; appearance: none;
-      background: transparent; pointer-events: none;
-      height: 18px; margin: 0; padding: 0;
-    }
-    .time-track-wrap input[type=range]:focus { outline: none; }
-    .time-track-wrap input[type=range]::-webkit-slider-runnable-track { background: transparent; }
-    .time-track-wrap input[type=range]::-moz-range-track { background: transparent; border: none; }
-    .time-track-wrap input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      pointer-events: all;
-      width: 14px; height: 14px; border-radius: 50%;
-      background: var(--accent);
-      border: 2px solid var(--bg);
-      cursor: grab;
-      animation: thumb-glow 1.8s ease-in-out 4;
-    }
-    .time-track-wrap input[type=range]::-webkit-slider-thumb:active { cursor: grabbing; }
-    .time-track-wrap input[type=range]::-moz-range-thumb {
-      pointer-events: all;
-      width: 14px; height: 14px; border-radius: 50%;
-      background: var(--accent);
-      border: 2px solid var(--bg);
-      cursor: grab;
-    }
-    @keyframes thumb-glow {
-      0%,100% { box-shadow: 0 0 3px rgba(155,35,53,.3); }
-      50%      { box-shadow: 0 0 8px rgba(155,35,53,.6); }
-    }
-    .timebar-hint {
-      font-size: 8px; letter-spacing: .14em; color: var(--accent);
-      white-space: nowrap; flex-shrink: 0;
-      animation: hint-fade 2s ease-in-out infinite;
-      transition: opacity .4s ease;
-    }
-    .timebar-hint.used { opacity: 0; pointer-events: none; }
 
     /* ── LOADING OVERLAY ── */
     #loader {
@@ -673,19 +636,14 @@
 </div>
 
 <div id="timebar">
-  <div id="timebar-date">
-    <div class="td-month" id="lbl-month">—</div>
-    <div class="td-day" id="lbl-day">—</div>
-  </div>
-  <div class="time-slider-wrap">
-    <div class="time-track-wrap">
-      <div class="time-track-bg"></div>
-      <div class="time-track-fill" id="time-fill"></div>
-      <input type="range" id="range-day" min="0" max="100" value="100">
+  <div id="date-nav">
+    <button class="nav-arrow" id="nav-prev" aria-label="Previous day">&#8592;</button>
+    <div id="date-display">
+      <div class="td-month" id="lbl-month">—</div>
+      <div class="td-day" id="lbl-day">—</div>
     </div>
-    <div class="time-ticks" id="time-ticks"></div>
+    <button class="nav-arrow" id="nav-next" aria-label="Next day">&#8594;</button>
   </div>
-  <span class="timebar-hint" id="timebar-hint">← drag →</span>
 </div>
 
 <div id="map"></div>
@@ -865,43 +823,38 @@ function focusStrike(id){
   if(window.innerWidth<900) snapSheet('closed');
 }
 
-/* ── TIME SLIDER ── */
+/* ── DATE NAV ── */
 const MONTH_ABB=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 function fmtDate(d){return `${MONTH_ABB[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2,'0')}`;}
 let sortedDates=[];
-let dayDebounceTimer=null;
+let currentDayIdx=0;
 
 function getSelectedDate(){
-  const rd=document.getElementById('range-day');
-  return sortedDates[+rd.value]||null;
+  return sortedDates[currentDayIdx]||null;
 }
 
-function updateTimebar(idx){
+function updateDateDisplay(idx){
   const d=new Date(sortedDates[idx]+'T00:00:00Z');
   document.getElementById('lbl-month').textContent=MONTH_ABB[d.getUTCMonth()];
   document.getElementById('lbl-day').textContent=String(d.getUTCDate()).padStart(2,'0');
-  const pct=sortedDates.length>1?idx/(sortedDates.length-1)*100:100;
-  document.getElementById('time-fill').style.width=pct+'%';
-  document.querySelectorAll('.time-tick').forEach((el,i)=>{
-    el.classList.toggle('past',i<=idx);
-  });
+  document.getElementById('nav-prev').disabled=idx<=0;
+  document.getElementById('nav-next').disabled=idx>=sortedDates.length-1;
 }
 
-function initTimeSlider(data){
+function navigateDay(delta){
+  const idx=Math.max(0,Math.min(sortedDates.length-1,currentDayIdx+delta));
+  if(idx===currentDayIdx) return;
+  currentDayIdx=idx;
+  updateDateDisplay(idx);
+  fetchDayStrikes(sortedDates[idx]);
+}
+
+function initDateNav(data){
   sortedDates=[...new Set(data.map(s=>s.date))].sort();
-  const rd=document.getElementById('range-day');
-  rd.min=0; rd.max=sortedDates.length-1; rd.value=sortedDates.length-1;
-  // render ticks
-  document.getElementById('time-ticks').innerHTML=
-    sortedDates.map(()=>'<div class="time-tick"></div>').join('');
-  updateTimebar(sortedDates.length-1);
-  rd.addEventListener('input',function(){
-    const idx=+rd.value;
-    updateTimebar(idx);
-    document.getElementById('timebar-hint').classList.add('used');
-    clearTimeout(dayDebounceTimer);
-    dayDebounceTimer=setTimeout(()=>fetchDayStrikes(sortedDates[idx]),300);
-  });
+  currentDayIdx=sortedDates.length-1;
+  updateDateDisplay(currentDayIdx);
+  document.getElementById('nav-prev').addEventListener('click',()=>navigateDay(-1));
+  document.getElementById('nav-next').addEventListener('click',()=>navigateDay(1));
 }
 
 function fetchDayStrikes(dateStr){
@@ -1050,7 +1003,7 @@ function render(data){
   document.getElementById('desktop-legend').innerHTML = legendHTML();
   document.getElementById('sync-desktop').textContent = sync;
   allStrikes=data;
-  initTimeSlider(data);
+  initDateNav(data);
   // Show latest day on initial load
   const latestDate=sortedDates[sortedDates.length-1];
   const latestDay=data.filter(s=>s.date===latestDate);
