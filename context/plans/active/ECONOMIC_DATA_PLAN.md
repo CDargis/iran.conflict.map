@@ -2,7 +2,7 @@
 
 ## Overview
 
-Add structured economic indicators (Tier 1) and Claude-extracted economic signals (Tier 2) to the pipeline and frontend. EIA (or alternative source) Brent crude prices are fetched in the Sync Lambda alongside existing CTP-ISW report processing. Claude's extraction prompt is expanded to pull economic signals from the same report text. A new DynamoDB table holds per-day economic records. The API gets a new endpoint, and the frontend gains a sparkline, an indicator strip, and an economic tab in the event feed.
+Add structured economic indicators (Tier 1) and Claude-extracted economic signals (Tier 2) to the pipeline and frontend. Near-real-time Brent crude prices (sourced from ICE via a commodity API) are fetched in the Sync Lambda alongside existing CTP-ISW report processing. Claude's extraction prompt is expanded to pull economic signals from the same report text. A new DynamoDB table holds per-day economic records. The API gets a new endpoint, and the frontend gains a sparkline, an indicator strip, and an economic tab in the event feed.
 
 Nothing is deployed as a standalone Lambda. All changes extend existing resources.
 
@@ -23,9 +23,9 @@ interface EconomicRecord {
   date: string;                         // PK — YYYY-MM-DD (report date)
   entity: "economic";                   // Constant — used for GSI range queries
 
-  // Tier 1 — EIA-sourced
-  brent_close: number | null;           // USD/barrel; null if unavailable
-  brent_date: string | null;            // Actual EIA observation date (often lags 1–2 days)
+  // Tier 1 — commodity API sourced (ICE Brent)
+  brent_close: number | null;           // USD/barrel; null if API call failed
+  brent_fetched_at: string | null;      // ISO 8601 timestamp of when the price was fetched
 
   // Tier 1 — Claude-extracted from report
   hormuz_status: "open" | "restricted" | "closed" | "unknown";
@@ -43,7 +43,7 @@ interface EconomicRecord {
 **Key design:**
 - PK is `date` (String). One record per day; re-running a sync for the same date does a PutItem overwrite.
 - A GSI (`entity-date-index`, PK: `entity`, SK: `date`) enables efficient range queries for the sparkline. This mirrors the existing `entity-date-index` on the strikes table — same access pattern.
-- `brent_close` and `brent_date` are separate because EIA data lags 1–2 business days. The reported price may be for the previous trading day; capturing `brent_date` lets the UI display accurately.
+- `brent_close` and `brent_fetched_at` are stored together so the UI can show the price alongside when it was captured. Near-real-time sources still have some delay (minutes, not days), and capturing the fetch timestamp makes that transparent.
 
 **Pros:**
 - Clean separation from strike data; no cross-contamination of very different record shapes.
@@ -98,47 +98,49 @@ The clean separation is worth the minor overhead of one new table. The risk of t
 
 ## 2. Data Source — Brent Crude Price
 
-### Primary Recommendation: EIA Open Data API v2
+### Background
 
-The U.S. Energy Information Administration provides free historical and near-real-time Brent crude daily closing prices.
+Brent crude trades on the **ICE (Intercontinental Exchange)**, not NYSE or a US stock exchange. The benchmark is the ICE Brent Crude futures contract. "Brent spot price" in financial data is derived from nearby futures. EIA and FRED publish end-of-day settlement prices sourced from ICE, but with a 1–2 business day reporting lag — which makes them unsuitable here. We want today's price at time of sync.
 
-**Registration:** Free API key at https://www.eia.gov/opendata/ — no approval process, typically available within minutes.
+### Primary Recommendation: API Ninjas or Oil Price API
 
-**Endpoint:**
+Both sources pull from ICE and deliver near-real-time quotes (minutes-delayed, sufficient for a daily conflict map context). Both have free tiers that cover one call per day with room to spare.
+
+**Option 1 — API Ninjas** (`api-ninjas.com`)
+
 ```
-GET https://api.eia.gov/v2/petroleum/pri/spt/data/
-    ?api_key={KEY}
-    &frequency=daily
-    &data[0]=value
-    &facets[product][]=RBRTE
-    &sort[0][column]=period
-    &sort[0][direction]=desc
-    &length=1
+GET https://api.api-ninjas.com/v1/commodityprice?name=brent_crude_oil
+Headers: X-Api-Key: {KEY}
 ```
 
-- **Series ID:** `RBRTE` — Europe Brent Spot Price FOB (Dollars per Barrel). This is the standard Brent benchmark used in financial reporting and geopolitical analysis.
-- **Alternative series:** `RWTC` is WTI (West Texas Intermediate) — slightly different but also valid. Brent (`RBRTE`) is more relevant for Middle East / geopolitical context.
-- **Historical depth:** Available from May 1987 onward — more than sufficient for backfill.
-
-**Response shape:**
+Response shape:
 ```json
-{
-  "response": {
-    "data": [
-      { "period": "2026-03-21", "value": "85.23", "product": "RBRTE", "duoarea": "R2", "process": "SPT" }
-    ]
-  }
-}
+{ "name": "brent_crude_oil", "price": 85.23, "updated": 1742680200 }
 ```
 
-**Known gotchas:**
-1. **Lag:** EIA publishes daily spot prices with a 1–2 business day lag. Weekends and US holidays extend the gap. This means on a Monday sync, `period` might be the previous Thursday. Always store `brent_date` alongside `brent_close` so the UI can show "as of [date]" rather than implying it's today's price.
-2. **Rate limits:** Generous for free tier (no documented hard limit, but EIA recommends staying under a few thousand requests/day for free keys). Not a concern for daily syncs.
-3. **Missing data:** EIA omits weekends and US market holidays. The `?length=1` query will return the most recent available trading day, which is correct behavior.
-4. **Value is a string:** `"value": "85.23"` — parse as decimal, not integer.
-5. **No real-time data:** EIA is not a market data feed. For the purposes of this feature (daily conflict context, not trading), this is fine.
+- Free tier: 50,000 requests/month — far more than needed.
+- `updated` is a Unix timestamp of the last ICE quote.
+- No rate-limit concerns for one daily call.
+- Registration: https://api-ninjas.com — free, instant API key.
 
-**For historical backfill:** Use `&sort[0][direction]=asc&start=2026-02-28&end=2026-03-22` to fetch a date range in one call. Limit is 5000 rows per request, sufficient for any realistic range.
+**Option 2 — Oil Price API** (`oilpriceapi.com`)
+
+```
+GET https://api.oilpriceapi.com/v1/prices/latest
+    ?by_code=BRENT_CRUDE_USD
+Headers: Authorization: Token {KEY}
+```
+
+Response shape:
+```json
+{ "status": "success", "data": { "price": 85.23, "formatted": "85.23 USD", "currency": "USD", "code": "BRENT_CRUDE_USD", "created_at": "2026-03-22T14:30:00.000Z", "type": "spot_price" } }
+```
+
+- Free tier: 1,000 requests/month — sufficient for one call/day.
+- `created_at` is the ICE quote timestamp in ISO 8601 — store this as `brent_fetched_at`.
+- Registration: https://oilpriceapi.com — free tier available.
+
+**Recommendation:** Either works. API Ninjas has a more generous free tier and simpler response shape. Oil Price API's `created_at` field maps more naturally to the schema. Pick based on whichever key is easier to obtain; the Lambda call is trivial to swap.
 
 ---
 
@@ -146,13 +148,15 @@ GET https://api.eia.gov/v2/petroleum/pri/spt/data/
 
 | Source | Pros | Cons |
 |--------|------|------|
-| **EIA (recommended)** | Free, no rate limits for our usage, historical depth since 1987, official US government data | 1–2 day lag |
-| **Alpha Vantage** | Free tier, near-real-time, many commodities | Rate-limited to 25 req/day on free tier; `BRENT` commodity requires premium for some history |
-| **Yahoo Finance (unofficial)** | No API key, ticker `BZ=F` for Brent futures | Unofficial / unofficial scraping; no SLA; futures price ≠ spot price; legally gray |
-| **Quandl / Nasdaq Data Link** | High quality, good documentation | Paid for most series; Brent spot needs a paid subscription |
-| **FRED (St. Louis Fed)** | Free, official, series `DCOILBRENTEU` | Same lag as EIA; slightly more cumbersome API; identical underlying data |
+| **API Ninjas** | Near-real-time (ICE), generous free tier, simple API | Third-party service, not an official exchange feed |
+| **Oil Price API** | Near-real-time (ICE), ISO timestamp in response | Smaller free tier (1K req/month) |
+| **Alpha Vantage** | Free tier, near-real-time | Rate-limited to 25 req/day on free tier; Brent history requires premium |
+| **Yahoo Finance (unofficial)** | No API key, ticker `BZ=F` | Unofficial scraping; futures ≠ spot; no SLA; legally gray |
+| **EIA Open Data** | Free, official US govt data, history since 1987 | **1–2 business day lag — not acceptable for today's price** |
+| **FRED (St. Louis Fed)** | Free, official, series `DCOILBRENTEU` | Same lag as EIA; identical underlying data |
+| **Quandl / Nasdaq Data Link** | High quality | Paid for Brent spot |
 
-**Conclusion:** EIA is the right choice. FRED is a valid backup (same data, different API). If this ever needs sub-day prices, Alpha Vantage or a paid provider would be required.
+**Note on EIA for backfill:** Even though EIA is unsuitable for live syncs (due to lag), its historical API is the right tool for the Tier 1 backfill operation (see Section 7A). Historical settlement prices are exactly what we want for past dates, and EIA's date-range endpoint makes batch fetching trivial.
 
 ---
 
@@ -160,15 +164,15 @@ GET https://api.eia.gov/v2/petroleum/pri/spt/data/
 
 ### 3A. Sync Lambda (`src/IranConflictMap.Sync/Function.cs`)
 
-Two additions: an EIA HTTP call and an expanded Claude prompt. Both happen within the existing handler, after the report text is fetched and before the SyncEnvelope is pushed to the processor queue.
+Two additions: a commodity API HTTP call for Brent price and an expanded Claude prompt. Both happen within the existing handler, after the report text is fetched and before the SyncEnvelope is pushed to the processor queue.
 
-#### EIA Call
+#### Brent Price Call
 
-After `FetchReportTextAsync` succeeds, call the EIA API for the most recent Brent closing price. New private method: `FetchBrentPriceAsync()` returning `(decimal? Close, string? ObservationDate)`.
+After `FetchReportTextAsync` succeeds, call the commodity API (API Ninjas or Oil Price API) for the current Brent price. New private method: `FetchBrentPriceAsync()` returning `(decimal? Price, string? FetchedAt)` where `FetchedAt` is an ISO 8601 timestamp.
 
-- If the EIA call fails (network error, bad API key, malformed response), log a warning and continue with `null`/`null`. **Do not fail the sync.** EIA data is supplemental.
+- If the call fails (network error, bad API key, malformed response), log a warning and continue with `null`/`null`. **Do not fail the sync.** Brent data is supplemental.
 - Use the existing static `HttpClient` already in the Sync Lambda — same pattern as `FetchReportTextAsync`.
-- The EIA API key is read at cold start from SSM (`/iran-conflict-map/eia_api_key`) using `GetParameterAsync` with `WithDecryption = true`, mirroring the existing Anthropic key pattern.
+- The commodity API key is read at cold start from SSM (`/iran-conflict-map/brent_api_key`) using `GetParameterAsync` with `WithDecryption = true`, mirroring the existing Anthropic key pattern.
 
 #### Expanded Claude Prompt
 
@@ -216,11 +220,11 @@ Dictionary<string, AttributeValue> economicItem = new()
 {
     ["date"]                   = new AttributeValue { S = reportDate },
     ["entity"]                 = new AttributeValue { S = "economic" },
-    ["brent_close"]            = brentPrice.Close.HasValue
-                                   ? new AttributeValue { N = brentPrice.Close.Value.ToString("F2") }
+    ["brent_close"]            = brentPrice.Price.HasValue
+                                   ? new AttributeValue { N = brentPrice.Price.Value.ToString("F2") }
                                    : new AttributeValue { NULL = true },
-    ["brent_date"]             = brentPrice.ObservationDate != null
-                                   ? new AttributeValue { S = brentPrice.ObservationDate }
+    ["brent_fetched_at"]       = brentPrice.FetchedAt != null
+                                   ? new AttributeValue { S = brentPrice.FetchedAt }
                                    : new AttributeValue { NULL = true },
     ["hormuz_status"]          = new AttributeValue { S = economic.HormuzStatus ?? "unknown" },
     ["oil_export_volume_mbd"]  = economic.OilExportVolumeMbd.HasValue
@@ -243,7 +247,7 @@ await _dynamoDb.PutItemAsync(new PutItemRequest
 });
 ```
 
-**Re-sync behavior:** PutItem replaces the existing record. If a date is re-synced (DLQ retry, manual trigger), economic data refreshes. Intentional — EIA price may have updated since the first sync.
+**Re-sync behavior:** PutItem replaces the existing record. If a date is re-synced (DLQ retry, manual trigger), economic data refreshes with the current live price and a new `brent_fetched_at` timestamp.
 
 #### SyncEnvelope / Processor Impact
 
@@ -276,7 +280,7 @@ Added to `Program.cs` alongside the existing strike/sync endpoints.
   {
     "date": "2026-03-21",
     "brent_close": 85.23,
-    "brent_date": "2026-03-20",
+    "brent_fetched_at": "2026-03-22T14:30:00Z",
     "hormuz_status": "open",
     "oil_export_volume_mbd": null,
     "economic_notes": ["OFAC designated three Iranian tankers operating under Venezuelan flag..."],
@@ -312,7 +316,7 @@ All changes are in `frontend/index.html` (vanilla JS, no build step).
 </div>
 ```
 
-**Rendering:** Vanilla JS — scale 30 data points to the SVG viewport using `min`/`max`, draw a `<polyline>`. Color: amber (`#f59e0b`). The `brent-label` shows the most recent price. On hover, show a tooltip with the observation date (important because of EIA lag).
+**Rendering:** Vanilla JS — scale 30 data points to the SVG viewport using `min`/`max`, draw a `<polyline>`. Color: amber (`#f59e0b`). The `brent-label` shows the most recent price. On hover, optionally show the `brent_fetched_at` timestamp.
 
 **Data fetch:** On page load, call `GET /api/economic?days=30`. Cache in a module-level variable. Not re-fetched on date navigation — sparkline is always 30-day trailing, independent of the selected map date.
 
@@ -404,23 +408,23 @@ economicTable.GrantReadData(apiFunction);
 
 ```csharp
 // Sync Lambda
-syncFunction.AddEnvironment("EIA_API_KEY_PARAM",   "/iran-conflict-map/eia_api_key");
+syncFunction.AddEnvironment("BRENT_API_KEY_PARAM",  "/iran-conflict-map/brent_api_key");
 syncFunction.AddEnvironment("ECONOMIC_TABLE_NAME",  economicTable.TableName);
 
 // API Lambda
 apiFunction.AddEnvironment("ECONOMIC_TABLE_NAME",   economicTable.TableName);
 ```
 
-The EIA key is read at runtime by the Sync Lambda via SSM `GetParameterAsync` (`WithDecryption = true`), same pattern as the existing Anthropic key. Do not inline the value as an env var.
+The Brent API key is read at runtime by the Sync Lambda via SSM `GetParameterAsync` (`WithDecryption = true`), same pattern as the existing Anthropic key. Do not inline the value as an env var.
 
-### 6D. SSM Parameter for EIA API Key
+### 6D. SSM Parameter for Brent API Key
 
 The parameter is a SecureString created out-of-band (not by CDK, since the value isn't in source):
 
 ```bash
 aws ssm put-parameter \
-  --name /iran-conflict-map/eia_api_key \
-  --value "YOUR_EIA_KEY" \
+  --name /iran-conflict-map/brent_api_key \
+  --value "YOUR_API_NINJAS_OR_OILPRICE_KEY" \
   --type SecureString \
   --region us-east-1
 ```
@@ -428,15 +432,15 @@ aws ssm put-parameter \
 In the CDK stack, grant the Sync Lambda read access:
 
 ```csharp
-IStringParameter eiaKeyParam = StringParameter.FromSecureStringParameterAttributes(
-    this, "EiaApiKeyParam",
+IStringParameter brentKeyParam = StringParameter.FromSecureStringParameterAttributes(
+    this, "BrentApiKeyParam",
     new SecureStringParameterAttributes
     {
-        ParameterName = "/iran-conflict-map/eia_api_key",
+        ParameterName = "/iran-conflict-map/brent_api_key",
         Version = 1,
     });
 
-eiaKeyParam.GrantRead(syncFunction);
+brentKeyParam.GrantRead(syncFunction);
 ```
 
 ### 6E. No Other New Resources
@@ -451,11 +455,13 @@ Data goes back to 2026-02-28. Without backfill, the sparkline will be incomplete
 
 ### 7A. Tier 1 Backfill — Brent Prices (Straightforward)
 
-EIA provides historical Brent prices in a single API call using date range parameters:
+For historical dates, EIA is the right source even though it's unsuitable for live syncs. Historical settlement prices are exactly what we want for past dates, and the 1–2 day lag is irrelevant when backfilling records from weeks ago. The near-real-time sources (API Ninjas, Oil Price API) are not designed for date-range historical fetches.
+
+EIA provides historical Brent prices in a single API call:
 
 ```
 GET https://api.eia.gov/v2/petroleum/pri/spt/data/
-    ?api_key={KEY}
+    ?api_key={EIA_KEY}
     &frequency=daily
     &data[0]=value
     &facets[product][]=RBRTE
@@ -466,21 +472,23 @@ GET https://api.eia.gov/v2/petroleum/pri/spt/data/
     &length=100
 ```
 
-This returns all trading days in the range. Note that EIA omits weekends and holidays, so `period` will have gaps. That's correct — there's no Brent close on non-trading days.
+This returns all trading days in the range. EIA omits weekends and holidays — that's correct, there's no Brent close on non-trading days.
+
+The EIA key for backfill is separate from the live Brent API key. Register a free EIA key at https://www.eia.gov/opendata/ (instant). It is only needed for the one-time backfill run; it does not need to go into SSM or CDK.
 
 **Implementation:** Add a `backfill-economic` command to `src/IranConflictMap.Tools/Program.cs`. It:
-1. Calls the EIA API with the full date range.
+1. Calls EIA API with the full date range, using a key passed via CLI arg or env var.
 2. For each returned `(period, value)` pair, writes a minimal economic record to DynamoDB:
-   - `brent_close` and `brent_date` populated from EIA.
+   - `brent_close` populated from EIA settlement price; `brent_fetched_at` set to the backfill run time (not the settlement date — make this obvious in logs).
    - `hormuz_status = "unknown"` (not yet extracted).
    - `oil_export_volume_mbd = null`.
    - `economic_notes = []`.
    - `source_url = ""` (no report URL for these placeholder records).
 3. Does NOT overwrite records that already have a non-empty `source_url` (use `ConditionExpression: attribute_not_exists(source_url) OR source_url = :empty`).
 
-This creates placeholder Brent price records for all historical trading days. When a date is later re-synced through the live pipeline, the PutItem overwrites the placeholder with full data.
+This creates placeholder Brent price records for all historical trading days. When a date is later re-synced through the live pipeline, the PutItem overwrites the placeholder with full Brent + Claude data.
 
-**For weekends/holidays:** The sparkline should interpolate or carry-forward the last known price. Handle this in the frontend (not the API) — connect adjacent data points without gaps.
+**For weekends/holidays:** The sparkline should carry-forward the last known price for gap dates. Handle this in the frontend — connect adjacent data points without gaps.
 
 ### 7B. Tier 2 Backfill — Claude-Extracted Signals (Partial Options)
 
@@ -519,8 +527,8 @@ Not recommended. Too tedious, no structured interface exists for it.
 ### 7C. Backfill Execution Order
 
 1. Deploy CDK changes (Step 1 of implementation sequence).
-2. Put EIA API key in SSM.
-3. Build and run: `tools backfill-economic --start 2026-02-28 --end [today] --no-claude` — writes Brent prices for all trading days.
+2. Register a free EIA API key at https://www.eia.gov/opendata/ (for backfill only — not stored in SSM).
+3. Build and run: `tools backfill-economic --start 2026-02-28 --end [today] --no-claude --eia-key YOUR_EIA_KEY` — writes Brent prices for all trading days.
 4. Verify sparkline has 30 days of data in the frontend.
 5. Optionally run: `tools backfill-economic --start 2026-02-28 --end [today] --only-claude` — re-fetches CTP-ISW pages and adds Tier 2 data for accessible URLs.
 
@@ -531,14 +539,14 @@ Not recommended. Too tedious, no structured interface exists for it.
 ### Step 1 — CDK infrastructure (deploy first, no code changes)
 1. Add the `iran-conflict-map-economic` DynamoDB table + GSI to the CDK stack.
 2. Add IAM grants for Sync and API Lambdas.
-3. Add SSM parameter reference + grant for EIA key.
+3. Add SSM parameter reference + grant for Brent API key.
 4. Deploy: `cdk deploy`. Verify table exists in console.
-5. Manually create SSM parameter with real EIA API key.
+5. Manually create SSM parameter: `aws ssm put-parameter --name /iran-conflict-map/brent_api_key --value "..." --type SecureString`.
 
-### Step 2 — Sync Lambda: EIA call
+### Step 2 — Sync Lambda: Brent price call
 1. Add `FetchBrentPriceAsync()` to `Function.cs`. Wire into handler after `FetchReportTextAsync`.
 2. Log the result. Do not write to DynamoDB yet.
-3. Deploy. Trigger manual sync, verify EIA call succeeds in CloudWatch logs.
+3. Deploy. Trigger manual sync, verify call succeeds and logs a price in CloudWatch.
 
 ### Step 3 — Sync Lambda: Expanded Claude prompt + economic DynamoDB write
 1. Expand `SystemPrompt` constant with the economic extraction block.
@@ -575,25 +583,28 @@ Not recommended. Too tedious, no structured interface exists for it.
 ### 9A. Schema: Option A vs B
 **Status: Blocking.** See Section 1. Recommendation is Option A (separate table). Confirm before Step 1.
 
-### 9B. EIA API Key
-**Status: Blocking for Step 2.** Register at https://www.eia.gov/opendata/. Free, instant. Takes ~5 minutes.
+### 9B. Which Commodity API to Use
+**Status: Blocking for Step 2.** Choose API Ninjas or Oil Price API (see Section 2). Register for the key — both are free and instant. Store in SSM as `/iran-conflict-map/brent_api_key` before deploying Step 2.
 
 ### 9C. Hormuz Status Default Behavior
 Current plan: Claude defaults to `"open"` when the report is silent and `"unknown"` when the report explicitly acknowledges uncertainty. Verify this is the right semantic — `"open"` could be misleading if the report simply didn't cover the Strait that day. Alternative: default `"unknown"` always and only set `"open"` when the report explicitly confirms unrestricted transit. This is safer but will result in more `"unknown"` entries.
 
-### 9D. EIA Data Lag in UI
-The strip shows "Brent $85.23" but the price may be 2 days old. Options:
-- Show "Brent $85.23 (Mar 20)" — date next to price, always explicit.
-- Show "Brent $85.23 · 2d ago" — relative lag indicator.
-- Show nothing for lag; only display if `brent_date` is within 3 calendar days.
+### 9D. Intraday Price vs. Daily Close
+Near-real-time sources return the current intraday quote at the time the Lambda runs (typically ~18:00 ET when CTP-ISW publishes). This is not the official ICE daily settlement price, which is published after market close. For a conflict map, the intraday price at time-of-sync is probably preferable — it reflects the market's current reaction to the day's events rather than yesterday's close. This is the assumed approach. If official settlement prices are needed for any reason, EIA (next-day lag) is the only free option.
 
-### 9E. Sparkline Width and Mobile Layout
+### 9E. Brent Fetch Timestamp in UI
+The strip shows "Brent $85.23" captured at a specific time. Consider whether to surface the timestamp at all — options:
+- Show nothing; just the price (cleanest for a non-trading audience).
+- Show "Brent $85.23 · as of 2:30 PM ET" on hover.
+- Show nothing unless `brent_fetched_at` is more than 24 hours old (staleness warning only).
+
+### 9F. Sparkline Width and Mobile Layout
 200px × 32px was estimated. After implementing, check on mobile (the existing `.topbar` is `position:fixed; top:0`). The indicator strip adds ~28px more vertical space. On small screens this could compress the map. Consider making the strip optional/collapsible, or merging sparkline + strip into a single compact row.
 
-### 9F. Backfill Tier 2 — Cost and Scope
+### 9G. Backfill Tier 2 — Cost and Scope
 Claude API cost for backfilling ~22 days of reports is negligible. Main constraint is whether old CTP-ISW report pages are still accessible. Verify before investing time in the backfill command. Run `tools test-ctp-fetch` against a Feb 2026 URL to confirm accessibility.
 
-### 9G. Multiple Syncs per Day (Morning Reports)
+### 9H. Multiple Syncs per Day (Morning Reports)
 Once morning reports are implemented (see `context/plans/active/MORNING_REPORTS_PLAN.md`), a date may be synced twice. The second sync's PutItem overwrites the economic record. This is acceptable — Claude's second extraction has more complete information. If this causes data loss in practice, add `UpdateItem` that merges `economic_notes` arrays instead of replacing.
 
 ---
