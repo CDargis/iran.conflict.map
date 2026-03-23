@@ -65,7 +65,7 @@ public class Function
                 }
 
                 if (payload.Ambiguous is { Count: > 0 })
-                    reviewCount = await ProcessAmbiguous(payload.Ambiguous, payload.SourceUrl, payload.SyncedAt, context);
+                    reviewCount += await ProcessAmbiguous(payload.Ambiguous, payload.SourceUrl, payload.SyncedAt, context);
 
                 var status = updateDeadLettered > 0 ? "partial" : "success";
                 var errors = new List<string>();
