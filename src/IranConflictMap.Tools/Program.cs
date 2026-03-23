@@ -27,7 +27,8 @@ var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(S
     ["drain-review"]       = ("Save all review queue messages to review-backlog/ and delete from queue [--confirm]", DrainReview),
     ["drain-dlq"]          = ("Save all DLQ messages to dlq-backlog/ and delete from queue [--confirm]", DrainDlq),
     ["send-envelope"]      = ("Send a SyncEnvelope JSON file to the processor queue [--file <path>] [--confirm]", SendEnvelope),
-    ["dedup-strikes"]      = ("Find and remove duplicate strikes by coordinates for a given date [--date yyyy-MM-dd] [--confirm]", DedupStrikes)
+    ["dedup-strikes"]      = ("Find and remove duplicate strikes by coordinates for a given date [--date yyyy-MM-dd] [--confirm]", DedupStrikes),
+    ["trigger-cleanup"]    = ("Discard stale review queue items for a URL by sending a cleanup message [--url <url>] [--run-id <id>] [--confirm]", TriggerCleanup)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -1070,6 +1071,81 @@ async Task DedupStrikes(string[] opts)
     Console.Write("Deleting... ");
     await BatchDelete(dynamo, tableName, duplicates);
     Console.WriteLine($"done. {duplicates.Count} item(s) deleted.");
+}
+
+// ── trigger-cleanup ───────────────────────────────────────────────────────────
+
+async Task TriggerCleanup(string[] opts)
+{
+    var confirm    = opts.Contains("--confirm");
+    var urlFlag    = GetFlag(ref opts, "--url");
+    var runIdFlag  = GetFlag(ref opts, "--run-id");
+
+    if (urlFlag == null)
+        throw new Exception("Usage: trigger-cleanup --url <report-url> [--run-id <run_id>] [--confirm]");
+
+    string normalizedUrl = NormalizeReportUrl(urlFlag);
+
+    string runId;
+
+    if (runIdFlag != null)
+    {
+        runId = runIdFlag;
+        Console.WriteLine($"Using provided run_id: {runId}");
+    }
+    else
+    {
+        // Look up the most recent run_id for this URL from syncs-v2
+        var dynamo = BuildDynamoClient();
+
+        var resp = await dynamo.QueryAsync(new QueryRequest
+        {
+            TableName                 = "syncs-v2",
+            KeyConditionExpression    = "report_url = :url",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":url"] = new AttributeValue { S = normalizedUrl }
+            },
+            ScanIndexForward          = false,  // descending by run_id — most recent first
+            Limit                     = 1,
+            ProjectionExpression      = "run_id, #st",
+            ExpressionAttributeNames  = new Dictionary<string, string> { ["#st"] = "status" }
+        });
+
+        if (resp.Items.Count == 0)
+            throw new Exception($"No sync records found for URL: {normalizedUrl}");
+
+        runId = resp.Items[0]["run_id"].S;
+        string status = resp.Items[0].TryGetValue("status", out AttributeValue? sv) ? sv.S ?? "?" : "?";
+        Console.WriteLine($"Latest run_id: {runId}  (status={status})");
+    }
+
+    string cleanupMessage = JsonSerializer.Serialize(new
+    {
+        source_url     = normalizedUrl,
+        current_run_id = runId
+    });
+
+    Console.WriteLine();
+    Console.WriteLine($"URL          : {normalizedUrl}");
+    Console.WriteLine($"current_run_id: {runId}");
+    Console.WriteLine($"Message      : {cleanupMessage}");
+    Console.WriteLine($"Mode         : {(confirm ? "LIVE — will send to cleanup queue" : "DRY RUN — pass --confirm to send")}");
+
+    if (!confirm) return;
+
+    var sqs          = BuildSqsClient();
+    var cleanupQueue = (await sqs.GetQueueUrlAsync("iran-conflict-map-cleanup.fifo")).QueueUrl;
+
+    await sqs.SendMessageAsync(new SendMessageRequest
+    {
+        QueueUrl       = cleanupQueue,
+        MessageBody    = cleanupMessage,
+        MessageGroupId = "cleanup"
+    });
+
+    Console.WriteLine();
+    Console.WriteLine("Cleanup message sent. The cleanup Lambda will discard stale review items shortly.");
 }
 
 // ── DrainQueue (shared) ───────────────────────────────────────────────────────
