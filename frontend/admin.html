@@ -354,7 +354,8 @@
       ? `<div style="font-size:10px;color:var(--accent);margin-bottom:6px">⚠ missing fields: ${missing.join(', ')}</div>`
       : '';
 
-    // Left column: existing record (matched updates) or as_new (ambiguous)
+    // Left column: existing record (matched updates), as_new (ambiguous), nearest_record (unmatched), or unavailable
+    const hasNearest = !!item.nearest_record;
     let leftCol;
     if (hasExisting) {
       leftCol = `<div class="review-payload">
@@ -366,9 +367,14 @@
            <div class="review-payload-label">As New</div>
            ${newWarning}<pre>${escHtml(JSON.stringify(item.as_new, null, 2))}</pre>
          </div>`;
+    } else if (hasNearest) {
+      leftCol = `<div class="review-payload">
+           <div class="review-payload-label">Nearest Record (outside threshold)</div>
+           <pre>${escHtml(JSON.stringify(item.nearest_record, null, 2))}</pre>
+         </div>`;
     } else {
       leftCol = `<div class="review-payload unavailable">
-           <div class="review-payload-label">As New</div>
+           <div class="review-payload-label">No Match Found</div>
            <div style="font-size:10px;color:var(--dim)">not available</div>
          </div>`;
     }

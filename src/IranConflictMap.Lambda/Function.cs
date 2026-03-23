@@ -262,7 +262,8 @@ public class Function
                         continue;
                     }
                     context.Logger.LogLine($"[processor] update: no proximity match for {date} ({lat},{lng}) in ±1 day — {nearestDesc}, sending to review");
-                    await SendFailedUpdateToReviewQueue($"Update lookup failed: no event within {ThresholdKm}km of ({lat},{lng}) on {date} ±1 day. {nearestDesc}", update, sourceUrl, syncedAt);
+                    await SendFailedUpdateToReviewQueue($"Update lookup failed: no event within {ThresholdKm}km of ({lat},{lng}) on {date} ±1 day. {nearestDesc}",
+                        update, sourceUrl, syncedAt, ranked.Count > 0 ? ranked[0].item : null);
                     reviewed++;
                     continue;
                 }
@@ -279,7 +280,8 @@ public class Function
                         continue;
                     }
                     context.Logger.LogLine($"[processor] update: multiple proximity matches within 1km for {date} ({lat},{lng}), sending to review");
-                    await SendFailedUpdateToReviewQueue($"Update lookup ambiguous: multiple events within 1km of ({lat},{lng}) on {date} ±1 day. {nearestDesc}", update, sourceUrl, syncedAt);
+                    await SendFailedUpdateToReviewQueue($"Update lookup ambiguous: multiple events within 1km of ({lat},{lng}) on {date} ±1 day. {nearestDesc}",
+                        update, sourceUrl, syncedAt, closest[0].item);
                     reviewed++;
                     continue;
                 }
@@ -500,11 +502,13 @@ public class Function
         });
     }
 
-    private async Task SendFailedUpdateToReviewQueue(string note, UpdateEvent update, string? sourceUrl, string? syncId)
+    private async Task SendFailedUpdateToReviewQueue(string note, UpdateEvent update, string? sourceUrl, string? syncId,
+        Dictionary<string, AttributeValue>? nearestRecord = null)
     {
         if (string.IsNullOrEmpty(ReviewQueueUrl)) return;
 
-        var item = new { note, as_update = update, as_new = (object?)null };
+        object? simplifiedNearest = nearestRecord != null ? SimplifyItem(nearestRecord) : null;
+        var item = new { note, as_update = update, as_new = (object?)null, nearest_record = simplifiedNearest };
         var body = JsonSerializer.Serialize(new { source_url = sourceUrl, sync_id = syncId, item });
 
         await _sqs.SendMessageAsync(new SendMessageRequest
