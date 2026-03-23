@@ -153,6 +153,19 @@
       overflow-y: auto;
     }
     .review-actions { display: flex; gap: 8px; }
+    .review-tag {
+      display: inline-block;
+      font-size: 9px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 2px;
+      margin-bottom: 10px;
+      border: 1px solid;
+    }
+    .review-tag.matched  { color: var(--blue);   border-color: var(--blue); }
+    .review-tag.ambiguous { color: var(--amber); border-color: var(--amber); }
+    .review-tag.unmatched { color: var(--accent); border-color: var(--accent); }
 
     /* ── Sync log ── */
     .sync-url-row {
@@ -370,7 +383,14 @@
            <div style="font-size:10px;color:var(--dim)">not available</div>
          </div>`;
 
+    const tag = hasExisting
+      ? `<span class="review-tag matched">Matched Update</span>`
+      : (hasNew && hasUpdate)
+        ? `<span class="review-tag ambiguous">Ambiguous</span>`
+        : `<span class="review-tag unmatched">Unmatched Update</span>`;
+
     return `<div class="review-item">
+      ${tag}
       <div class="review-note">${escHtml(item.note || 'No note provided.')}</div>
       ${item.source_url ? `<div class="review-source"><a href="${escHtml(item.source_url)}" target="_blank" rel="noopener">${escHtml(item.source_url)}</a></div>` : ''}
       <div class="review-payloads">${leftCol}${updateCol}</div>
