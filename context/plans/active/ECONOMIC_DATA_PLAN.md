@@ -318,7 +318,43 @@ Two distinct frontend use cases exist for Brent price data, each backed by a dif
 </div>
 ```
 
-**Rendering:** Vanilla JS — scale data points to the SVG viewport using `min`/`max`, draw a `<polyline>`. Color: amber (`#f59e0b`). The `brent-label` shows the most recent price. The date marker `x` position is computed from the selected date's position in the data range. On hover, optionally show `fetched_at`.
+**X-axis layout — non-uniform spacing (today is special-cased):**
+- Historical days are allocated equal horizontal width — uniform spacing, one point per day.
+- Today is allocated proportionally more horizontal space to spread its intraday readings out cleanly.
+- Concretely: partition the SVG width as `historicalWidth + todayWidth`, where `todayWidth` is large enough that intraday points aren't cramped (e.g. fixed 40px, or `N_intraday * 12px`). Historical days divide `historicalWidth` evenly.
+- All x-coordinate calculations must account for this split — the x scale is not a simple linear map from date index to pixel.
+
+**Line style — today vs historical:**
+- Historical segment: solid line, amber (`#f59e0b`), one point per day, uniform spacing.
+- Today's segment: all three visual treatments applied together to signal "in progress, not yet closed":
+  1. **Dashed** — `stroke-dasharray` to break the line
+  2. **Distinct color** — a different hue from the historical line (e.g. sky blue `#38bdf8` or slate `#94a3b8`), not a tint of amber
+  3. **Muted/reduced opacity** — `opacity: 0.6` or equivalent, to visually recede relative to the historical segment
+- Rendered as two separate `<polyline>` elements so styles don't bleed across the boundary.
+
+**Live indicator:**
+- A pulsing dot on the rightmost data point (latest reading) signals live data.
+- Implemented as a `<circle>` with a CSS `@keyframes` pulse animation (scale or opacity).
+
+**Date marker behavior with non-uniform layout:**
+- When the selected date is a historical day, the marker falls in the uniform section — x computed from that day's slot.
+- When the selected date is today, the marker falls in the expanded section — x computed relative to today's allocated width.
+- Same re-draw-on-date-change approach; the marker does not affect data or polylines.
+
+**Markup** (nav bar):
+```html
+<div class="brent-sparkline-container">
+  <svg id="brent-sparkline" width="200" height="32">
+    <polyline id="brent-line-historical" />
+    <polyline id="brent-line-today" stroke-dasharray="3 2" />
+    <circle id="brent-live-dot" r="3" />
+    <line id="brent-date-marker" y1="0" y2="32" stroke="#94a3b8" stroke-width="1" />
+  </svg>
+  <span id="brent-label">— $/bbl</span>
+</div>
+```
+
+**Rendering:** Vanilla JS — split data into historical points and today's points. Compute x positions using the non-uniform layout. Scale y using global `min`/`max` across all points. Draw historical polyline solid, today's polyline dashed. Place live dot at the last point. The `brent-label` shows the most recent price. On hover, optionally show `fetched_at`.
 
 **Empty state:** Hide the container with `display:none` if the API returns no data.
 
