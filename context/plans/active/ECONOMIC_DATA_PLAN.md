@@ -24,10 +24,18 @@ interface BrentPriceRow {
   timestamp: string;  // SK — ISO 8601 (e.g. "2026-03-22T08:00:00Z"), UTC fetch time
   brent_price: number; // USD/barrel
   currency: "USD";
+  predictions?: BrentPrediction[]; // Forward-looking EIA forecasts — only present on the row written by the latest fetch
+}
+
+interface BrentPrediction {
+  period: string;  // YYYY-MM
+  value: number;   // USD/barrel
+  unit: string;    // "dollars per barrel"
 }
 ```
 
 - ~3 rows accumulate per day. No row is ever overwritten.
+- `predictions` is included on every row as written, but only the latest row's predictions are meaningful — consumers should take predictions from the most recent row only (highest `timestamp` SK across all dates). No cleanup needed; older predictions are simply ignored.
 - To query a single day's readings: `Query(PK = "2026-03-22")`.
 - To query a date range for the sparkline: `Scan` with `FilterExpression date BETWEEN :from AND :to` (table is small — days × 3 rows, <10K items/year). A GSI can be added later if scan performance ever becomes a concern.
 
@@ -66,19 +74,47 @@ Brent crude trades on the **ICE (Intercontinental Exchange)**, not NYSE or a US 
 
 ### Confirmed: Crude Price API (`crudepriceapi.com`)
 
+Full OpenAPI spec: [`context/ref/crudepriceapi.json`](../ref/crudepriceapi.json)
+
 Updates every 5 minutes, free forever (100 requests/month, no credit card required). At 3 calls/day (~90/month) we stay within the free tier with buffer.
 
 ```
-GET https://api.crudepriceapi.com/v1/prices/latest
-Headers: Authorization: Token {KEY}
+GET https://www.crudepriceapi.com/api/prices/latest
+Headers: Authorization: Bearer {KEY}
+         Content-Type: application/json
 ```
 
-Response shape (to be verified against actual docs):
+Actual response shape (verified 2026-03-23):
 ```json
-{ "price": 85.23, "currency": "USD", "updated_at": "2026-03-22T14:30:00.000Z" }
+{
+  "status": "success",
+  "data": {
+    "price": "101.00",
+    "formatted": "$101.00",
+    "currency": "USD",
+    "code": "BRENT_CRUDE_USD",
+    "type": "spot_price",
+    "created_at": "2026-03-23T18:02:58.398Z",
+    "next_two_months_predictions": [ ... ]
+  }
+}
 ```
 
-- `updated_at` is the quote timestamp — store as `brent_fetched_at`.
+**Key implementation notes:**
+- Response is wrapped in a `{ "status", "data" }` envelope — deserialize accordingly.
+- `price` is a **string**, not a number — use `decimal.Parse(data.Price)`.
+- Quote timestamp field is `created_at` (not `updated_at`) — store as `brent_fetched_at`.
+- Auth scheme is `Bearer`, not `Token`.
+
+C# models:
+```csharp
+record CrudePriceResponse(string Status, CrudePriceData Data);
+record CrudePriceData(string Price, string Currency, string CreatedAt, List<CrudePricePrediction> NextTwoMonthsPredictions);
+record CrudePricePrediction(string Period, string Value, string Unit);
+```
+
+Predictions are stored as a DynamoDB List on the price row and surfaced via the API's latest-row query. Only the most recent row's predictions are displayed.
+
 - Free tier: 100 requests/month, no credit card, no commercial use restrictions noted.
 - No rate-limit concerns at ~90 req/month.
 
@@ -88,7 +124,7 @@ Response shape (to be verified against actual docs):
 
 | Source | Pros | Cons |
 |--------|------|------|
-| **Crude Price API** ✓ | Free forever (100 req/month), no CC, 5-min updates | Third-party service; response shape unverified until key obtained |
+| **Crude Price API** ✓ | Free forever (100 req/month), no CC, 5-min updates | Third-party service; response shape verified 2026-03-23 |
 | **Oil Price API** | Near-real-time (ICE), ISO timestamp in response | Free tier limited; commercial terms unclear |
 | **Alpha Vantage** | Free tier, near-real-time | Rate-limited to 25 req/day on free tier; Brent history requires premium |
 | **Yahoo Finance (unofficial)** | No API key, ticker `BZ=F` | Unofficial scraping; futures ≠ spot; no SLA; legally gray |
@@ -681,7 +717,7 @@ Not recommended. Too tedious, no structured interface exists for it.
 Merged is simpler for most frontend use cases. Separate is more explicit about provenance and handles the case where only one table has data for a date. Decide before implementing `GET /api/economic`.
 
 ### 9D. Crude Price API Key + SSM
-**Status: Blocking for Step 2.** Register at crudepriceapi.com (free, no credit card). Store the key in SSM: `aws ssm put-parameter --name /iran-conflict-map/brent_api_key --value "..." --type SecureString --region us-east-1`. Verify the actual response shape against the docs before implementing `FetchBrentPriceAsync()` — the shape in this plan is an approximation.
+**Status: Resolved.** Key registered and stored in SSM at `/iran-conflict-map/brent_api_key` (SecureString, us-east-1). Response shape verified 2026-03-23 — see Section 2 for confirmed endpoint, auth scheme, and field names.
 
 ### 9E. Hormuz Status Default Behavior
 Current plan: Claude defaults to `"open"` when the report is silent and `"unknown"` when the report explicitly acknowledges uncertainty. Verify this is the right semantic — `"open"` could be misleading if the report simply didn't cover the Strait that day. Alternative: default `"unknown"` always and only set `"open"` when the report explicitly confirms unrestricted transit. This is safer but will result in more `"unknown"` entries.

@@ -1,0 +1,75 @@
+{
+  "source_url": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-22-2026",
+  "synced_at": "2026-03-23T00:00:00.0000000Z",
+  "is_review_approval": false,
+  "new": [
+    {
+      "PutRequest": {
+        "Item": {
+          "id": { "S": "5a2ac108-24b9-42e0-b343-6b8434ad248b" },
+          "entity": { "S": "strike" },
+          "date": { "S": "2026-03-21" },
+          "lat": { "N": "25.35" },
+          "lng": { "N": "55.42" },
+          "title": { "S": "Disputed Projectile Detonation Near Vessel North of Sharjah" },
+          "location": { "S": "Gulf of Oman, ~15 nautical miles north of Sharjah, UAE" },
+          "type": { "S": "naval" },
+          "target_type": { "S": "maritime" },
+          "actor": { "S": "Iran/IRGC" },
+          "severity": { "S": "low" },
+          "disputed": { "BOOL": true },
+          "description": { "S": "An unknown projectile detonated near a vessel approximately 15 nautical miles north of Sharjah, UAE on March 21. UKMTO initially logged the event as a maritime incident before downgrading it to suspicious activity, as it could not confirm the intended target. Iran has conducted systematic maritime attacks against vessels affiliated with the US, Israel, and their allies throughout the conflict, with the last confirmed Iranian vessel attack recorded on March 11." },
+          "casualties": { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "notes": { "L": [{ "S": "UKMTO subsequently reclassified the March 21 incident 15 nautical miles north of Sharjah as 'suspicious activity' rather than a confirmed attack, stating it could not confirm the intended target. UKMTO has recorded 21 confirmed maritime incidents in the Strait of Hormuz since the war began as of March 22." }] },
+          "source_url": { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-22-2026" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": { "S": "9f7fa33c-5028-4dbb-9e04-7e0c0e14d4c7" },
+          "entity": { "S": "strike" },
+          "date": { "S": "2026-03-20" },
+          "lat": { "N": "28.32" },
+          "lng": { "N": "55.92" },
+          "title": { "S": "CENTCOM Strikes Underground Missile Bases at Hajjiabad and Darab" },
+          "location": { "S": "Hajjiabad, Hormozgan Province, Iran (also Darab, Fars Province)" },
+          "type": { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor": { "S": "US/CENTCOM" },
+          "severity": { "S": "high" },
+          "description": { "S": "US CENTCOM conducted airstrikes on March 20 targeting missile launchers and tunnel entrances at two Iranian underground missile bases — one in Hajjiabad, Hormozgan Province, and one in Darab, Fars Province. The strikes were confirmed by an OSINT analyst on March 22 citing CENTCOM-sourced imagery. The attacks are part of the combined force's sustained campaign to degrade Iran's ballistic missile launch capacity in southern Iran." },
+          "casualties": { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "notes": { "L": [{ "S": "An OSINT analyst confirmed on March 22 that CENTCOM struck missile launchers and tunnel entrances at underground missile bases in Hajjiabad, Hormozgan Province, and Darab, Fars Province on March 20." }] },
+          "citations": { "L": [ { "S": "https://t.me/BenTzionM/7193" }, { "S": "https://x.com/CENTCOM/status/2034945368077537474?s=20" } ] },
+          "source_url": { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-22-2026" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "id": { "S": "d00cf5ab-d050-4f76-92d7-d05cd8c04903" },
+          "entity": { "S": "strike" },
+          "date": { "S": "2026-03-21" },
+          "lat": { "N": "36.34" },
+          "lng": { "N": "43.12" },
+          "title": { "S": "Combined Force Strikes PMF Positions in Western Mosul" },
+          "location": { "S": "Western Mosul City, Nineveh Province, Iraq" },
+          "type": { "S": "strike" },
+          "target_type": { "S": "military" },
+          "actor": { "S": "US-Israel Combined Force" },
+          "severity": { "S": "medium" },
+          "description": { "S": "Likely combined force airstrikes targeted Popular Mobilization Forces positions in western Mosul City on March 21, according to Iraqi sources. The specific PMF units and extent of damage were not confirmed. The strikes are part of the combined force's ongoing campaign to degrade Iranian-backed militia infrastructure in Iraq." },
+          "casualties": { "M": { "confirmed": { "N": "0" }, "estimated": { "N": "0" } } },
+          "notes": { "L": [{ "S": "Likely combined force strikes targeted unspecified Popular Mobilization Forces positions in western Mosul City on March 21, according to Iraqi sources." }] },
+          "citations": { "L": [ { "S": "https://shafaq.com/ar/أمـن/قصف-جوي-يستهدف-مقرات-للحشد-الشعبي-في-سهل-نينوى" }, { "S": "https://x.com/Tammuz_Intel/status/2035484506354762016" } ] },
+          "source_url": { "S": "https://www.criticalthreats.org/analysis/iran-update-evening-special-report-march-22-2026" }
+        }
+      }
+    }
+  ],
+  "updates": [],
+  "ambiguous": []
+}
