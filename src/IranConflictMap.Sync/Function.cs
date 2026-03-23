@@ -37,6 +37,7 @@ public class Function
     private static readonly string SyncsTable        = Env("SYNCS_TABLE",         "syncs");
     private static readonly string SsmPrefix         = Env("SSM_PREFIX",          "/iran-conflict-map");
     private static readonly string ProcessorQueueUrl = Env("PROCESSOR_QUEUE_URL", "");
+    private static readonly string CleanupQueueUrl   = Env("CLEANUP_QUEUE_URL",   "");
     private static readonly string EmailBucket       = Env("EMAIL_BUCKET",        "");
 
     // ── System prompt ─────────────────────────────────────────────────────────
@@ -228,6 +229,23 @@ public class Function
                 MessageGroupId = "sync"
             });
             context.Logger.LogLine("[sync] Claude response pushed to processor queue");
+
+            // ── 4b. Notify cleanup queue — discard stale review items from prior runs ──
+            if (!string.IsNullOrEmpty(CleanupQueueUrl))
+            {
+                string cleanupMessage = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    source_url      = reportUrl,
+                    current_run_id  = runId
+                });
+                await _sqs.SendMessageAsync(new SendMessageRequest
+                {
+                    QueueUrl       = CleanupQueueUrl,
+                    MessageBody    = cleanupMessage,
+                    MessageGroupId = "cleanup"
+                });
+                context.Logger.LogLine("[sync] cleanup notification queued");
+            }
 
             // ── 5. Move email to processed (only if we have an email key) ─────
             if (!string.IsNullOrEmpty(emailKey))

@@ -152,6 +152,18 @@ public class IranConflictMapStack : Stack
             RetentionPeriod           = Duration.Days(14)
         });
 
+        // ── Cleanup Queue (Sync Lambda → Cleanup Lambda; one message per sync run) ──
+        // Single message group ensures only one cleanup Lambda runs at a time,
+        // preventing concurrent access to the review queue.
+        var cleanupQueue = new Queue(this, "CleanupQueue", new QueueProps
+        {
+            QueueName                 = "iran-conflict-map-cleanup.fifo",
+            Fifo                      = true,
+            ContentBasedDeduplication = true,
+            VisibilityTimeout         = Duration.Minutes(4),  // > cleanup lambda timeout
+            RetentionPeriod           = Duration.Days(1)
+        });
+
         // ── Processor Lambda (SQS-triggered) ─────────────────────────────────
         var processorLambda = new LambdaFunction(this, "ProcessorFunction", new LambdaFunctionProps
         {
@@ -188,6 +200,37 @@ public class IranConflictMapStack : Stack
         syncsTable.GrantReadWriteData(processorLambda);
         deadLetterQueue.GrantSendMessages(processorLambda);
         reviewQueue.GrantSendMessages(processorLambda);
+
+        // ── Cleanup Lambda (cleanup queue → drain stale review items) ─────────
+        var cleanupLambda = new LambdaFunction(this, "CleanupFunction", new LambdaFunctionProps
+        {
+            FunctionName = "iran-conflict-map-cleanup",
+            Runtime      = Amazon.CDK.AWS.Lambda.Runtime.DOTNET_8,
+            Handler      = "IranConflictMap.Cleanup::IranConflictMap.Cleanup.Function::FunctionHandler",
+            Code         = Amazon.CDK.AWS.Lambda.Code.FromAsset("src/IranConflictMap.Cleanup", new Amazon.CDK.AWS.S3.Assets.AssetOptions
+            {
+                Bundling = new BundlingOptions
+                {
+                    Image   = Amazon.CDK.AWS.Lambda.Runtime.DOTNET_8.BundlingImage,
+                    Command = new[] { "bash", "-c", "dotnet publish -c Release -o /asset-output" }
+                }
+            }),
+            Environment = new Dictionary<string, string>
+            {
+                ["REVIEW_QUEUE_URL"] = reviewQueue.QueueUrl
+            },
+            Timeout      = Duration.Minutes(3),
+            MemorySize   = 256,
+            LogRetention = RetentionDays.TWO_WEEKS
+        });
+
+        cleanupLambda.AddEventSource(new SqsEventSource(cleanupQueue, new SqsEventSourceProps
+        {
+            BatchSize = 1
+        }));
+
+        // Needs full consume access on the review queue: receive, delete, and change visibility
+        reviewQueue.GrantConsumeMessages(cleanupLambda);
 
         // ── SSM Parameters (initial values — updated at runtime by sync Lambda) ──
         new StringParameter(this, "LastSynced", new StringParameterProps
@@ -340,6 +383,7 @@ public class IranConflictMapStack : Stack
                 ["SYNCS_TABLE"]         = syncsTable.TableName,
                 ["SSM_PREFIX"]          = "/iran-conflict-map",
                 ["PROCESSOR_QUEUE_URL"] = processorQueue.QueueUrl,
+                ["CLEANUP_QUEUE_URL"]   = cleanupQueue.QueueUrl,
                 ["EMAIL_BUCKET"]        = emailBucket.BucketName
             },
             Timeout      = Duration.Minutes(5),
@@ -355,6 +399,7 @@ public class IranConflictMapStack : Stack
         strikesTable.GrantReadData(syncLambda);
         syncsTable.GrantReadWriteData(syncLambda);
         processorQueue.GrantSendMessages(syncLambda);
+        cleanupQueue.GrantSendMessages(syncLambda);
         reviewQueue.GrantSendMessages(syncLambda);   // in case Sync Lambda ever routes to review directly
         emailBucket.GrantReadWrite(syncLambda);
         syncLambda.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
