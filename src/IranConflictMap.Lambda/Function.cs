@@ -280,8 +280,8 @@ public class Function
                         continue;
                     }
                     context.Logger.LogLine($"[processor] update: multiple proximity matches within 1km for {date} ({lat},{lng}), sending to review");
-                    await SendFailedUpdateToReviewQueue($"Update lookup ambiguous: multiple events within 1km of ({lat},{lng}) on {date} ±1 day. {nearestDesc}",
-                        update, sourceUrl, syncedAt, closest[0].item);
+                    await SendFailedUpdateToReviewQueue($"Update lookup ambiguous: {closest.Count} events within 1km of ({lat},{lng}) on {date} ±1 day. {nearestDesc}",
+                        update, sourceUrl, syncedAt, closest[0].item, proximityAmbiguous: true);
                     reviewed++;
                     continue;
                 }
@@ -427,10 +427,57 @@ public class Function
     {
         foreach (var item in ambiguous)
         {
-            await SendToReviewQueue(item, sourceUrl, syncId);
+            Dictionary<string, AttributeValue>? nearest = null;
+            if (item.TryGetProperty("as_update", out JsonElement asUpdate) &&
+                asUpdate.TryGetProperty("lookup", out JsonElement lookup))
+            {
+                double? lat  = GetJsonDouble(lookup, "lat");
+                double? lng  = GetJsonDouble(lookup, "lng");
+                string? date = GetJsonString(lookup, "date");
+                if (lat != null && lng != null && date != null)
+                    nearest = await FindNearestRecordAsync(date, lat.Value, lng.Value);
+            }
+            await SendToReviewQueue(item, sourceUrl, syncId, nearest);
             context.Logger.LogLine("[processor] sent ambiguous item to review queue");
         }
         return ambiguous.Count;
+    }
+
+    private async Task<Dictionary<string, AttributeValue>?> FindNearestRecordAsync(string date, double lat, double lng)
+    {
+        DateTime parsedDate   = DateTime.Parse(date);
+        string[] datesToQuery = new[]
+        {
+            parsedDate.AddDays(-1).ToString("yyyy-MM-dd"),
+            date,
+            parsedDate.AddDays(1).ToString("yyyy-MM-dd")
+        };
+
+        List<Dictionary<string, AttributeValue>> allCandidates = new();
+        foreach (string queryDate in datesToQuery)
+        {
+            var queryResp = await _dynamo.QueryAsync(new QueryRequest
+            {
+                TableName                 = StrikesTable,
+                IndexName                 = StrikesGsi,
+                KeyConditionExpression    = "entity = :entity AND #d = :date",
+                ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date" },
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":entity"] = new AttributeValue { S = "strike" },
+                    [":date"]   = new AttributeValue { S = queryDate }
+                }
+            });
+            allCandidates.AddRange(queryResp.Items);
+        }
+
+        var ranked = allCandidates
+            .Where(i => i.ContainsKey("lat") && i.ContainsKey("lng"))
+            .Select(i => (item: i, dist: HaversineKm(lat, lng, double.Parse(i["lat"].N), double.Parse(i["lng"].N))))
+            .OrderBy(x => x.dist)
+            .ToList();
+
+        return ranked.Count > 0 ? ranked[0].item : null;
     }
 
     // ── DynamoDB Helpers ────────────────────────────────────────────────────────
@@ -473,11 +520,17 @@ public class Function
 
     // ── SQS Helpers ─────────────────────────────────────────────────────────────
 
-    private async Task SendToReviewQueue(JsonElement ambiguousItem, string? sourceUrl, string? syncId)
+    private async Task SendToReviewQueue(JsonElement ambiguousItem, string? sourceUrl, string? syncId,
+        Dictionary<string, AttributeValue>? nearestRecord = null)
     {
         if (string.IsNullOrEmpty(ReviewQueueUrl)) return;
 
-        var body = JsonSerializer.Serialize(new { source_url = sourceUrl, sync_id = syncId, item = ambiguousItem });
+        object? asNew    = ambiguousItem.TryGetProperty("as_new",    out JsonElement an) && an.ValueKind != JsonValueKind.Null ? (object?)an : null;
+        object? asUpdate = ambiguousItem.TryGetProperty("as_update", out JsonElement au) && au.ValueKind != JsonValueKind.Null ? (object?)au : null;
+        object? simplifiedNearest = nearestRecord != null ? SimplifyItem(nearestRecord) : null;
+
+        var item = new { as_new = asNew, as_update = asUpdate, nearest_record = simplifiedNearest };
+        var body = JsonSerializer.Serialize(new { source_url = sourceUrl, sync_id = syncId, item });
 
         await _sqs.SendMessageAsync(new SendMessageRequest
         {
@@ -503,12 +556,12 @@ public class Function
     }
 
     private async Task SendFailedUpdateToReviewQueue(string note, UpdateEvent update, string? sourceUrl, string? syncId,
-        Dictionary<string, AttributeValue>? nearestRecord = null)
+        Dictionary<string, AttributeValue>? nearestRecord = null, bool proximityAmbiguous = false)
     {
         if (string.IsNullOrEmpty(ReviewQueueUrl)) return;
 
         object? simplifiedNearest = nearestRecord != null ? SimplifyItem(nearestRecord) : null;
-        var item = new { note, as_update = update, as_new = (object?)null, nearest_record = simplifiedNearest };
+        var item = new { note, as_update = update, as_new = (object?)null, nearest_record = simplifiedNearest, proximity_ambiguous = proximityAmbiguous };
         var body = JsonSerializer.Serialize(new { source_url = sourceUrl, sync_id = syncId, item });
 
         await _sqs.SendMessageAsync(new SendMessageRequest
@@ -600,6 +653,22 @@ public class Function
               + Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180)
               * Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
         return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+    }
+
+    private static double? GetJsonDouble(JsonElement el, string key)
+    {
+        if (!el.TryGetProperty(key, out JsonElement val)) return null;
+        if (val.ValueKind == JsonValueKind.Number) return val.GetDouble();
+        if (val.TryGetProperty("N", out var n) && double.TryParse(n.GetString(), out double d)) return d;
+        return null;
+    }
+
+    private static string? GetJsonString(JsonElement el, string key)
+    {
+        if (!el.TryGetProperty(key, out JsonElement val)) return null;
+        if (val.ValueKind == JsonValueKind.String) return val.GetString();
+        if (val.TryGetProperty("S", out var s)) return s.GetString();
+        return null;
     }
 
     private static double? GetLookupDouble(Dictionary<string, JsonElement> lookup, string key)

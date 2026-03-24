@@ -260,9 +260,10 @@ app.MapGet("/api/review", async (HttpContext ctx, IAmazonSimpleSystemsManagement
                 note            = data.TryGetProperty("note", out var n) ? n.GetString() : "",
                 existing_id     = (data.TryGetProperty("existing_id",     out var ei) && ei.ValueKind != JsonValueKind.Null) ? (object?)ei : null,
                 existing_record = (data.TryGetProperty("existing_record", out var er) && er.ValueKind != JsonValueKind.Null) ? (object?)er : null,
-                nearest_record  = (data.TryGetProperty("nearest_record",  out var nr) && nr.ValueKind != JsonValueKind.Null) ? (object?)nr : null,
-                as_new          = (data.TryGetProperty("as_new",    out var an) && an.ValueKind != JsonValueKind.Null) ? (object?)an : null,
-                as_update       = (data.TryGetProperty("as_update", out var au) && au.ValueKind != JsonValueKind.Null) ? (object?)au : null
+                nearest_record       = (data.TryGetProperty("nearest_record",       out var nr) && nr.ValueKind != JsonValueKind.Null) ? (object?)nr : null,
+                proximity_ambiguous  = (data.TryGetProperty("proximity_ambiguous",  out var pa) && pa.ValueKind == JsonValueKind.True),
+                as_new               = (data.TryGetProperty("as_new",    out var an) && an.ValueKind != JsonValueKind.Null) ? (object?)an : null,
+                as_update            = (data.TryGetProperty("as_update", out var au) && au.ValueKind != JsonValueKind.Null) ? (object?)au : null
             };
         }
         catch

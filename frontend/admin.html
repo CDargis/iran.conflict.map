@@ -128,6 +128,9 @@
       gap: 12px;
       margin-bottom: 14px;
     }
+    .review-payloads.three-col {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
     .review-payload {
       background: var(--bg);
       border: 1px solid var(--border);
@@ -152,6 +155,10 @@
       max-height: 480px;
       overflow-y: auto;
     }
+    .review-kv { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 10px; }
+    .review-kv td { padding: 2px 0; vertical-align: top; line-height: 1.5; }
+    .review-kv td:first-child { color: var(--dim); white-space: nowrap; padding-right: 10px; }
+    .review-kv td:last-child  { color: var(--text); word-break: break-word; }
     .review-actions { display: flex; gap: 8px; }
     .review-tag {
       display: inline-block;
@@ -344,6 +351,30 @@
     return REQUIRED_NEW_FIELDS.filter(f => !item[f]);
   }
 
+  function unwrapDynamo(val) {
+    if (val == null || typeof val !== 'object') return val;
+    if ('S' in val) return val.S;
+    if ('N' in val) return val.N;
+    if ('BOOL' in val) return String(val.BOOL);
+    return JSON.stringify(val);
+  }
+
+  function renderKV(obj) {
+    if (!obj || typeof obj !== 'object') return `<pre>${escHtml(String(obj))}</pre>`;
+    const rows = Object.entries(obj)
+      .map(([k, v]) => `<tr><td>${escHtml(k)}</td><td>${escHtml(v == null ? '' : String(v))}</td></tr>`)
+      .join('');
+    return `<table class="review-kv">${rows}</table>`;
+  }
+
+  function renderDynamoItem(item) {
+    if (!item || typeof item !== 'object') return `<pre>${escHtml(String(item))}</pre>`;
+    const rows = Object.entries(item)
+      .map(([k, v]) => `<tr><td>${escHtml(k)}</td><td>${escHtml(String(unwrapDynamo(v) ?? ''))}</td></tr>`)
+      .join('');
+    return `<table class="review-kv">${rows}</table>`;
+  }
+
   function reviewItemHTML(item, i) {
     const hasExisting = !!item.existing_record;
     const hasNew      = !!item.as_new;
@@ -355,22 +386,35 @@
       : '';
 
     // Left column: existing record (matched updates), as_new (ambiguous), nearest_record (unmatched), or unavailable
-    const hasNearest = !!item.nearest_record;
+    const hasNearest  = !!item.nearest_record;
+    const isAmbiguous = hasNew && hasUpdate;
+
     let leftCol;
+    let middleCol = '';
     if (hasExisting) {
       leftCol = `<div class="review-payload">
            <div class="review-payload-label">Existing Record${item.existing_id ? ` — id ${escHtml(String(item.existing_id))}` : ''}</div>
-           <pre>${escHtml(JSON.stringify(item.existing_record, null, 2))}</pre>
+           ${renderKV(item.existing_record)}
+         </div>`;
+    } else if (isAmbiguous && hasNearest) {
+      // Three-pane layout: Possible Match | As New | As Update
+      leftCol = `<div class="review-payload">
+           <div class="review-payload-label">Possible Match${item.nearest_record.id ? ` — id ${escHtml(String(item.nearest_record.id))}` : ''}</div>
+           ${renderKV(item.nearest_record)}
+         </div>`;
+      middleCol = `<div class="review-payload">
+           <div class="review-payload-label">As New</div>
+           ${newWarning}${renderDynamoItem(item.as_new?.PutRequest?.Item ?? item.as_new)}
          </div>`;
     } else if (hasNew) {
       leftCol = `<div class="review-payload">
            <div class="review-payload-label">As New</div>
-           ${newWarning}<pre>${escHtml(JSON.stringify(item.as_new, null, 2))}</pre>
+           ${newWarning}${renderDynamoItem(item.as_new?.PutRequest?.Item ?? item.as_new)}
          </div>`;
     } else if (hasNearest) {
       leftCol = `<div class="review-payload">
            <div class="review-payload-label">Nearest Record (outside threshold)</div>
-           <pre>${escHtml(JSON.stringify(item.nearest_record, null, 2))}</pre>
+           ${renderKV(item.nearest_record)}
          </div>`;
     } else {
       leftCol = `<div class="review-payload unavailable">
@@ -382,7 +426,7 @@
     const updateCol = hasUpdate
       ? `<div class="review-payload">
            <div class="review-payload-label">${hasExisting ? 'Proposed Changes' : 'As Update'}</div>
-           <pre>${escHtml(JSON.stringify(item.as_update, null, 2))}</pre>
+           ${renderDynamoItem(item.as_update?.changes ?? item.as_update)}
          </div>`
       : `<div class="review-payload unavailable">
            <div class="review-payload-label">As Update</div>
@@ -391,15 +435,21 @@
 
     const tag = hasExisting
       ? `<span class="review-tag matched">Matched Update</span>`
-      : (hasNew && hasUpdate)
+      : isAmbiguous && hasNearest
+        ? `<span class="review-tag ambiguous">Ambiguous — Match Found</span>`
+      : isAmbiguous
         ? `<span class="review-tag ambiguous">Ambiguous</span>`
+      : item.proximity_ambiguous
+        ? `<span class="review-tag ambiguous">Proximity Ambiguous</span>`
         : `<span class="review-tag unmatched">Unmatched Update</span>`;
+
+    const threeCol = isAmbiguous && hasNearest ? ' three-col' : '';
 
     return `<div class="review-item">
       ${tag}
       <div class="review-note">${escHtml(item.note || 'No note provided.')}</div>
       ${item.source_url ? `<div class="review-source"><a href="${escHtml(item.source_url)}" target="_blank" rel="noopener">${escHtml(item.source_url)}</a></div>` : ''}
-      <div class="review-payloads">${leftCol}${updateCol}</div>
+      <div class="review-payloads${threeCol}">${leftCol}${middleCol}${updateCol}</div>
       <div class="review-actions">
         ${hasNew && !hasExisting ? `<button class="btn green" onclick="resolveReview(${i},'new')" ${missing.length ? 'disabled title="Missing required fields"' : ''}>Approve New</button>` : ''}
         ${hasUpdate ? `<button class="btn blue"  onclick="resolveReview(${i},'update')">Approve Update</button>` : ''}
