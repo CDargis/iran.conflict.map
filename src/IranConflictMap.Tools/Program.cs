@@ -28,7 +28,8 @@ var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(S
     ["drain-dlq"]          = ("Save all DLQ messages to dlq-backlog/ and delete from queue [--confirm]", DrainDlq),
     ["send-envelope"]      = ("Send a SyncEnvelope JSON file to the processor queue [--file <path>] [--confirm]", SendEnvelope),
     ["dedup-strikes"]      = ("Find and remove duplicate strikes by coordinates for a given date [--date yyyy-MM-dd] [--confirm]", DedupStrikes),
-    ["trigger-cleanup"]    = ("Discard stale review queue items for a URL by sending a cleanup message [--url <url>] [--run-id <id>] [--confirm]", TriggerCleanup)
+    ["trigger-cleanup"]    = ("Discard stale review queue items for a URL by sending a cleanup message [--url <url>] [--run-id <id>] [--confirm]", TriggerCleanup),
+    ["enrich-review"]      = ("Backfill nearest_record on legacy ambiguous review queue items [--confirm]", EnrichReview)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -1301,6 +1302,214 @@ object? BuildAsNewFromLegacyUpdate(JsonElement root)
     writer.Flush();
 
     return JsonDocument.Parse(ms.ToArray()).RootElement;
+}
+
+// ── enrich-review ─────────────────────────────────────────────────────────────
+
+async Task EnrichReview(string[] opts)
+{
+    var confirm = opts.Contains("--confirm");
+    const string reviewName = "iran-conflict-map-review.fifo";
+    const string tableName  = "strikes";
+    const string indexName  = "entity-date-index";
+
+    var sqs       = BuildSqsClient();
+    var dynamo    = BuildDynamoClient();
+    var reviewUrl = (await sqs.GetQueueUrlAsync(reviewName)).QueueUrl;
+
+    Console.WriteLine($"Review queue : {reviewUrl}");
+    Console.WriteLine($"Mode         : {(confirm ? "LIVE — will re-enqueue enriched messages" : "DRY RUN — pass --confirm to apply")}");
+    Console.WriteLine();
+
+    // ── 1. Drain all messages from the queue ─────────────────────────────────
+    var all          = new List<Message>();
+    var received     = new HashSet<string>();
+    var emptyRetries = 0;
+
+    while (emptyRetries < 3)
+    {
+        var resp = await sqs.ReceiveMessageAsync(new ReceiveMessageRequest
+        {
+            QueueUrl            = reviewUrl,
+            MaxNumberOfMessages = 10,
+            VisibilityTimeout   = 300,
+            WaitTimeSeconds     = 20
+        });
+
+        if (resp.Messages.Count == 0) { emptyRetries++; continue; }
+
+        int newCount = 0;
+        foreach (var msg in resp.Messages)
+        {
+            if (received.Add(msg.MessageId)) { all.Add(msg); newCount++; }
+        }
+        emptyRetries = newCount == 0 ? emptyRetries + 1 : 0;
+    }
+
+    Console.WriteLine($"Found {all.Count} message(s) in review queue.");
+
+    // ── 2. Classify each message ──────────────────────────────────────────────
+    var needsEnrich = new List<Message>();
+    var others      = new List<Message>();
+
+    foreach (var msg in all)
+    {
+        JsonElement root;
+        try { root = JsonDocument.Parse(msg.Body).RootElement; }
+        catch { Console.WriteLine($"  [skip] {msg.MessageId} — unparseable JSON"); others.Add(msg); continue; }
+
+        var hasWrapper = root.TryGetProperty("item", out JsonElement data);
+        if (!hasWrapper) data = root;
+
+        bool hasAsNew    = data.TryGetProperty("as_new",    out var an) && an.ValueKind != JsonValueKind.Null;
+        bool hasAsUpdate = data.TryGetProperty("as_update", out var au) && au.ValueKind != JsonValueKind.Null;
+        bool hasNearest  = data.TryGetProperty("nearest_record", out var nr) && nr.ValueKind != JsonValueKind.Null;
+
+        if (hasAsNew && hasAsUpdate && !hasNearest)
+        {
+            needsEnrich.Add(msg);
+            Console.WriteLine($"  [enrich]  {msg.MessageId}");
+        }
+        else
+        {
+            others.Add(msg);
+            Console.WriteLine($"  [skip]    {msg.MessageId} — already has nearest_record or not ambiguous");
+        }
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"To enrich: {needsEnrich.Count}  Skipping: {others.Count}");
+
+    // Release messages we're not touching
+    foreach (var msg in others.Concat(confirm ? Enumerable.Empty<Message>() : needsEnrich))
+    {
+        try
+        {
+            await sqs.ChangeMessageVisibilityAsync(new ChangeMessageVisibilityRequest
+            {
+                QueueUrl          = reviewUrl,
+                ReceiptHandle     = msg.ReceiptHandle,
+                VisibilityTimeout = 0
+            });
+        }
+        catch (Amazon.SQS.AmazonSQSException) { /* handle expired — message will re-appear automatically */ }
+    }
+
+    if (!confirm)
+    {
+        Console.WriteLine("Re-run with --confirm to enrich.");
+        return;
+    }
+
+    // ── 3. Enrich and re-enqueue ──────────────────────────────────────────────
+    int enriched = 0;
+
+    foreach (var msg in needsEnrich)
+    {
+        JsonElement root    = JsonDocument.Parse(msg.Body).RootElement;
+        var hasWrapper      = root.TryGetProperty("item", out JsonElement data);
+        if (!hasWrapper) data = root;
+
+        root.TryGetProperty("source_url", out var sourceUrl);
+        root.TryGetProperty("sync_id",    out var syncId);
+        data.TryGetProperty("note",       out var note);
+        data.TryGetProperty("as_new",     out var asNew);
+        data.TryGetProperty("as_update",  out var asUpdate);
+
+        // Extract lat/lng/date from as_update.lookup
+        object? nearestRecord = null;
+        if (asUpdate.TryGetProperty("lookup", out JsonElement lookup))
+        {
+            double? lat  = lookup.TryGetProperty("lat",  out var latEl)  && latEl.ValueKind  == JsonValueKind.Number ? latEl.GetDouble()        : null;
+            double? lng  = lookup.TryGetProperty("lng",  out var lngEl)  && lngEl.ValueKind  == JsonValueKind.Number ? lngEl.GetDouble()        : null;
+            string? date = lookup.TryGetProperty("date", out var dateEl) && dateEl.ValueKind == JsonValueKind.String ? dateEl.GetString()       : null;
+
+            if (lat != null && lng != null && date != null)
+                nearestRecord = await FindNearestSimplifiedAsync(dynamo, tableName, indexName, date, lat.Value, lng.Value);
+        }
+
+        string newBody = JsonSerializer.Serialize(new
+        {
+            source_url = sourceUrl.ValueKind == JsonValueKind.Undefined ? null : (object?)sourceUrl,
+            sync_id    = syncId.ValueKind    == JsonValueKind.Undefined ? null : (object?)syncId,
+            item       = new
+            {
+                note           = note.ValueKind == JsonValueKind.Undefined ? null : note.GetString(),
+                as_new         = (object?)asNew,
+                as_update      = (object?)asUpdate,
+                nearest_record = nearestRecord
+            }
+        });
+
+        await SendReviewMessage(sqs, reviewUrl, newBody);
+        await sqs.DeleteMessageAsync(new DeleteMessageRequest { QueueUrl = reviewUrl, ReceiptHandle = msg.ReceiptHandle });
+
+        string nearestId = nearestRecord is Dictionary<string, object?> d && d.TryGetValue("id", out object? id) ? $" → nearest id={id}" : " → no match found";
+        Console.WriteLine($"  enriched {msg.MessageId}{nearestId}");
+        enriched++;
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"Done. {enriched} message(s) enriched.");
+}
+
+async Task<Dictionary<string, object?>?> FindNearestSimplifiedAsync(
+    IAmazonDynamoDB dynamo, string tableName, string indexName,
+    string date, double lat, double lng)
+{
+    DateTime parsedDate   = DateTime.Parse(date);
+    string[] datesToQuery = new[]
+    {
+        parsedDate.AddDays(-1).ToString("yyyy-MM-dd"),
+        date,
+        parsedDate.AddDays(1).ToString("yyyy-MM-dd")
+    };
+
+    var allCandidates = new List<Dictionary<string, AttributeValue>>();
+    foreach (string queryDate in datesToQuery)
+    {
+        var resp = await dynamo.QueryAsync(new QueryRequest
+        {
+            TableName                 = tableName,
+            IndexName                 = indexName,
+            KeyConditionExpression    = "entity = :entity AND #d = :date",
+            ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date" },
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":entity"] = new AttributeValue { S = "strike" },
+                [":date"]   = new AttributeValue { S = queryDate }
+            }
+        });
+        allCandidates.AddRange(resp.Items);
+    }
+
+    var nearest = allCandidates
+        .Where(i => i.ContainsKey("lat") && i.ContainsKey("lng"))
+        .Select(i => (item: i, dist: ReviewHaversineKm(lat, lng, double.Parse(i["lat"].N), double.Parse(i["lng"].N))))
+        .OrderBy(x => x.dist)
+        .FirstOrDefault();
+
+    if (nearest.item == null) return null;
+
+    var result = new Dictionary<string, object?>();
+    foreach (var (k, v) in nearest.item)
+    {
+        if (v.S != null)      result[k] = v.S;
+        else if (v.N != null) result[k] = v.N;
+        else if (v.IsBOOLSet) result[k] = v.BOOL;
+    }
+    return result;
+}
+
+static double ReviewHaversineKm(double lat1, double lon1, double lat2, double lon2)
+{
+    const double R = 6371.0;
+    double dLat = (lat2 - lat1) * Math.PI / 180.0;
+    double dLon = (lon2 - lon1) * Math.PI / 180.0;
+    double a    = Math.Sin(dLat / 2) * Math.Sin(dLat / 2)
+                + Math.Cos(lat1 * Math.PI / 180.0) * Math.Cos(lat2 * Math.PI / 180.0)
+                * Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+    return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
 }
 
 // ── AWS Client Builders ───────────────────────────────────────────────────────
