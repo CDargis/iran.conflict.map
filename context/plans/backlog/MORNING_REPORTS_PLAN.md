@@ -171,6 +171,11 @@ The plan defines a `source` field on strike events (`"morning"` | omitted). This
 to `source_url` on sync records. No collision, but worth keeping in mind during implementation
 to avoid confusion across the two tables.
 
+## Open Questions
+
+### Economic Signal Rows — Multiple Syncs Per Day
+Once morning reports are live, a single date may produce two `economic-signals` rows — one from the morning sync, one from the evening. The composite key (`date` PK + `source_url` SK) handles this naturally since morning and evening URLs are distinct. How the API surfaces them is already decided (latest wins, per 9B in `ECONOMIC_DATA_PLAN.md`), but confirm this is the right behavior when both a morning and evening extraction exist for the same day — a merged union of `economic_notes` may be preferable to dropping the morning extraction entirely.
+
 ## Not Building Yet
 URL source is unresolved. Nothing in this plan should be implemented until the discovery
 mechanism is figured out. This document is for architectural alignment only.

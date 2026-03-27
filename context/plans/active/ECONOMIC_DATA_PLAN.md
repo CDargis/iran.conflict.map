@@ -786,9 +786,6 @@ Rationale: explicit provenance, handles partial data naturally (brent-only days 
 
 Backfill scope: Feb 28 – day before feature deployment. Use `--no-claude` flag for Tier 1 (Brent prices via EIA), then run without flag to add Tier 2 extraction. URL pattern confirmed: `iran-update-evening-special-report-{month}-{day}-{year}` for most dates (not the simpler `iran-update-{month}-{day}-{year}` pattern originally assumed — verify each date's slug from the `syncs-v2` table).
 
-### 9J. Multiple Syncs per Day (Morning Reports)
-Once morning reports are implemented (see `context/plans/active/MORNING_REPORTS_PLAN.md`), a date may produce two ECONOMIC rows — one from the morning report sync, one from the evening. This is naturally handled by the composite key design: each gets its own SK. How the API surfaces them (latest only, or merged) is covered by 9B above.
-
 ---
 
 ## File Reference Summary
