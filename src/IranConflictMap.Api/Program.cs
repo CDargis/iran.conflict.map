@@ -22,6 +22,8 @@ var app = builder.Build();
 var strikeCache = new Dictionary<string, (List<object> data, DateTime expiry)>();
 List<object>? syncCache = null;
 var syncCacheExpiry = DateTime.MinValue;
+List<object>? brentCache = null;
+var brentCacheExpiry = DateTime.MinValue;
 const string AllDatesKey = "all";
 
 // ── GET /api/strikes ───────────────────────────────────────────────────────────
@@ -147,6 +149,62 @@ app.MapGet("/api/syncs", async (IAmazonDynamoDB dynamo) =>
     syncCacheExpiry = DateTime.UtcNow.AddMinutes(5);
     return Results.Ok(syncCache);
 });
+
+// ── GET /api/economic/brent ────────────────────────────────────────────────────
+// Returns time-series Brent price rows. Historical dates: one row each (latest
+// timestamp). Today: all accumulated intraday readings.
+app.MapGet("/api/economic/brent", async (IAmazonDynamoDB dynamo, string? from, string? to) =>
+{
+    if (brentCache is not null && DateTime.UtcNow < brentCacheExpiry)
+        return Results.Ok(brentCache);
+
+    string tableName = Environment.GetEnvironmentVariable("BRENT_TABLE_NAME") ?? "iran-conflict-map-brent-prices";
+    string fromDate  = from ?? "2026-02-28";
+    string toDate    = to   ?? DateTime.UtcNow.ToString("yyyy-MM-dd");
+    string today     = DateTime.UtcNow.ToString("yyyy-MM-dd");
+
+    var scanRequest = new ScanRequest
+    {
+        TableName                 = tableName,
+        FilterExpression          = "#d BETWEEN :from AND :to",
+        ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date" },
+        ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+        {
+            [":from"] = new AttributeValue { S = fromDate },
+            [":to"]   = new AttributeValue { S = toDate   },
+        }
+    };
+
+    var scanResponse = await dynamo.ScanAsync(scanRequest);
+
+    // Group by date. Historical: keep only the row with the latest timestamp per date.
+    // Today: return all rows accumulated so far (intraday resolution).
+    var rows = scanResponse.Items
+        .GroupBy(item => item["date"].S)
+        .SelectMany(g =>
+        {
+            if (g.Key == today)
+                return (IEnumerable<Dictionary<string, AttributeValue>>)g.OrderBy(item => item["timestamp"].S);
+
+            // Historical: latest timestamp only
+            return new[] { g.OrderByDescending(item => item["timestamp"].S).First() };
+        })
+        .OrderBy(item => item["date"].S)
+        .ThenBy(item => item["timestamp"].S)
+        .Select(item => (object)MapBrentItem(item))
+        .ToList();
+
+    brentCache       = rows;
+    brentCacheExpiry = DateTime.UtcNow.AddMinutes(5);
+    return Results.Ok(rows);
+});
+
+static object MapBrentItem(Dictionary<string, AttributeValue> item) => new
+{
+    date        = item["date"].S,
+    timestamp   = item["timestamp"].S,
+    brent_price = double.Parse(item["brent_price"].N),
+};
 
 // ── URL normalization ──────────────────────────────────────────────────────────
 static string NormalizeReportUrl(string url)

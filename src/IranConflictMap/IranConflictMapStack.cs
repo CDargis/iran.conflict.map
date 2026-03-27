@@ -45,6 +45,16 @@ public class IranConflictMapStack : Stack
             Validation  = CertificateValidation.FromDns(hostedZone)
         });
 
+        // ── DynamoDB — Brent Prices Table ─────────────────────────────────
+        var brentPricesTable = new Table(this, "BrentPricesTable", new TableProps
+        {
+            TableName     = "iran-conflict-map-brent-prices",
+            PartitionKey  = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "date",      Type = AttributeType.STRING },
+            SortKey       = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "timestamp", Type = AttributeType.STRING },
+            BillingMode   = BillingMode.PAY_PER_REQUEST,
+            RemovalPolicy = RemovalPolicy.RETAIN
+        });
+
         // ── DynamoDB Table ─────────────────────────────────────────────────
         var strikesTable = new Table(this, "StrikesTable", new TableProps
         {
@@ -245,6 +255,7 @@ public class IranConflictMapStack : Stack
         });
 
         strikesTable.GrantReadData(apiLambda);
+        brentPricesTable.GrantReadData(apiLambda);
         syncsTable.GrantReadWriteData(apiLambda);   // write needed for review-approval sync records
         reviewQueue.GrantConsumeMessages(apiLambda);
         processorQueue.GrantSendMessages(apiLambda);
@@ -422,6 +433,7 @@ public class IranConflictMapStack : Stack
         apiLambda.AddEnvironment("PROCESSOR_QUEUE_URL",    processorQueue.QueueUrl);
         apiLambda.AddEnvironment("SYNCS_TABLE",            syncsTable.TableName);
         apiLambda.AddEnvironment("SSM_PREFIX",             "/iran-conflict-map");
+        apiLambda.AddEnvironment("BRENT_TABLE_NAME",       brentPricesTable.TableName);
 
         apiLambda.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
         {
@@ -462,6 +474,44 @@ public class IranConflictMapStack : Stack
             Schedule = Schedule.Rate(Duration.Hours(3))
         });
         inboxRetryRule.AddTarget(new Amazon.CDK.AWS.Events.Targets.LambdaFunction(extractLambda));
+
+        // ── Brent Price Lambda (EventBridge-scheduled, every 8 hours) ────────
+        var brentLambda = new LambdaFunction(this, "BrentFunction", new LambdaFunctionProps
+        {
+            FunctionName = "iran-conflict-map-brent",
+            Runtime      = Amazon.CDK.AWS.Lambda.Runtime.DOTNET_8,
+            Handler      = "IranConflictMap.Brent::IranConflictMap.Brent.Function::FunctionHandler",
+            Code         = Amazon.CDK.AWS.Lambda.Code.FromAsset("src/IranConflictMap.Brent", new Amazon.CDK.AWS.S3.Assets.AssetOptions
+            {
+                Bundling = new BundlingOptions
+                {
+                    Image   = Amazon.CDK.AWS.Lambda.Runtime.DOTNET_8.BundlingImage,
+                    Command = new[] { "bash", "-c", "dotnet publish -c Release -o /asset-output" }
+                }
+            }),
+            Environment = new Dictionary<string, string>
+            {
+                ["BRENT_TABLE_NAME"]    = brentPricesTable.TableName,
+                ["BRENT_API_KEY_PARAM"] = "/iran-conflict-map/brent_api_key",
+            },
+            Timeout      = Duration.Seconds(30),
+            MemorySize   = 256,
+            LogRetention = RetentionDays.TWO_WEEKS
+        });
+
+        brentPricesTable.GrantWriteData(brentLambda);
+        brentLambda.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
+        {
+            Actions   = ["ssm:GetParameter"],
+            Resources = [$"arn:aws:ssm:{this.Region}:{this.Account}:parameter/iran-conflict-map/brent_api_key"]
+        }));
+
+        var brentSchedule = new Rule(this, "BrentSchedule", new RuleProps
+        {
+            RuleName = "iran-conflict-map-brent-schedule",
+            Schedule = Schedule.Rate(Duration.Hours(8)),
+        });
+        brentSchedule.AddTarget(new Amazon.CDK.AWS.Events.Targets.LambdaFunction(brentLambda));
 
         // ── S3 Bucket ──────────────────────────────────────────────────────
         var bucket = new Bucket(this, "SiteBucket", new BucketProps
