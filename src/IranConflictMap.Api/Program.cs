@@ -22,8 +22,7 @@ var app = builder.Build();
 var strikeCache = new Dictionary<string, (List<object> data, DateTime expiry)>();
 List<object>? syncCache = null;
 var syncCacheExpiry = DateTime.MinValue;
-List<object>? brentCache = null;
-var brentCacheExpiry = DateTime.MinValue;
+var brentCache = new Dictionary<string, (List<object> data, DateTime expiry)>();
 const string AllDatesKey = "all";
 
 // ── GET /api/strikes ───────────────────────────────────────────────────────────
@@ -155,13 +154,14 @@ app.MapGet("/api/syncs", async (IAmazonDynamoDB dynamo) =>
 // timestamp). Today: all accumulated intraday readings.
 app.MapGet("/api/economic/brent", async (IAmazonDynamoDB dynamo, string? from, string? to) =>
 {
-    if (brentCache is not null && DateTime.UtcNow < brentCacheExpiry)
-        return Results.Ok(brentCache);
-
     string tableName = Environment.GetEnvironmentVariable("BRENT_TABLE_NAME") ?? "iran-conflict-map-brent-prices";
     string fromDate  = from ?? "2026-02-28";
     string toDate    = to   ?? DateTime.UtcNow.ToString("yyyy-MM-dd");
     string today     = DateTime.UtcNow.ToString("yyyy-MM-dd");
+    string cacheKey  = $"{fromDate}|{toDate}";
+
+    if (brentCache.TryGetValue(cacheKey, out var cached) && DateTime.UtcNow < cached.expiry)
+        return Results.Ok(cached.data);
 
     var scanRequest = new ScanRequest
     {
@@ -194,8 +194,7 @@ app.MapGet("/api/economic/brent", async (IAmazonDynamoDB dynamo, string? from, s
         .Select(item => (object)MapBrentItem(item))
         .ToList();
 
-    brentCache       = rows;
-    brentCacheExpiry = DateTime.UtcNow.AddMinutes(5);
+    brentCache[cacheKey] = (rows, DateTime.UtcNow.AddMinutes(5));
     return Results.Ok(rows);
 });
 
