@@ -692,54 +692,96 @@ Not recommended. Too tedious, no structured interface exists for it.
 
 ---
 
-## 8. Implementation Sequencing
+## 8. Implementation Phases
 
-### Step 1 — CDK infrastructure (deploy first, no code changes)
-1. Add the `iran-conflict-map-economic` DynamoDB table + GSI.
-2. Add the Brent Price Lambda (`iran-conflict-map-brent`) with EventBridge schedule.
-3. Add IAM grants for Sync, Brent, and API Lambdas.
-4. Add SSM parameter reference + grant for Brent API key (both Lambdas).
-5. Deploy: `cdk deploy`. Verify table exists and Brent Lambda is created in console.
-6. Create SSM parameter: `aws ssm put-parameter --name /iran-conflict-map/brent_api_key --value "..." --type SecureString`.
+Each phase delivers a fully working, visible feature. No phase leaves the frontend in a broken or partial state.
 
-### Step 2 — Brent Price Lambda: initial implementation
-1. Create `src/IranConflictMap.Brent/` project with `Function.cs`.
-2. Implement `FetchBrentPriceAsync()` and the `UpdateItemAsync` write.
-3. Deploy. Invoke manually to verify it writes `brent_close` and `brent_fetched_at` for today's date in DynamoDB.
-4. Verify the EventBridge schedule triggers it automatically (check CloudWatch Logs after 8 hours, or manually trigger from console).
+---
 
-### Step 3 — Sync Lambda: Brent price call at report time
-1. Add `FetchBrentPriceAsync()` to `src/IranConflictMap.Sync/Function.cs` (can share implementation or duplicate — small enough that duplication is fine).
-2. Log the result. Do not write to DynamoDB yet.
-3. Deploy. Trigger manual sync, verify Brent price is logged in CloudWatch.
+### Phase 1 — Brent Sparkline (Tier 1 only)
 
-### Step 4 — Sync Lambda: Expanded Claude prompt + economic DynamoDB write
-1. Expand `SystemPrompt` with the economic extraction block.
-2. Add `EconomicExtraction` record/class (`HormuzStatus`, `OilExportVolumeMbd`, `EconomicNotes`).
-3. Update JSON parse logic to extract the `economic` key from Claude response.
-4. Add `PutItemAsync` (full record including Brent price) for the economic table.
-5. Deploy. Trigger sync. Verify full economic record in DynamoDB — all fields present.
+**Deliverable:** Live Brent crude sparkline visible in the frontend, date nav collapsed into the econ bar, Hormuz pill present in topbar but unpopulated.
 
-### Step 5 — API Lambda: `/api/economic` endpoint
-1. Add `GET /api/economic` to `Program.cs`.
-2. Implement GSI query + 5-minute cache.
-3. Deploy. Verify via curl.
+#### 1A. CDK
+1. Add `iran-conflict-map-brent-prices` table (see Section 6A).
+2. Add Brent Price Lambda + EventBridge schedule (see Sections 6B, 6C).
+3. Add IAM grants for Brent Lambda (`brentTable.GrantWriteData`) and API Lambda (`brentTable.GrantReadData`) (see Section 6D).
+4. Add SSM parameter reference + grant for Brent Lambda (see Section 6F).
+5. Add `BRENT_TABLE_NAME` env var to API Lambda (see Section 6E).
+6. Deploy: `cdk deploy`. Verify table and Lambda exist in console.
+7. SSM key is already stored — confirm: `aws ssm get-parameter --name /iran-conflict-map/brent_api_key --with-decryption`.
 
-### Step 6 — Backfill
-1. Add `backfill-economic` command to Tools project.
-2. Run `--no-claude` to populate Brent prices for all historical trading days via EIA.
-3. Verify sparkline data via the new API endpoint.
-4. Optionally run Tier 2 (Claude) backfill.
+#### 1B. Brent Price Lambda
+1. Create `src/IranConflictMap.Brent/IranConflictMap.Brent.csproj` (copy structure from another Lambda project).
+2. Create `src/IranConflictMap.Brent/Function.cs`:
+   - Read SSM param at cold start for the API key.
+   - `FetchBrentPriceAsync()` — call crudepriceapi.com (see Section 2 for confirmed endpoint, auth, and C# models).
+   - Write row to `brent-prices` table via `PutItemAsync` (see Section 3D for item shape).
+3. Deploy. Manually invoke from console. Verify a row appears in DynamoDB with correct fields.
+4. Confirm EventBridge schedule is active — check CloudWatch Logs after next scheduled trigger.
 
-### Step 7 — Frontend: sparkline + indicator strip
-1. Add sparkline SVG and indicator strip markup to `index.html`.
-2. Add JS: fetch `/api/economic?days=30`, render sparkline, populate strip.
-3. Deploy via CDK.
+#### 1C. API — `GET /api/economic/brent`
+1. Add endpoint to `src/IranConflictMap.Api/Program.cs` (see Section 4 for response shape and scan/grouping logic).
+2. `?from=YYYY-MM-DD&to=YYYY-MM-DD` — scan `brent-prices`, group by date, return one point per historical day + all intraday for today.
+3. 5-minute in-memory cache.
+4. Deploy. Verify: `curl /api/economic/brent?from=2026-02-28&to=[today]`.
 
-### Step 8 — Frontend: economic tab
-1. Add "Economic" tab button and panel to the bottom sheet.
-2. Add JS: fetch and render economic notes when tab is selected.
-3. Deploy.
+#### 1D. Frontend
+1. Remove `#timebar` and its date nav markup.
+2. Add econ bar below `#topbar` (see Section 5A markup): `spark-wrap` header row (label + price + % change) + sparkline SVG + date nav inline on the right.
+3. Add Hormuz pill to `#topbar` right side (see Section 5B markup) — initially hidden (`display:none`) until Phase 2 populates signal data.
+4. JS: fetch `GET /api/economic/brent` on page load. Render sparkline using `frontend/sparkline-demo.html` as the implementation reference.
+5. JS: on date change — re-render sparkline trimmed to selected date, update price label and % change, move date marker.
+6. Deploy via CDK.
+
+**Phase 1 complete when:** Sparkline is visible in the frontend with live Brent price data, date nav is inline in the econ bar, and the chart trims correctly as the user navigates dates.
+
+---
+
+### Phase 2 — Tier 2 Signals + Full UI
+
+**Deliverable:** Hormuz status live in topbar, status change dots on sparkline, economic tab populated with extracted signals from each report sync going forward.
+
+#### 2A. CDK
+1. Add `iran-conflict-map-economic-signals` table (see Section 6A).
+2. Add IAM grants: `signalsTable.GrantWriteData(syncFunction)`, `signalsTable.GrantReadData(apiFunction)` (see Section 6D).
+3. Add `SIGNALS_TABLE_NAME` env var to Sync Lambda and API Lambda (see Section 6E).
+4. Deploy: `cdk deploy`.
+
+#### 2B. Sync Lambda — Expanded Claude Prompt + Economic Write
+1. Append economic extraction block to `SystemPrompt` in `src/IranConflictMap.Sync/Function.cs` (see Section 3A for exact prompt text).
+2. Add `EconomicExtraction` C# record (`HormuzStatus`, `OilExportVolumeMbd`, `EconomicNotes`).
+3. Update JSON parse logic to extract the `economic` key from Claude's response.
+4. Write to `economic-signals` table via `PutItemAsync` using `source_url` as SK (see Section 3A for item shape).
+5. Deploy. Trigger a manual sync. Verify the signal row appears in DynamoDB with all fields.
+
+#### 2C. API — `GET /api/economic`
+1. Add endpoint to `Program.cs` (see Section 4 for response shape: `{ date, brent, signals }`).
+2. For `?date=YYYY-MM-DD`: query both tables in parallel, return separate `brent`/`signals` objects (either may be null).
+3. For `?days=N`: repeat for each date in range, return array.
+4. 5-minute in-memory cache.
+5. Deploy. Verify via curl for a date that has both a brent row and a signal row.
+
+#### 2D. Frontend
+1. On page load, also fetch `GET /api/economic?days=N` (full range) for Hormuz signal history.
+2. Populate Hormuz pill in topbar from selected date's `signals.hormuz_status`. Unhide the pill.
+3. Add Hormuz status change dots to sparkline — colored circles on the historical price line at dates where `hormuz_status` changed (see Section 5A).
+4. Add "Economic" tab to the bottom sheet (see Section 5C markup).
+5. JS: when Economic tab is selected or date changes while tab is open, fetch `GET /api/economic?date=YYYY-MM-DD` and render brent row, hormuz/exports, and economic notes list.
+6. Deploy via CDK.
+
+**Phase 2 complete when:** Hormuz pill shows the correct status for the selected date, status change dots appear on the sparkline, and the Economic tab renders extracted signals from live syncs.
+
+---
+
+### Phase 3 — Backfill (deferred)
+
+Run after Phase 2 is deployed and verified. See Section 7 for full backfill implementation details.
+
+1. Add `backfill-economic` command to `src/IranConflictMap.Tools/Program.cs`.
+2. Run Tier 1: `tools backfill-economic --start 2026-02-28 --end [day before Phase 1 deploy] --no-claude --eia-key YOUR_EIA_KEY`.
+3. Run Tier 2: `tools backfill-economic --start 2026-02-28 --end [day before Phase 2 deploy] --only-claude` — uses URLs from `syncs-v2` table; falls back to constructed URL pattern for dates not in the table.
+4. Verify sparkline shows full history and Hormuz dots appear on historical dates.
 
 ---
 
