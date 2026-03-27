@@ -698,49 +698,26 @@ Each phase delivers a fully working, visible feature. No phase leaves the fronte
 
 ---
 
-### Phase 1 — Brent Sparkline (Tier 1 only)
+### Phase 1 — Brent Sparkline + Tier 1 Backfill ✅ (mostly done)
 
-**Deliverable:** Live Brent crude sparkline visible in the frontend, date nav collapsed into the econ bar, Hormuz pill present in topbar but unpopulated.
+**Deliverable:** Live Brent crude sparkline with full historical data back to 2026-02-28, date nav inline in econ bar, Hormuz pill in topbar (hidden).
 
-#### 1A. CDK
-1. Add `iran-conflict-map-brent-prices` table (see Section 6A).
-2. Add Brent Price Lambda + EventBridge schedule (see Sections 6B, 6C).
-3. Add IAM grants for Brent Lambda (`brentTable.GrantWriteData`) and API Lambda (`brentTable.GrantReadData`) (see Section 6D).
-4. Add SSM parameter reference + grant for Brent Lambda (see Section 6F).
-5. Add `BRENT_TABLE_NAME` env var to API Lambda (see Section 6E).
-6. Deploy: `cdk deploy`. Verify table and Lambda exist in console.
-7. SSM key is already stored — confirm: `aws ssm get-parameter --name /iran-conflict-map/brent_api_key --with-decryption`.
+#### 1A–1D. Core implementation ✅ Done
+CDK, Brent Lambda, `GET /api/economic/brent`, frontend sparkline — all deployed.
 
-#### 1B. Brent Price Lambda
-1. Create `src/IranConflictMap.Brent/IranConflictMap.Brent.csproj` (copy structure from another Lambda project).
-2. Create `src/IranConflictMap.Brent/Function.cs`:
-   - Read SSM param at cold start for the API key.
-   - `FetchBrentPriceAsync()` — call crudepriceapi.com (see Section 2 for confirmed endpoint, auth, and C# models).
-   - Write row to `brent-prices` table via `PutItemAsync` (see Section 3D for item shape).
-3. Deploy. Manually invoke from console. Verify a row appears in DynamoDB with correct fields.
-4. Confirm EventBridge schedule is active — check CloudWatch Logs after next scheduled trigger.
+#### 1E. Tier 1 Backfill
+1. Register a free EIA API key at https://www.eia.gov/opendata/ (one-time, not stored in SSM).
+2. Add `backfill-economic` command to `src/IranConflictMap.Tools/Program.cs` (see Section 7A for EIA endpoint and write logic).
+3. Run: `tools backfill-economic --start 2026-02-28 --end [day before Phase 1 deploy] --no-claude --eia-key YOUR_EIA_KEY`
+4. Verify sparkline shows full history back to 2026-02-28.
 
-#### 1C. API — `GET /api/economic/brent`
-1. Add endpoint to `src/IranConflictMap.Api/Program.cs` (see Section 4 for response shape and scan/grouping logic).
-2. `?from=YYYY-MM-DD&to=YYYY-MM-DD` — scan `brent-prices`, group by date, return one point per historical day + all intraday for today.
-3. 5-minute in-memory cache.
-4. Deploy. Verify: `curl /api/economic/brent?from=2026-02-28&to=[today]`.
-
-#### 1D. Frontend
-1. Remove `#timebar` and its date nav markup.
-2. Add econ bar below `#topbar` (see Section 5A markup): `spark-wrap` header row (label + price + % change) + sparkline SVG + date nav inline on the right.
-3. Add Hormuz pill to `#topbar` right side (see Section 5B markup) — initially hidden (`display:none`) until Phase 2 populates signal data.
-4. JS: fetch `GET /api/economic/brent` on page load. Render sparkline using `frontend/sparkline-demo.html` as the implementation reference.
-5. JS: on date change — re-render sparkline trimmed to selected date, update price label and % change, move date marker.
-6. Deploy via CDK.
-
-**Phase 1 complete when:** Sparkline is visible in the frontend with live Brent price data, date nav is inline in the econ bar, and the chart trims correctly as the user navigates dates.
+**Phase 1 complete when:** Sparkline shows full historical Brent prices from 2026-02-28 to today.
 
 ---
 
-### Phase 2 — Tier 2 Signals + Full UI
+### Phase 2 — Tier 2 Signals + Full UI + Tier 2 Backfill
 
-**Deliverable:** Hormuz status live in topbar, status change dots on sparkline, economic tab populated with extracted signals from each report sync going forward.
+**Deliverable:** Hormuz status live in topbar, status change dots on sparkline, economic tab populated — including backfilled signal data for all historical dates.
 
 #### 2A. CDK
 1. Add `iran-conflict-map-economic-signals` table (see Section 6A).
@@ -759,8 +736,7 @@ Each phase delivers a fully working, visible feature. No phase leaves the fronte
 1. Add endpoint to `Program.cs` (see Section 4 for response shape: `{ date, brent, signals }`).
 2. For `?date=YYYY-MM-DD`: query both tables in parallel, return separate `brent`/`signals` objects (either may be null).
 3. For `?days=N`: repeat for each date in range, return array.
-4. 5-minute in-memory cache.
-5. Deploy. Verify via curl for a date that has both a brent row and a signal row.
+4. Deploy. Verify via curl for a date that has both a brent row and a signal row.
 
 #### 2D. Frontend
 1. On page load, also fetch `GET /api/economic?days=N` (full range) for Hormuz signal history.
@@ -770,27 +746,22 @@ Each phase delivers a fully working, visible feature. No phase leaves the fronte
 5. JS: when Economic tab is selected or date changes while tab is open, fetch `GET /api/economic?date=YYYY-MM-DD` and render brent row, hormuz/exports, and economic notes list.
 6. Deploy via CDK.
 
-**Phase 2 complete when:** Hormuz pill shows the correct status for the selected date, status change dots appear on the sparkline, and the Economic tab renders extracted signals from live syncs.
+#### 2E. Tier 2 Backfill
+1. Extend `backfill-economic` command with `--only-claude` flag (see Section 7B).
+2. Run: `tools backfill-economic --start 2026-02-28 --end [day before Phase 2 deploy] --only-claude`
+   — uses URLs from `syncs-v2` table; falls back to constructed URL pattern for other dates.
+3. Verify Hormuz status change dots appear on historical dates in the sparkline.
+
+**Phase 2 complete when:** Hormuz pill shows correct status for any selected date, status change dots appear on historical sparkline, economic tab renders extracted signals including backfilled history.
 
 ---
 
-### Phase 3 — Backfill (deferred)
-
-Run after Phase 2 is deployed and verified. See Section 7 for full backfill implementation details.
-
-1. Add `backfill-economic` command to `src/IranConflictMap.Tools/Program.cs`.
-2. Run Tier 1: `tools backfill-economic --start 2026-02-28 --end [day before Phase 1 deploy] --no-claude --eia-key YOUR_EIA_KEY`.
-3. Run Tier 2: `tools backfill-economic --start 2026-02-28 --end [day before Phase 2 deploy] --only-claude` — uses URLs from `syncs-v2` table; falls back to constructed URL pattern for dates not in the table.
-4. Verify sparkline shows full history and Hormuz dots appear on historical dates.
-
----
-
-### Phase 4 — Caching
+### Phase 3 — Caching
 
 Add 5-minute in-memory caching to all new economic endpoints. Caching was removed from `GET /api/economic/brent` and deferred here to avoid cache-poisoning bugs during initial development (a narrow-range call caching `[]` would poison full-range requests for 5 minutes).
 
 1. `GET /api/economic/brent` — cache keyed by `"{from}|{to}"` using a `Dictionary<string, (List<object>, DateTime)>`, same pattern as `strikeCache`.
-2. `GET /api/economic` (Phase 2) — same keyed-cache pattern.
+2. `GET /api/economic` — same keyed-cache pattern.
 3. Existing endpoints (`/api/strikes`, `/api/syncs`) already have cache — no changes needed.
 
 ---
