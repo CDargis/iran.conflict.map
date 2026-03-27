@@ -22,7 +22,6 @@ var app = builder.Build();
 var strikeCache = new Dictionary<string, (List<object> data, DateTime expiry)>();
 List<object>? syncCache = null;
 var syncCacheExpiry = DateTime.MinValue;
-var brentCache = new Dictionary<string, (List<object> data, DateTime expiry)>();
 const string AllDatesKey = "all";
 
 // ── GET /api/strikes ───────────────────────────────────────────────────────────
@@ -158,10 +157,6 @@ app.MapGet("/api/economic/brent", async (IAmazonDynamoDB dynamo, string? from, s
     string fromDate  = from ?? "2026-02-28";
     string toDate    = to   ?? DateTime.UtcNow.ToString("yyyy-MM-dd");
     string today     = DateTime.UtcNow.ToString("yyyy-MM-dd");
-    string cacheKey  = $"{fromDate}|{toDate}";
-
-    if (brentCache.TryGetValue(cacheKey, out var cached) && DateTime.UtcNow < cached.expiry)
-        return Results.Ok(cached.data);
 
     var scanRequest = new ScanRequest
     {
@@ -194,7 +189,6 @@ app.MapGet("/api/economic/brent", async (IAmazonDynamoDB dynamo, string? from, s
         .Select(item => (object)MapBrentItem(item))
         .ToList();
 
-    brentCache[cacheKey] = (rows, DateTime.UtcNow.AddMinutes(5));
     return Results.Ok(rows);
 });
 

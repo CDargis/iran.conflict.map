@@ -785,6 +785,16 @@ Run after Phase 2 is deployed and verified. See Section 7 for full backfill impl
 
 ---
 
+### Phase 4 — Caching
+
+Add 5-minute in-memory caching to all new economic endpoints. Caching was removed from `GET /api/economic/brent` and deferred here to avoid cache-poisoning bugs during initial development (a narrow-range call caching `[]` would poison full-range requests for 5 minutes).
+
+1. `GET /api/economic/brent` — cache keyed by `"{from}|{to}"` using a `Dictionary<string, (List<object>, DateTime)>`, same pattern as `strikeCache`.
+2. `GET /api/economic` (Phase 2) — same keyed-cache pattern.
+3. Existing endpoints (`/api/strikes`, `/api/syncs`) already have cache — no changes needed.
+
+---
+
 ## 9. Open Questions / Decisions Needed
 
 ### 9A. How Many Brent Rows to Surface Per Day
