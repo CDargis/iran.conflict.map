@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sparkline Demo</title>
+<style>
+  body {
+    background: #0f172a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+    font-family: monospace;
+    color: #94a3b8;
+    gap: 32px;
+  }
+
+  .card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 24px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .label {
+    font-size: 11px;
+    color: #64748b;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .strip {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .price {
+    font-size: 14px;
+    color: #e2e8f0;
+  }
+
+  .price strong {
+    color: #f1f5f9;
+    font-size: 16px;
+  }
+
+  .change-up   { color: #4ade80; font-size: 12px; }
+  .change-down { color: #f87171; font-size: 12px; }
+
+  svg { overflow: visible; }
+
+  @keyframes pulse {
+    0%   { r: 3; opacity: 1; }
+    50%  { r: 5; opacity: 0.4; }
+    100% { r: 3; opacity: 1; }
+  }
+
+  #live-dot { animation: pulse 2s ease-in-out infinite; }
+
+  .legend {
+    display: flex;
+    gap: 20px;
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 4px;
+  }
+
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+
+  .swatch-solid { width: 20px; height: 2px; background: #f59e0b; }
+  .swatch-dashed {
+    width: 20px; height: 2px;
+    background: repeating-linear-gradient(
+      to right, #38bdf8 0px, #38bdf8 4px, transparent 4px, transparent 7px
+    );
+  }
+  .swatch-tick { width: 2px; height: 12px; background: #38bdf8; opacity: 0.6; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="label">Brent Crude — 14-day sparkline</div>
+
+  <div class="strip">
+    <svg id="sparkline" width="320" height="68"></svg>
+    <div class="price">
+      <strong id="price-label">$—</strong>
+      <span id="change-label" class="change-up"></span>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="swatch-solid"></div> Historical (settled)</div>
+    <div class="legend-item"><div class="swatch-dashed"></div> Today (in progress)</div>
+    <div class="legend-item"><div class="swatch-tick"></div> Today (zoomed)</div>
+  </div>
+</div>
+
+<script>
+// --- Simulated data ---
+const historical = [
+  { date: "Mar 14", price: 82.10 },
+  { date: "Mar 15", price: 82.85 },
+  { date: "Mar 16", price: 81.40 },
+  { date: "Mar 17", price: 83.20 },
+  { date: "Mar 18", price: 84.00 },
+  { date: "Mar 19", price: 83.50 },
+  { date: "Mar 20", price: 84.90 },
+  { date: "Mar 21", price: 85.10 },
+  { date: "Mar 22", price: 84.60 },
+  { date: "Mar 23", price: 85.30 },
+  { date: "Mar 24", price: 86.10 },
+  { date: "Mar 25", price: 85.80 },
+  { date: "Mar 26", price: 86.40 },
+];
+
+const todayReadings = [
+  { time: "00:00", price: 84.20 },
+  { time: "08:00", price: 88.90 },
+  { time: "16:00", price: 87.50 },
+];
+
+const todayLatest = todayReadings[todayReadings.length - 1].price;
+const todayHigh   = Math.max(...todayReadings.map(r => r.price));
+const todayLow    = Math.min(...todayReadings.map(r => r.price));
+
+// --- Layout ---
+// History occupies the left portion; today box is a fixed inset on the right
+const SVG_H      = 68;
+const HIST_W     = 260;
+const BOX_GAP    = 18;   // gap between last hist point and box left edge
+const BOX_W      = 90;   // inner width of today box
+const BOX_PAD_X  = 8;    // inner x padding inside box
+const BOX_PAD_Y  = 6;    // inner y padding inside box (top & bottom of box interior)
+const Y_LABEL_W  = 32;   // space right of box for y-axis labels
+const X_LABEL_H  = 12;   // space below box for x-axis time labels
+const PAD        = { top: 10, bottom: X_LABEL_H + 2, left: 4, right: Y_LABEL_W };
+
+const SVG_W = PAD.left + HIST_W + BOX_GAP + BOX_W + PAD.right;
+document.getElementById("sparkline").setAttribute("width",  SVG_W);
+document.getElementById("sparkline").setAttribute("height", SVG_H);
+
+const HIST_INNER_H = SVG_H - PAD.top - PAD.bottom;
+
+// Box geometry
+const BOX_X = PAD.left + HIST_W + BOX_GAP;
+const BOX_Y = PAD.top;
+const BOX_INNER_H = HIST_INNER_H;  // same height as history area
+
+// --- Scales ---
+const histPrices = historical.map(d => d.price);
+const minP = Math.min(...histPrices) - 0.5;
+const maxP = Math.max(...histPrices) + 0.5;
+
+function scaleY(price) {
+  return PAD.top + HIST_INNER_H * (1 - (price - minP) / (maxP - minP));
+}
+
+// Today's y-scale: zoomed, mapped to box interior
+const todayPad  = Math.max((todayHigh - todayLow) * 0.5, 0.8);
+const todayMinP = todayLow  - todayPad;
+const todayMaxP = todayHigh + todayPad;
+const boxInnerTop    = BOX_Y + BOX_PAD_Y;
+const boxInnerBottom = BOX_Y + BOX_INNER_H - BOX_PAD_Y;
+
+function scaleYBox(price) {
+  return boxInnerTop + (boxInnerBottom - boxInnerTop) * (1 - (price - todayMinP) / (todayMaxP - todayMinP));
+}
+
+// Historical x positions
+const slotW = HIST_W / (historical.length - 1);
+function slotX(i) { return PAD.left + i * slotW; }
+
+// Today's intraday x positions — evenly spaced inside box (with inner padding)
+function intradayX(i) {
+  return BOX_X + BOX_PAD_X + (i / (todayReadings.length - 1)) * (BOX_W - BOX_PAD_X * 2);
+}
+
+const lastHistX = slotX(historical.length - 1);
+const lastHistY = scaleY(historical[historical.length - 1].price);
+
+// --- Render ---
+const svg = document.getElementById("sparkline");
+
+function el(tag, attrs) {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs)) { e.setAttribute(k, v); }
+  return e;
+}
+
+function txt(content, attrs) {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  for (const [k, v] of Object.entries(attrs)) { e.setAttribute(k, v); }
+  e.textContent = content;
+  return e;
+}
+
+// === Historical line ===
+svg.appendChild(el("polyline", {
+  points: historical.map((d, i) => `${slotX(i)},${scaleY(d.price)}`).join(" "),
+  fill: "none", stroke: "#f59e0b", "stroke-width": "1.5",
+  "stroke-linejoin": "round", "stroke-linecap": "round",
+}));
+
+// Historical dots
+for (let i = 0; i < historical.length; i++) {
+  svg.appendChild(el("circle", {
+    cx: slotX(i), cy: scaleY(historical[i].price),
+    r: "2", fill: "#f59e0b", opacity: "0.45",
+  }));
+}
+
+// === Today box ===
+// Subtle tinted background fill
+svg.appendChild(el("rect", {
+  x: BOX_X, y: BOX_Y, width: BOX_W, height: BOX_INNER_H,
+  fill: "rgba(56,189,248,0.04)",
+  stroke: "#38bdf8", "stroke-width": "0.75", opacity: "0.7",
+  rx: "2",
+}));
+
+// "TODAY" label at top of box
+svg.appendChild(txt("TODAY", {
+  x: BOX_X + BOX_W / 2, y: BOX_Y + 6,
+  fill: "#38bdf8", "font-size": "6", "font-family": "monospace",
+  "text-anchor": "middle", opacity: "0.7", "letter-spacing": "0.08em",
+}));
+
+// === Y-axis labels (right side of box) — high, mid, low ===
+const yMidP = (todayMinP + todayMaxP) / 2;
+for (const [price, anchor] of [[todayMaxP, "start"], [yMidP, "middle"], [todayMinP, "end"]]) {
+  const y = scaleYBox(price);
+  // tick
+  svg.appendChild(el("line", {
+    x1: BOX_X + BOX_W, y1: y, x2: BOX_X + BOX_W + 3, y2: y,
+    stroke: "#475569", "stroke-width": "0.75",
+  }));
+  // label
+  svg.appendChild(txt(`$${price.toFixed(1)}`, {
+    x: BOX_X + BOX_W + 5, y: y + 3,
+    fill: "#64748b", "font-size": "6.5", "font-family": "monospace",
+  }));
+}
+
+// === X-axis labels (bottom of box) — time of each reading ===
+for (let i = 0; i < todayReadings.length; i++) {
+  const x = intradayX(i);
+  const boxBottom = BOX_Y + BOX_INNER_H;
+  // tick
+  svg.appendChild(el("line", {
+    x1: x, y1: boxBottom, x2: x, y2: boxBottom + 3,
+    stroke: "#475569", "stroke-width": "0.75",
+  }));
+  // label
+  svg.appendChild(txt(todayReadings[i].time, {
+    x, y: boxBottom + 9,
+    fill: "#64748b", "font-size": "6.5", "font-family": "monospace",
+    "text-anchor": "middle",
+  }));
+}
+
+// === Dashed connector: last hist point → first intraday point (crosses scale boundary) ===
+svg.appendChild(el("line", {
+  x1: lastHistX, y1: lastHistY,
+  x2: intradayX(0), y2: scaleYBox(todayReadings[0].price),
+  stroke: "#38bdf8", "stroke-width": "1.5",
+  "stroke-dasharray": "4 3", opacity: "0.35",
+}));
+
+// === Intraday line inside box ===
+svg.appendChild(el("polyline", {
+  points: todayReadings.map((r, i) => `${intradayX(i)},${scaleYBox(r.price)}`).join(" "),
+  fill: "none", stroke: "#38bdf8", "stroke-width": "1.5",
+  "stroke-dasharray": "4 3", "stroke-linejoin": "round", "stroke-linecap": "round",
+  opacity: "0.9",
+}));
+
+// Intraday dots
+for (let i = 0; i < todayReadings.length; i++) {
+  svg.appendChild(el("circle", {
+    cx: intradayX(i), cy: scaleYBox(todayReadings[i].price),
+    r: "2", fill: "#38bdf8", opacity: "0.55",
+  }));
+}
+
+// Live pulsing dot
+svg.appendChild(el("circle", {
+  id: "live-dot",
+  cx: intradayX(todayReadings.length - 1),
+  cy: scaleYBox(todayLatest),
+  r: "3", fill: "#38bdf8",
+}));
+
+// --- Strip ---
+const prevClose = historical[historical.length - 1].price;
+const changePct = ((todayLatest - prevClose) / prevClose * 100).toFixed(2);
+const up = changePct >= 0;
+document.getElementById("price-label").textContent = `$${todayLatest.toFixed(2)}`;
+const changeEl = document.getElementById("change-label");
+changeEl.textContent = `${up ? "▲" : "▼"} ${Math.abs(changePct)}% vs yesterday`;
+changeEl.className = up ? "change-up" : "change-down";
+</script>
+
+</body>
+</html>

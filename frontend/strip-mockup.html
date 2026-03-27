@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Indicator Strip Mockups</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0f172a;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #94a3b8;
+    padding: 24px 16px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+    align-items: center;
+  }
+
+  h1 { color: #e2e8f0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .section { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 6px; }
+  .section-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #475569; padding-left: 2px; }
+  .variant-note  { font-size: 10px; color: #475569; padding-left: 2px; font-style: italic; }
+
+  /* Phone frame */
+  .phone-frame { background: #1e293b; border: 1px solid #334155; border-radius: 12px; overflow: hidden; }
+
+  /* Topbar */
+  .topbar {
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+    display: flex; align-items: center;
+    padding: 0 16px; gap: 10px; height: 48px;
+  }
+  .title-main { font-weight: 700; font-size: 16px; color: #fff; }
+  .title-sub  { font-size: 9px; color: #64748b; letter-spacing: .04em; font-family: monospace; }
+  .top-right  { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .hormuz-pill { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; }
+  .hormuz-pill .hormuz-label { font-size: 9px; font-weight: 400; color: #64748b; }
+  .hormuz-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .dot-no-alert   { background: #4ade80; }
+  .dot-restricted { background: #f59e0b; }
+  .dot-closed     { background: #ef4444; box-shadow: 0 0 4px #ef4444; }
+  .dot-unknown    { background: #fde047; }
+
+  .spark-wrap { display: flex; flex-direction: column; gap: 3px; }
+  .spark-header { display: flex; align-items: baseline; gap: 6px; }
+  .spark-label { font-size: 9px; color: #64748b; letter-spacing: 0.06em; text-transform: uppercase; }
+  .spark-header .brent-price { font-size: 12px; }
+  .spark-header .brent-price strong { font-size: 13px; }
+  .spark-header .up, .spark-header .down { font-size: 11px; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+
+  /* Economic bar — sparkline/indicators left, date nav right */
+  .econ-bar {
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+    padding: 5px 4px 5px 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .econ-left  { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+
+  /* Inline date nav */
+  .date-nav-inline {
+    display: flex; align-items: center; gap: 0;
+    border-left: 1px solid #334155;
+    margin-left: auto; flex-shrink: 0;
+  }
+  .nav-arrow {
+    width: 32px; height: 100%; min-height: 36px;
+    background: none; border: none; cursor: pointer;
+    color: #64748b; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: color .15s;
+  }
+  .nav-arrow:hover { color: #fff; }
+  .date-inline {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 0; padding: 0 4px; min-width: 44px;
+  }
+  .td-month { font-size: 7px; letter-spacing: .2em; color: #64748b; text-transform: uppercase; }
+  .td-day   { font-size: 18px; font-weight: 700; color: #fff; line-height: 1; }
+
+  /* Map placeholder */
+  .map-placeholder {
+    background: #162032; height: 100px;
+    display: flex; align-items: center; justify-content: center;
+    color: #334155; font-size: 11px; letter-spacing: 0.05em;
+  }
+
+  /* Strip elements */
+  .strip { display: flex; align-items: center; gap: 10px; font-size: 11px; }
+  .strip-item { display: flex; align-items: center; gap: 4px; color: #94a3b8; }
+  .strip-item strong { font-weight: 600; }
+  .strip-divider { color: #334155; }
+
+  .brent-price { font-size: 13px; color: #e2e8f0; }
+  .brent-price strong { color: #fff; }
+  .up   { color: #4ade80; font-size: 11px; }
+  .down { color: #f87171; font-size: 11px; }
+
+  .hormuz-no-alert   { color: #4ade80; }
+  .hormuz-restricted { color: #f59e0b; }
+  .hormuz-closed     { color: #ef4444; }
+  .hormuz-unknown    { color: #fde047; }
+
+  .alert-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 9999px;
+    font-size: 10px; font-weight: 600; letter-spacing: 0.03em;
+    white-space: nowrap;
+  }
+  .badge-restricted { background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); color: #f59e0b; }
+  .badge-closed     { background: rgba(239,68,68,0.15);  border: 1px solid rgba(239,68,68,0.4);  color: #ef4444; }
+
+  svg { overflow: visible; }
+
+  /* Extra bottom padding on econ-bar so x-axis time labels don't get clipped */
+  .econ-bar { padding-bottom: 10px; }
+
+  @keyframes livepulse {
+    0%   { r: 3; opacity: 1; }
+    50%  { r: 5; opacity: 0.4; }
+    100% { r: 3; opacity: 1; }
+  }
+  .live-dot { animation: livepulse 2s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<h1>Topbar — Hormuz States</h1>
+
+<!-- Shared sparkline data/rendering — injected into each .spark-target SVG -->
+<script>
+const historical = [
+  { date: "Mar 14", price: 82.10 }, { date: "Mar 15", price: 82.85 },
+  { date: "Mar 16", price: 81.40 }, { date: "Mar 17", price: 83.20 },
+  { date: "Mar 18", price: 84.00 }, { date: "Mar 19", price: 83.50 },
+  { date: "Mar 20", price: 84.90 }, { date: "Mar 21", price: 85.10 },
+  { date: "Mar 22", price: 84.60 }, { date: "Mar 23", price: 85.30 },
+  { date: "Mar 24", price: 86.10 }, { date: "Mar 25", price: 85.80 },
+  { date: "Mar 26", price: 86.40 },
+];
+const todayReadings = [
+  { time: "00:00", price: 84.20 },
+  { time: "08:00", price: 88.90 },
+  { time: "16:00", price: 87.50 },
+];
+const todayLatest = todayReadings[todayReadings.length - 1].price;
+const todayHigh   = Math.max(...todayReadings.map(r => r.price));
+const todayLow    = Math.min(...todayReadings.map(r => r.price));
+const prevClose   = historical[historical.length - 1].price;
+const changePct   = ((todayLatest - prevClose) / prevClose * 100);
+
+function drawSparkline(svg, opts = {}) {
+  const SVG_H   = opts.h   || 44;
+  const HIST_W  = opts.hw  || 160;
+  const BOX_W   = opts.bw  || 64;
+  const BOX_GAP = 14;
+  const BOX_PAD_X = 6, BOX_PAD_Y = 5;
+  const Y_LABEL_W = opts.yl !== undefined ? opts.yl : 32;
+  const X_LABEL_H = opts.xl !== undefined ? opts.xl : 10;
+  const PAD = { top: 8, bottom: X_LABEL_H + 2, left: 2, right: Y_LABEL_W };
+
+  const SVG_W = PAD.left + HIST_W + BOX_GAP + BOX_W + PAD.right;
+  svg.setAttribute("width",  SVG_W);
+  svg.setAttribute("height", SVG_H);
+  svg.innerHTML = "";
+
+  const HIST_INNER_H = SVG_H - PAD.top - PAD.bottom;
+  const BOX_X = PAD.left + HIST_W + BOX_GAP;
+  const BOX_Y = PAD.top;
+  const BOX_INNER_H = HIST_INNER_H;
+
+  const minP = Math.min(...historical.map(d => d.price)) - 0.5;
+  const maxP = Math.max(...historical.map(d => d.price)) + 0.5;
+  const scaleY = p => PAD.top + HIST_INNER_H * (1 - (p - minP) / (maxP - minP));
+
+  const todayPad  = Math.max((todayHigh - todayLow) * 0.5, 0.8);
+  const todayMinP = todayLow  - todayPad;
+  const todayMaxP = todayHigh + todayPad;
+  const boxInnerTop    = BOX_Y + BOX_PAD_Y;
+  const boxInnerBottom = BOX_Y + BOX_INNER_H - BOX_PAD_Y;
+  const scaleYBox = p => boxInnerTop + (boxInnerBottom - boxInnerTop) * (1 - (p - todayMinP) / (todayMaxP - todayMinP));
+
+  const slotW = HIST_W / (historical.length - 1);
+  const slotX = i => PAD.left + i * slotW;
+  const intradayX = i => BOX_X + BOX_PAD_X + (i / (todayReadings.length - 1)) * (BOX_W - BOX_PAD_X * 2);
+  const lastHistX = slotX(historical.length - 1);
+  const lastHistY = scaleY(historical[historical.length - 1].price);
+
+  const ns = "http://www.w3.org/2000/svg";
+  const el = (tag, attrs) => {
+    const e = document.createElementNS(ns, tag);
+    Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k, v));
+    return e;
+  };
+  const tx = (content, attrs) => {
+    const e = document.createElementNS(ns, "text");
+    Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k, v));
+    e.textContent = content;
+    return e;
+  };
+
+  // Historical line
+  svg.appendChild(el("polyline", {
+    points: historical.map((d,i) => `${slotX(i)},${scaleY(d.price)}`).join(" "),
+    fill:"none", stroke:"#f59e0b", "stroke-width":"1.5",
+    "stroke-linejoin":"round", "stroke-linecap":"round",
+  }));
+  for (let i = 0; i < historical.length; i++) {
+    svg.appendChild(el("circle", { cx:slotX(i), cy:scaleY(historical[i].price), r:"1.5", fill:"#f59e0b", opacity:"0.45" }));
+  }
+
+  // Today box
+  svg.appendChild(el("rect", {
+    x:BOX_X, y:BOX_Y, width:BOX_W, height:BOX_INNER_H,
+    fill:"rgba(56,189,248,0.04)", stroke:"#38bdf8", "stroke-width":"0.75", opacity:"0.7", rx:"2",
+  }));
+  svg.appendChild(tx("TODAY", {
+    x: BOX_X + BOX_W / 2, y: BOX_Y + 7,
+    fill:"#38bdf8", "font-size":"7", "font-family":"monospace",
+    "text-anchor":"middle", opacity:"0.8", "letter-spacing":"0.08em",
+  }));
+
+  // Y-axis labels (skip if yl=0)
+  if (Y_LABEL_W > 0) {
+    const yMidP = (todayMinP + todayMaxP) / 2;
+    for (const price of [todayMaxP, yMidP, todayMinP]) {
+      const y = scaleYBox(price);
+      svg.appendChild(el("line", { x1:BOX_X+BOX_W, y1:y, x2:BOX_X+BOX_W+3, y2:y, stroke:"#475569", "stroke-width":"0.75" }));
+      svg.appendChild(tx(`$${price.toFixed(0)}`, { x:BOX_X+BOX_W+5, y:y+3, fill:"#94a3b8", "font-size":"7.5", "font-family":"monospace" }));
+    }
+  }
+
+  // X-axis labels (skip if xl=0)
+  if (X_LABEL_H > 0) {
+    const boxBottom = BOX_Y + BOX_INNER_H;
+    for (let i = 0; i < todayReadings.length; i++) {
+      const x = intradayX(i);
+      svg.appendChild(el("line", { x1:x, y1:boxBottom, x2:x, y2:boxBottom+3, stroke:"#475569","stroke-width":"0.75" }));
+      svg.appendChild(tx(todayReadings[i].time, { x, y:boxBottom+10, fill:"#94a3b8","font-size":"7.5","font-family":"monospace","text-anchor":"middle" }));
+    }
+  }
+
+  // Connector (faded)
+  svg.appendChild(el("line", {
+    x1:lastHistX, y1:lastHistY, x2:intradayX(0), y2:scaleYBox(todayReadings[0].price),
+    stroke:"#38bdf8","stroke-width":"1.5","stroke-dasharray":"4 3", opacity:"0.35",
+  }));
+
+  // Intraday line
+  svg.appendChild(el("polyline", {
+    points: todayReadings.map((r,i) => `${intradayX(i)},${scaleYBox(r.price)}`).join(" "),
+    fill:"none", stroke:"#38bdf8","stroke-width":"1.5","stroke-dasharray":"4 3",
+    "stroke-linejoin":"round","stroke-linecap":"round", opacity:"0.9",
+  }));
+  for (let i = 0; i < todayReadings.length; i++) {
+    svg.appendChild(el("circle", { cx:intradayX(i), cy:scaleYBox(todayReadings[i].price), r:"1.8", fill:"#38bdf8", opacity:"0.55" }));
+  }
+
+  // Live dot
+  const dot = el("circle", { cx:intradayX(todayReadings.length-1), cy:scaleYBox(todayLatest), r:"3", fill:"#38bdf8" });
+  dot.setAttribute("class", "live-dot");
+  svg.appendChild(dot);
+}
+
+function makeDateNav(el) {
+  el.querySelector(".td-month").textContent = "MAR";
+  el.querySelector(".td-day").textContent   = "27";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll(".spark-target").forEach(svg => drawSparkline(svg, { h:56, hw:160, bw:64 }));
+  document.querySelectorAll(".spark-compact").forEach(svg => drawSparkline(svg, { h:36, hw:120, bw:48, yl:0, xl:0 }));
+  // date nav is hardcoded in each variant
+});
+</script>
+
+<!-- ============================================================ -->
+<!-- STATE 1: No Alert                                            -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-label">Hormuz — No Alert</div>
+  <div class="phone-frame">
+    <div class="topbar">
+      <div><div class="title-main">Conflict Tracker</div><div class="title-sub">US · Iran · Israel — 2026</div></div>
+      <div class="top-right">
+        <div class="hormuz-pill"><div class="hormuz-dot dot-no-alert"></div><span class="hormuz-label">Hormuz</span><span class="hormuz-no-alert">No Alert</span></div>
+      </div>
+    </div>
+    <div class="econ-bar">
+      <div class="econ-left">
+        <div class="spark-wrap">
+          <div class="spark-header">
+            <span class="spark-label">Brent Crude</span>
+            <span class="brent-price"><strong>$87.50</strong> <span class="up">▲ 1.3%</span></span>
+          </div>
+          <svg class="spark-target"></svg>
+        </div>
+      </div>
+      <div class="date-nav-inline">
+        <button class="nav-arrow">←</button>
+        <div class="date-inline"><div class="td-month">MAR</div><div class="td-day">27</div></div>
+        <button class="nav-arrow">→</button>
+      </div>
+    </div>
+    <div class="map-placeholder">[ map ]</div>
+  </div>
+  <div class="variant-note">Normal state. Hormuz visible at a glance, not alarming.</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- STATE 2: Restricted                                          -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-label">Hormuz — Restricted</div>
+  <div class="phone-frame">
+    <div class="topbar">
+      <div><div class="title-main">Conflict Tracker</div><div class="title-sub">US · Iran · Israel — 2026</div></div>
+      <div class="top-right">
+        <div class="hormuz-pill"><div class="hormuz-dot dot-restricted"></div><span class="hormuz-label">Hormuz</span><span class="hormuz-restricted">Restricted</span></div>
+      </div>
+    </div>
+    <div class="econ-bar">
+      <div class="econ-left">
+        <div class="spark-wrap">
+          <div class="spark-header">
+            <span class="spark-label">Brent Crude</span>
+            <span class="brent-price"><strong>$94.10</strong> <span class="up">▲ 4.8%</span></span>
+          </div>
+          <svg class="spark-target"></svg>
+        </div>
+      </div>
+      <div class="date-nav-inline">
+        <button class="nav-arrow">←</button>
+        <div class="date-inline"><div class="td-month">MAR</div><div class="td-day">27</div></div>
+        <button class="nav-arrow">→</button>
+      </div>
+    </div>
+    <div class="map-placeholder">[ map ]</div>
+  </div>
+  <div class="variant-note">Amber dot + text in topbar. Brent spike reinforces the signal.</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- STATE 3: Closed                                              -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-label">Hormuz — Closed</div>
+  <div class="phone-frame">
+    <div class="topbar">
+      <div><div class="title-main">Conflict Tracker</div><div class="title-sub">US · Iran · Israel — 2026</div></div>
+      <div class="top-right">
+        <div class="hormuz-pill"><div class="hormuz-dot dot-closed"></div><span class="hormuz-label">Hormuz</span><span class="hormuz-closed">Closed</span></div>
+      </div>
+    </div>
+    <div class="econ-bar">
+      <div class="econ-left">
+        <div class="spark-wrap">
+          <div class="spark-header">
+            <span class="spark-label">Brent Crude</span>
+            <span class="brent-price"><strong>$112.40</strong> <span class="up">▲ 11.2%</span></span>
+          </div>
+          <svg class="spark-target"></svg>
+        </div>
+      </div>
+      <div class="date-nav-inline">
+        <button class="nav-arrow">←</button>
+        <div class="date-inline"><div class="td-month">MAR</div><div class="td-day">27</div></div>
+        <button class="nav-arrow">→</button>
+      </div>
+    </div>
+    <div class="map-placeholder">[ map ]</div>
+  </div>
+  <div class="variant-note">Red glowing dot + Closed text. Hard to miss.</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- STATE 4: Unknown                                             -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-label">Hormuz — Unknown</div>
+  <div class="phone-frame">
+    <div class="topbar">
+      <div><div class="title-main">Conflict Tracker</div><div class="title-sub">US · Iran · Israel — 2026</div></div>
+      <div class="top-right">
+        <div class="hormuz-pill"><div class="hormuz-dot dot-unknown"></div><span class="hormuz-label">Hormuz</span><span class="hormuz-unknown">Unknown</span></div>
+      </div>
+    </div>
+    <div class="econ-bar">
+      <div class="econ-left">
+        <div class="spark-wrap">
+          <div class="spark-header">
+            <span class="spark-label">Brent Crude</span>
+            <span class="brent-price"><strong>$89.20</strong> <span class="up">▲ 2.1%</span></span>
+          </div>
+          <svg class="spark-target"></svg>
+        </div>
+      </div>
+      <div class="date-nav-inline">
+        <button class="nav-arrow">←</button>
+        <div class="date-inline"><div class="td-month">MAR</div><div class="td-day">27</div></div>
+        <button class="nav-arrow">→</button>
+      </div>
+    </div>
+    <div class="map-placeholder">[ map ]</div>
+  </div>
+  <div class="variant-note">Muted gray — rare, means the report explicitly flagged uncertainty.</div>
+</div>
+
+</body>
+</html>

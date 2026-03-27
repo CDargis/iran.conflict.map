@@ -48,16 +48,15 @@ Claude-extracted Tier 2 signals. Written by the Sync Lambda when a CTP-ISW repor
 ```typescript
 interface EconomicSignalRow {
   date: string;                         // PK — YYYY-MM-DD (report date)
-  sync_id: string;                      // SK — ISO 8601 sync timestamp
-  hormuz_status: "open" | "restricted" | "closed" | "unknown";
+  source_url: string;                   // SK — CTP-ISW report URL (idempotent: re-syncing same URL overwrites)
+  hormuz_status: "no_alert" | "restricted" | "closed" | "unknown";
   oil_export_volume_mbd: number | null; // Million barrels/day; null if not reported
   economic_notes: string[];             // Sanctions, Treasury actions, infrastructure, etc.
-  source_url: string;                   // CTP-ISW report URL
-  synced_at: string;                    // ISO 8601 — same value as sync_id SK
+  synced_at: string;                    // ISO 8601 — last sync timestamp for this row
 }
 ```
 
-- One row per sync run. Re-syncing the same date creates a second row (new `sync_id` SK). See open question 9B for how the API surfaces multiple rows.
+- One row per (date, source_url). PutItem without condition — re-syncing the same URL overwrites the row (idempotent). Resolved in 9B.
 - To query a date: `Query(PK = "2026-03-22")`.
 
 ---
@@ -154,7 +153,7 @@ to the top-level JSON response:
 
 {
   "economic": {
-    "hormuz_status": "open" | "restricted" | "closed" | "unknown",
+    "hormuz_status": "no_alert" | "restricted" | "closed" | "unknown",
     "oil_export_volume_mbd": number | null,
     "economic_notes": string[]
   }
@@ -162,8 +161,9 @@ to the top-level JSON response:
 
 Guidelines:
 - hormuz_status: "restricted" or "closed" only if the report explicitly describes interference,
-  mining, seizures, or blockade activity at the Strait of Hormuz. Default "open" if the report
-  is silent. Use "unknown" only if the report explicitly acknowledges uncertainty.
+  mining, seizures, or blockade activity at the Strait of Hormuz. Default "no_alert" if the report
+  is silent (no Hormuz activity mentioned — not a confirmation of open transit, just no flag).
+  Use "unknown" only if the report explicitly acknowledges uncertainty about Hormuz status.
 - oil_export_volume_mbd: The figure in million barrels/day if the text states a specific volume
   for Iranian or regional oil exports. null if not mentioned.
 - economic_notes: Flat array of concise complete sentences (one per distinct signal). Include:
@@ -188,7 +188,7 @@ string syncedAt = DateTime.UtcNow.ToString("o");
 Dictionary<string, AttributeValue> signalItem = new()
 {
     ["date"]                   = new AttributeValue { S = reportDate },
-    ["sync_id"]                = new AttributeValue { S = syncedAt },
+    ["source_url"]             = new AttributeValue { S = sourceUrl },  // SK — idempotent key
     ["hormuz_status"]          = new AttributeValue { S = economic.HormuzStatus ?? "unknown" },
     ["oil_export_volume_mbd"]  = economic.OilExportVolumeMbd.HasValue
                                    ? new AttributeValue { N = economic.OilExportVolumeMbd.Value.ToString("F3") }
@@ -199,7 +199,6 @@ Dictionary<string, AttributeValue> signalItem = new()
                                              .Select(n => new AttributeValue { S = n })
                                              .ToList()
                                    },
-    ["source_url"]             = new AttributeValue { S = sourceUrl },
     ["synced_at"]              = new AttributeValue { S = syncedAt },
 };
 
@@ -210,7 +209,7 @@ await _dynamoDb.PutItemAsync(new PutItemRequest
 });
 ```
 
-**Re-sync behavior:** `sync_id` is the current timestamp, so a re-sync produces a new row — it does not overwrite the previous one. Multiple signal rows per date are possible. How the API surfaces them is an open question — see Section 9B.
+**Re-sync behavior:** `source_url` is the SK, so re-processing the same report URL overwrites the existing row (idempotent PutItem). One row per (date, source_url). Null fields from a re-sync correctly wipe non-null from a previous sync. Resolved — see 9B.
 
 #### SyncEnvelope / Processor Impact
 
@@ -283,7 +282,7 @@ Merge into one response object. Each source is independently nullable if no row 
   "date": "2026-03-22",
   "brent_price": 85.23,
   "brent_fetched_at": "2026-03-22T16:00:00Z",
-  "hormuz_status": "open",
+  "hormuz_status": "no_alert",
   "oil_export_volume_mbd": null,
   "economic_notes": ["OFAC designated three Iranian tankers..."],
   "source_url": "https://www.criticalthreats.org/analysis/iran-update-march-22-2026",
@@ -330,97 +329,139 @@ All changes are in `frontend/index.html` (vanilla JS, no build step).
 
 ### 5A. Brent Crude Sparkline
 
-Two distinct frontend use cases exist for Brent price data, each backed by a different API call:
+Fetches `GET /api/economic/brent?from=2026-02-28&to=[today]` once on page load. Does **not** re-fetch or re-render when the user navigates dates. The `/brent` endpoint returns historical days (one point each, latest reading of that day) plus today's intraday readings.
 
-**Chart behavior:**
-- Fetches `GET /api/economic/brent?from=2026-02-28&to=[today]` once on page load
-- Covers the full dataset range — not a rolling window, not date-navigation-aware
-- Historical days return one data point each (latest reading of that day); today returns all intraday readings accumulated so far — right edge has higher resolution, by design
-- Does **not** re-fetch or re-render when the user navigates dates
+**Forward-looking predictions are not shown on the sparkline.** The 2-month EIA forecast from the Brent API would compress the historical view and are a different use case. Surfaced in the economic tab instead (see 5C).
 
-**Date marker:**
-- A vertical line on the chart tracks the currently selected map date as the user navigates
-- Lets the user see "when this event happened, oil was at this price"
-- Implemented by re-drawing the marker SVG element on each date change — the underlying data and polyline do not change
+#### Layout
 
-**Sparkline markup** (nav bar):
+The SVG is divided into two sections:
+
+- **Left — historical zone:** uniform x-spacing, one point per day, full dataset range on y.
+- **Right — today box:** a bordered inset rectangle with its own zoomed y-scale and mini axes.
+
+The x-axis is uniform for history — no non-uniform spacing. Today's intraday readings live entirely inside the box. The box is appended to the right of the historical zone; it does not compress history.
+
+#### Historical zone
+
+- Solid amber line (`#f59e0b`), one point per day, uniform x-spacing.
+- Y-scale covers the full historical price range (min − 0.5, max + 0.5).
+- Subtle amber dots at each data point (`opacity: 0.45`).
+
+#### Today box
+
+A bordered rectangle (`stroke: #38bdf8, opacity: 0.7, rx: 2`) with a faint blue-tinted background (`fill: rgba(56,189,248,0.04)`). Sits to the right of the historical zone with a small gap. Contains:
+
+- **"TODAY" label** — small, centered at the top of the box (`font-size: 6px, monospace, opacity: 0.7`).
+- **Y-axis** — 3 price ticks + labels on the right side of the box (high, mid, low of today's zoomed range). Labels are `$XX.X` format, 6.5px monospace.
+- **X-axis** — time tick + label below the box for each intraday reading (`00:00`, `08:00`, `16:00`). 6.5px monospace.
+- **Intraday y-scale** — zoomed to today's high/low with 50% padding on each side (`min: low − pad, max: high + pad`). Fills the full box height.
+- **Intraday line** — dashed sky-blue polyline (`#38bdf8, stroke-dasharray: 4 3, opacity: 0.9`) connecting all intraday readings in chronological order.
+- **Intraday dots** — subtle circle at each reading (`r: 2, opacity: 0.55`).
+- **Live pulsing dot** — `r: 3` circle on the latest reading, CSS `@keyframes` pulse animation (r and opacity).
+
+#### Connector
+
+A faded dashed line (`opacity: 0.35`) connects the last historical point to the first intraday point inside the box. It is intentionally faded because it crosses two different y-scales — it is a visual bridge, not a data segment.
+
+#### Date marker
+
+A vertical line tracks the currently selected map date as the user navigates. Falls in the historical zone for past dates (x = that day's slot). Hidden or pinned to the box left edge when today is selected. Re-drawn on each date change; underlying data and polylines do not change.
+
+#### Sparkline window — history up to selected date
+
+The sparkline always shows from the earliest available date (2026-02-28) up to and including the **selected date** — not the full range to today. When the user navigates to March 14, the chart ends at March 14; today's segment and box are only shown when the selected date is today.
+
+- No re-fetching on date change — all data is loaded once on page load (`from=2026-02-28&to=today`).
+- On date change: re-render the historical polyline using only points ≤ selected date. Show today box only if selected date = today.
+- This makes the chart date-aware without additional API calls. Future prices are never shown for a past selected date.
+
+#### Hormuz status change dots
+
+Small colored circles are plotted on the historical price line at dates where `hormuz_status` changed value. They sit directly on the line at the price point for that date.
+
+- Color matches the status the Strait **changed to**: green for `no_alert`, amber for `restricted`, red for `closed`, yellow for `unknown`.
+- Only rendered at change dates — not on every date that has a non-alert status.
+- Data source: the Hormuz status for each date is available from the already-loaded `/api/economic?days=N` response. Compute changes client-side by comparing adjacent dates.
+- At sparkline scale these are small (`r: 3`) but visible. They create a natural visual correlation between price spikes and status changes.
+
+#### Date-aware UI behavior (on date navigation)
+
+When the user moves the date selector, the following update without re-fetching:
+
+| Element | Behavior |
+|---------|----------|
+| Sparkline | Re-renders showing history up to selected date only |
+| Date marker | Moves to selected date's x position |
+| Brent price label | Shows that day's historical price (latest reading ≤ selected date); shows live price when selected date is today |
+| % change label | Recalculated as change from previous day's price |
+| Hormuz status (topbar) | Updates to reflect selected date's `hormuz_status` from already-loaded data |
+| Economic tab | Re-fetches `GET /api/economic?date=YYYY-MM-DD` for selected date when tab is open |
+
+All data needed for the first four rows is already loaded on page load — no additional API calls on date change.
+
+#### Markup
+
 ```html
-<div class="brent-sparkline-container">
-  <svg id="brent-sparkline" width="200" height="32">
-    <polyline id="brent-line" />
-    <line id="brent-date-marker" y1="0" y2="32" stroke="#94a3b8" stroke-width="1" />
-  </svg>
-  <span id="brent-label">— $/bbl</span>
+<div class="econ-bar">
+  <div class="econ-left">
+    <div class="spark-wrap">
+      <div class="spark-header">
+        <span class="spark-label">Brent Crude</span>
+        <span id="brent-price-label"><strong>—</strong></span>
+        <span id="brent-change-label"></span>
+      </div>
+      <svg id="brent-sparkline" height="56"></svg>
+    </div>
+  </div>
+  <div class="date-nav-inline">
+    <button class="nav-arrow" id="nav-prev">←</button>
+    <div class="date-inline">
+      <div class="td-month" id="lbl-month">—</div>
+      <div class="td-day" id="lbl-day">—</div>
+    </div>
+    <button class="nav-arrow" id="nav-next">→</button>
+  </div>
 </div>
 ```
 
-**X-axis layout — non-uniform spacing (today is special-cased):**
-- Historical days are allocated equal horizontal width — uniform spacing, one point per day.
-- Today is allocated proportionally more horizontal space to spread its intraday readings out cleanly.
-- Concretely: partition the SVG width as `historicalWidth + todayWidth`, where `todayWidth` is large enough that intraday points aren't cramped (e.g. fixed 40px, or `N_intraday * 12px`). Historical days divide `historicalWidth` evenly.
-- All x-coordinate calculations must account for this split — the x scale is not a simple linear map from date index to pixel.
+SVG `width` is computed from layout constants at render time. `height: 56` accommodates the x-axis label row below the today box. The existing `#timebar` and `#date-nav` elements are removed — date navigation moves into the econ bar.
 
-**Line style — today vs historical:**
-- Historical segment: solid line, amber (`#f59e0b`), one point per day, uniform spacing.
-- Today's segment: all three visual treatments applied together to signal "in progress, not yet closed":
-  1. **Dashed** — `stroke-dasharray` to break the line
-  2. **Distinct color** — a different hue from the historical line (e.g. sky blue `#38bdf8` or slate `#94a3b8`), not a tint of amber
-  3. **Muted/reduced opacity** — `opacity: 0.6` or equivalent, to visually recede relative to the historical segment
-- Rendered as two separate `<polyline>` elements so styles don't bleed across the boundary.
+**Empty state:** Hide `.spark-wrap` with `display:none` if the API returns no data.
 
-**Live indicator:**
-- A pulsing dot on the rightmost data point (latest reading) signals live data.
-- Implemented as a `<circle>` with a CSS `@keyframes` pulse animation (scale or opacity).
+**Reference implementation:** `frontend/sparkline-demo.html` and `frontend/strip-mockup.html` — standalone demos of the full design with simulated data.
 
-**Date marker behavior with non-uniform layout:**
-- When the selected date is a historical day, the marker falls in the uniform section — x computed from that day's slot.
-- When the selected date is today, the marker falls in the expanded section — x computed relative to today's allocated width.
-- Same re-draw-on-date-change approach; the marker does not affect data or polylines.
+### 5B. Hormuz Status in Topbar
 
-**Markup** (nav bar):
-```html
-<div class="brent-sparkline-container">
-  <svg id="brent-sparkline" width="200" height="32">
-    <polyline id="brent-line-historical" />
-    <polyline id="brent-line-today" stroke-dasharray="3 2" />
-    <circle id="brent-live-dot" r="3" />
-    <line id="brent-date-marker" y1="0" y2="32" stroke="#94a3b8" stroke-width="1" />
-  </svg>
-  <span id="brent-label">— $/bbl</span>
-</div>
-```
-
-**Rendering:** Vanilla JS — split data into historical points and today's points. Compute x positions using the non-uniform layout. Scale y using global `min`/`max` across all points. Draw historical polyline solid, today's polyline dashed. Place live dot at the last point. The `brent-label` shows the most recent price. On hover, optionally show `fetched_at`.
-
-**Empty state:** Hide the container with `display:none` if the API returns no data.
-
-### 5B. Slim Indicator Strip
-
-A single fixed-height bar (~28px) below the sparkline, above the filter bar. Always visible.
+Hormuz status is displayed in the topbar (right side), replacing the clock and live pill. Always visible regardless of which tab or date is selected. Updates when the user navigates dates — reflects the **selected date's** status, not today's.
 
 ```html
-<div class="econ-strip">
-  <span class="econ-item" id="econ-brent">Brent <strong>$85.23</strong> <em>+0.4%</em></span>
-  <span class="econ-divider">·</span>
-  <span class="econ-item" id="econ-hormuz">
-    Hormuz <strong class="status-open">Open</strong>
-  </span>
-  <span class="econ-divider" id="econ-exports-divider" style="display:none">·</span>
-  <span class="econ-item" id="econ-exports" style="display:none">
-    Exports <strong>—</strong>
-  </span>
-</div>
+<header id="topbar">
+  <div>
+    <div class="title-main">Conflict Tracker</div>
+    <div class="title-sub">US · Iran · Israel — 2026</div>
+  </div>
+  <div class="top-right">
+    <div class="hormuz-pill" id="hormuz-status">
+      <div class="hormuz-dot" id="hormuz-dot"></div>
+      <span class="hormuz-label">Hormuz</span>
+      <span id="hormuz-text">—</span>
+    </div>
+  </div>
+</header>
 ```
 
-**Data source:** Latest record from `/api/economic?days=1` (or the last item in the `days=30` response already fetched for the sparkline). Percent change calculated from the two most recent prices in the sparkline data.
-
-**Hormuz status colors:**
-- `open` → green (`#22c55e`)
+**Hormuz status colors (dot + text):**
+- `no_alert` → green (`#4ade80`) — neutral, not a positive confirmation
 - `restricted` → amber (`#f59e0b`)
-- `closed` → red (`#ef4444`)
-- `unknown` → muted gray (`#6b7280`)
+- `closed` → red (`#ef4444`) with glow (`box-shadow: 0 0 4px #ef4444`)
+- `unknown` → yellow (`#fde047`) — distinct from restricted amber; signals explicit uncertainty
 
-**Exports field:** Hidden when `oil_export_volume_mbd` is null; shown as `X.X mb/d` when present.
+**Display labels:** "No Alert", "Restricted", "Closed", "Unknown"
+
+**Data source:** Hormuz status for each date is already loaded in the sparkline data response. No additional fetch needed on date change — look up the selected date's status from the in-memory dataset.
+
+**No separate indicator strip.** The old "slim strip" concept is replaced by this topbar pill + the econ bar layout described in 5A. Exports field (`oil_export_volume_mbd`) is surfaced in the Economic tab (5C) rather than a persistent strip.
 
 ### 5C. Economic Tab in Event Feed Panel
 
@@ -440,9 +481,13 @@ Third tab added to the bottom sheet alongside "Strikes" and "Syncs".
 </div>
 ```
 
-**Data source:** When the "Economic" tab is selected, fetch `GET /api/economic?date=YYYY-MM-DD` for the currently selected map date (`currentDate` variable). Tier 1 indicators displayed in a small header row; `economic_notes` rendered as a `<ul>`.
+**Data source:** When the "Economic" tab is selected (or the selected date changes while the tab is open), fetch `GET /api/economic?date=YYYY-MM-DD` for the currently selected map date. Response is a `{ brent, signals }` object (see 9C). Display:
 
-**Empty state:** "No economic signals extracted for [date]." — normal for quiet days. If no record exists at all for the date (backfill gap or date before feature was deployed): "No economic data for this date."
+- **Brent row:** price + fetched_at for that date (from `brent` object). Staleness warning if `fetched_at` > 24h old (see 9G).
+- **Hormuz + exports:** `hormuz_status` display label + `oil_export_volume_mbd` if non-null. This is the only place exports are surfaced in the UI.
+- **Economic notes:** `economic_notes` rendered as a `<ul>`, one `<li>` per note.
+
+**Empty state:** "No economic signals extracted for this date." — normal for quiet days or dates before the feature was deployed.
 
 ---
 
@@ -463,8 +508,8 @@ TableV2 brentTable = new TableV2(this, "BrentPricesTable", new TablePropsV2
 TableV2 signalsTable = new TableV2(this, "EconomicSignalsTable", new TablePropsV2
 {
     TableName    = "iran-conflict-map-economic-signals",
-    PartitionKey = new Attribute { Name = "date",    Type = AttributeType.STRING },
-    SortKey      = new Attribute { Name = "sync_id", Type = AttributeType.STRING },
+    PartitionKey = new Attribute { Name = "date",       Type = AttributeType.STRING },
+    SortKey      = new Attribute { Name = "source_url", Type = AttributeType.STRING },
     BillingMode  = BillingMode.PAY_PER_REQUEST,
     RemovalPolicy = RemovalPolicy.RETAIN,
 });
@@ -704,38 +749,42 @@ Not recommended. Too tedious, no structured interface exists for it.
 **Status: Resolved.** `GET /api/economic` (merged view) always uses the latest reading per date. `GET /api/economic/brent` hardcodes: historical dates return one row each (latest timestamp), today returns all accumulated readings. No `resolution` parameter — the behavior is fixed by the API. This gives the sparkline's right edge higher intraday resolution while keeping historical days stable.
 
 ### 9B. ECONOMIC Row Multi-Row Handling (Re-sync)
-**Status: Blocking for API implementation.** Because the SK embeds the sync timestamp, re-processing a report creates a second ECONOMIC row for the same date rather than overwriting the first. The API currently takes the latest ECONOMIC row by SK sort order. Decide:
-- **Latest wins** (current plan) — simple, may discard a more complete earlier extraction if a re-sync produces fewer notes
-- **Merge** — union `economic_notes`, take latest `hormuz_status`; more complex but more resilient to partial re-extractions
-- **Immutable** — first write wins; use `ConditionExpression: attribute_not_exists(sk)` on the ECONOMIC PutItem (similar to the strike event's immutable `description` design)
+**Status: Resolved.** SK changed from `sync_id` (timestamp) to `source_url`. `PutItem` without condition — re-syncing the same report URL overwrites the existing row. This makes the write idempotent: re-processing a URL produces exactly one row per date, not multiple. Null fields from a re-sync correctly wipe non-null from the previous sync (full row replacement). The schema in Section 1 should reflect `source_url` as SK (not `sync_id`). `synced_at` remains as a non-key attribute to track the last sync time.
 
 ### 9C. API Response Shape: Merged Object vs Separate Objects
-**Status: Blocking for frontend implementation.** The current plan has the API query both tables and merge into one combined object per date. Alternative: return them separately:
+**Status: Resolved.** `GET /api/economic` returns separate `brent` and `signals` objects. Either may be null independently if no row exists for that date:
 ```json
-{ "brent": { "price": 85.23, "fetched_at": "..." }, "signals": { "hormuz_status": "open", ... } }
+{
+  "date": "2026-03-27",
+  "brent": { "price": 85.23, "fetched_at": "2026-03-27T08:00:00Z" },
+  "signals": { "hormuz_status": "open", "oil_export_volume_mbd": null, "economic_notes": ["..."], "source_url": "...", "synced_at": "..." }
+}
 ```
-Merged is simpler for most frontend use cases. Separate is more explicit about provenance and handles the case where only one table has data for a date. Decide before implementing `GET /api/economic`.
+Rationale: explicit provenance, handles partial data naturally (brent-only days before sync runs), maps cleanly to the two distinct frontend consumers (sparkline/strip uses brent, economic tab uses signals). Section 4 response shape should be updated to match.
 
 ### 9D. Crude Price API Key + SSM
 **Status: Resolved.** Key registered and stored in SSM at `/iran-conflict-map/brent_api_key` (SecureString, us-east-1). Response shape verified 2026-03-23 — see Section 2 for confirmed endpoint, auth scheme, and field names.
 
 ### 9E. Hormuz Status Default Behavior
-Current plan: Claude defaults to `"open"` when the report is silent and `"unknown"` when the report explicitly acknowledges uncertainty. Verify this is the right semantic — `"open"` could be misleading if the report simply didn't cover the Strait that day. Alternative: default `"unknown"` always and only set `"open"` when the report explicitly confirms unrestricted transit. This is safer but will result in more `"unknown"` entries.
+**Status: Resolved.** Default is `"no_alert"` when the report is silent — not `"open"`. `"no_alert"` accurately conveys "nothing was flagged" rather than implying positive confirmation of unrestricted transit. `"open"` removed from the enum. Values: `"no_alert"` (default/silent), `"restricted"` (interference described), `"closed"` (blockade/full closure), `"unknown"` (report explicitly acknowledges uncertainty). Frontend strip/tab should display "No Alert" in muted green or neutral color for `"no_alert"`.
 
 ### 9F. Intraday Price vs. Daily Close
 **Resolved: intraday.** The Brent Price Lambda runs every 8 hours throughout the day, so the stored price is always the most recent ICE quote at time of fetch. This is not the official daily settlement price (published by ICE after market close), but for a conflict map showing market reaction to geopolitical events, a live intraday quote is preferable to a lagged official close. If official settlement prices are ever needed, the EIA API (next-day lag) is the only free option.
 
 ### 9G. Brent Fetch Timestamp in UI
-The strip shows "Brent $85.23" captured at a specific time. Consider whether to surface the timestamp at all — options:
-- Show nothing; just the price (cleanest for a non-trading audience).
-- Show "Brent $85.23 · as of 2:30 PM ET" on hover.
-- Show nothing unless `brent_fetched_at` is more than 24 hours old (staleness warning only).
+**Status: Resolved.** Show nothing unless `brent_fetched_at` is more than 24 hours old — then surface a staleness warning (e.g. "as of Mar 25"). Normal operation: Lambda runs every 8 hours so data is always fresh; no timestamp shown. A gap over 24 hours unambiguously means something went wrong (Lambda failure, API outage). The warning gives the user accurate context without cluttering the strip on every normal visit.
 
 ### 9H. Sparkline Width and Mobile Layout
-200px × 32px was estimated. After implementing, check on mobile (the existing `.topbar` is `position:fixed; top:0`). The indicator strip adds ~28px more vertical space. On small screens this could compress the map. Consider making the strip optional/collapsible, or merging sparkline + strip into a single compact row.
+**Status: Resolved.** Layout consolidated into two fixed bars (topbar + econ bar) — no separate timebar or indicator strip. Date navigation moved into the econ bar (right side, inline with sparkline). Hormuz status moved into the topbar replacing the clock/live pill. The econ bar contains: "Brent Crude" label + price + % change (one header line) above the sparkline SVG, with date nav (← MAR 27 →) right-aligned. This eliminates the extra vertical row that was causing mobile compression concerns. Mobile-first: sparkline is a priority on mobile (more mobile users than web). SVG width computed at render time from layout constants; height ~56px including x-axis label row for the today box.
 
 ### 9I. Backfill Tier 2 — Cost and Scope
-Claude API cost for backfilling ~22 days of reports is negligible. Main constraint is whether old CTP-ISW report pages are still accessible. Verify before investing time in the backfill command. Run `tools test-ctp-fetch` against a Feb 2026 URL to confirm accessibility.
+**Status: Resolved.** Manually tested 5 recent URLs (March 22–26) — all pages accessible, extraction quality is high. Proceed with Option 1 (re-fetch + Claude extraction) for all historical dates where a valid URL is constructible. Key findings from the test:
+- Hormuz has been `restricted` since at least March 22 — the status change dot will appear from the earliest backfilled date.
+- `oil_export_volume_mbd` returns null across all tested dates — Iran is not publicly reporting export volumes during active conflict.
+- `economic_notes` are dense and specific: Lloyd's maritime intelligence, OFAC/Treasury sanctions references, energy infrastructure damage (South Pars, Kharg Island, Qatar LNG), IRGC toll-booth system details.
+- Extraction prompt is validated and ready for the `backfill-economic` tool command.
+
+Backfill scope: Feb 28 – day before feature deployment. Use `--no-claude` flag for Tier 1 (Brent prices via EIA), then run without flag to add Tier 2 extraction. URL pattern confirmed: `iran-update-evening-special-report-{month}-{day}-{year}` for most dates (not the simpler `iran-update-{month}-{day}-{year}` pattern originally assumed — verify each date's slug from the `syncs-v2` table).
 
 ### 9J. Multiple Syncs per Day (Morning Reports)
 Once morning reports are implemented (see `context/plans/active/MORNING_REPORTS_PLAN.md`), a date may produce two ECONOMIC rows — one from the morning report sync, one from the evening. This is naturally handled by the composite key design: each gets its own SK. How the API surfaces them (latest only, or merged) is covered by 9B above.
