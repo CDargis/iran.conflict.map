@@ -29,7 +29,8 @@ var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(S
     ["send-envelope"]      = ("Send a SyncEnvelope JSON file to the processor queue [--file <path>] [--confirm]", SendEnvelope),
     ["dedup-strikes"]      = ("Find and remove duplicate strikes by coordinates for a given date [--date yyyy-MM-dd] [--confirm]", DedupStrikes),
     ["trigger-cleanup"]    = ("Discard stale review queue items for a URL by sending a cleanup message [--url <url>] [--run-id <id>] [--confirm]", TriggerCleanup),
-    ["enrich-review"]      = ("Backfill nearest_record on legacy ambiguous review queue items [--confirm]", EnrichReview)
+    ["enrich-review"]      = ("Backfill nearest_record on legacy ambiguous review queue items [--confirm]", EnrichReview),
+    ["backfill-economic"]  = ("Backfill Brent price history from EIA API [--start yyyy-MM-dd] [--end yyyy-MM-dd] [--eia-key <key>] [--confirm]", BackfillEconomic)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -1510,6 +1511,127 @@ static double ReviewHaversineKm(double lat1, double lon1, double lat2, double lo
                 + Math.Cos(lat1 * Math.PI / 180.0) * Math.Cos(lat2 * Math.PI / 180.0)
                 * Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
     return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+}
+
+// ── backfill-economic ─────────────────────────────────────────────────────────
+
+async Task BackfillEconomic(string[] opts)
+{
+    string startStr = GetFlag(ref opts, "--start") ?? "2026-02-28";
+    string endStr   = GetFlag(ref opts, "--end")   ?? DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd");
+    string? eiaKey  = GetFlag(ref opts, "--eia-key");
+    bool confirm    = opts.Contains("--confirm");
+
+    if (string.IsNullOrEmpty(eiaKey))
+    {
+        Console.WriteLine("ERROR: --eia-key is required");
+        Console.WriteLine("Usage: backfill-economic --start yyyy-MM-dd --end yyyy-MM-dd --eia-key <key> [--confirm]");
+        return;
+    }
+
+    if (!DateTime.TryParse(startStr, out DateTime startDate) || !DateTime.TryParse(endStr, out DateTime endDate))
+    {
+        Console.WriteLine("ERROR: --start and --end must be valid dates (yyyy-MM-dd)");
+        return;
+    }
+
+    if (startDate > endDate)
+    {
+        Console.WriteLine("ERROR: --start must be before or equal to --end");
+        return;
+    }
+
+    const string tableName = "iran-conflict-map-brent-prices";
+
+    // Fetch from EIA
+    Console.WriteLine($"Fetching Brent prices from EIA: {startStr} → {endStr}");
+    using HttpClient http = new();
+    // Brackets must be percent-encoded — .NET Uri will double-encode literal brackets
+    // EIA v2 spot prices for Brent are weekly only (no daily series available)
+    string eiaUrl = $"https://api.eia.gov/v2/petroleum/pri/spt/data/" +
+                    $"?api_key={eiaKey}" +
+                    $"&frequency=weekly" +
+                    $"&data%5B0%5D=value" +
+                    $"&facets%5Bproduct%5D%5B%5D=EPCBRENT" +
+                    $"&sort%5B0%5D%5Bcolumn%5D=period" +
+                    $"&sort%5B0%5D%5Bdirection%5D=desc" +
+                    $"&length=500";
+
+    HttpResponseMessage eiaResponse = await http.GetAsync(eiaUrl);
+    eiaResponse.EnsureSuccessStatusCode();
+    string eiaJson = await eiaResponse.Content.ReadAsStringAsync();
+
+    using JsonDocument doc = JsonDocument.Parse(eiaJson);
+    JsonElement dataArr = doc.RootElement.GetProperty("response").GetProperty("data");
+
+    List<(string date, decimal price)> rows = new();
+    foreach (JsonElement row in dataArr.EnumerateArray())
+    {
+        string period = row.GetProperty("period").GetString()!;
+        // EIA start/end params are unreliable for weekly series — filter in memory
+        if (string.Compare(period, startStr, StringComparison.Ordinal) < 0) continue;
+        if (string.Compare(period, endStr,   StringComparison.Ordinal) > 0) continue;
+        // EIA returns value as a JSON string (e.g. "111.4"), not a number
+        if (row.TryGetProperty("value", out JsonElement valEl) && valEl.ValueKind != JsonValueKind.Null)
+        {
+            decimal price = valEl.ValueKind == JsonValueKind.Number
+                ? valEl.GetDecimal()
+                : decimal.Parse(valEl.GetString()!);
+            rows.Add((period, price));
+        }
+    }
+
+    Console.WriteLine($"EIA returned {rows.Count} trading day(s)");
+    if (rows.Count == 0)
+    {
+        Console.WriteLine("Nothing to write.");
+        return;
+    }
+
+    foreach ((string date, decimal price) in rows)
+        Console.WriteLine($"  {date}  ${price:F2}");
+
+    if (!confirm)
+    {
+        Console.WriteLine();
+        Console.WriteLine($"Dry run — would write {rows.Count} row(s) to {tableName}. Pass --confirm to execute.");
+        return;
+    }
+
+    // Write to DynamoDB — one row per trading day, sentinel midnight timestamp
+    IAmazonDynamoDB dynamo = BuildDynamoClient();
+    int written = 0, skipped = 0;
+
+    foreach ((string date, decimal price) in rows)
+    {
+        string timestamp = $"{date}T00:00:00Z";   // sentinel: historical settlement
+        try
+        {
+            await dynamo.PutItemAsync(new PutItemRequest
+            {
+                TableName           = tableName,
+                ConditionExpression = "attribute_not_exists(#ts)",
+                ExpressionAttributeNames = new Dictionary<string, string> { ["#ts"] = "timestamp" },
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    ["date"]        = new AttributeValue { S = date },
+                    ["timestamp"]   = new AttributeValue { S = timestamp },
+                    ["brent_price"] = new AttributeValue { N = price.ToString("F2") },
+                    ["currency"]    = new AttributeValue { S = "USD" },
+                }
+            });
+            Console.WriteLine($"  wrote  {date}  ${price:F2}");
+            written++;
+        }
+        catch (ConditionalCheckFailedException)
+        {
+            Console.WriteLine($"  skip   {date}  (row already exists)");
+            skipped++;
+        }
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"Done. {written} written, {skipped} skipped.");
 }
 
 // ── AWS Client Builders ───────────────────────────────────────────────────────

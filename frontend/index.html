@@ -794,6 +794,11 @@ function svgEl(tag, attrs) {
   Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k, v));
   return e;
 }
+function fmtPeriod(dateStr) {
+  const p = dateStr.split('-');
+  const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return mo[parseInt(p[1]) - 1] + ' ' + parseInt(p[2]);
+}
 function svgTxt(content, attrs) {
   const e = document.createElementNS('http://www.w3.org/2000/svg', 'text');
   Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k, v));
@@ -836,16 +841,19 @@ function renderSparkline(cutoffDate) {
   const isToday = cutoffDate === TODAY_DATE;
 
   // Layout constants
-  const SVG_H      = 68;
-  const HIST_W     = isToday && todayReadings.length ? 220 : 280;
-  const BOX_GAP    = isToday && todayReadings.length ? 14  : 0;
-  const BOX_W      = isToday && todayReadings.length ? 80  : 0;
-  const BOX_PAD_X  = 7;
-  const BOX_PAD_Y  = 5;
-  const Y_LABEL_W  = isToday && todayReadings.length ? 30  : 0;
-  const X_LABEL_H  = isToday && todayReadings.length ? 12  : 0;
-  const PAD        = { top: 8, bottom: X_LABEL_H + 2, left: 4, right: Y_LABEL_W };
-  const SVG_W      = PAD.left + HIST_W + BOX_GAP + BOX_W + PAD.right;
+  const SVG_H     = 68;
+  const BOX_GAP   = isToday && todayReadings.length ? 14 : 0;
+  const BOX_W     = isToday && todayReadings.length ? 80 : 0;
+  const BOX_PAD_X = 7;
+  const BOX_PAD_Y = 5;
+  const Y_LABEL_W = isToday && todayReadings.length ? 30 : 0;
+  // Responsive: fit sparkline to available container width
+  const sparkWrap = document.getElementById('spark-wrap');
+  const availW    = Math.max(120, (sparkWrap.clientWidth || 280) - 22); // 14px left pad + 8px right pad
+  const HIST_W    = availW - BOX_GAP - BOX_W - Y_LABEL_W;
+  // Always reserve bottom space for historical date labels
+  const PAD       = { top: 8, bottom: 14, left: 4, right: Y_LABEL_W };
+  const SVG_W     = PAD.left + HIST_W + BOX_GAP + BOX_W + PAD.right;
 
   svg.setAttribute('width',  SVG_W);
   svg.setAttribute('height', SVG_H);
@@ -882,6 +890,20 @@ function renderSparkline(cutoffDate) {
       cx: slotX(i), cy: scaleY(d.price), r: '2', fill: '#f59e0b', opacity: '0.4',
     }));
   });
+
+  // Historical x-axis date labels (first, ~evenly spaced, last)
+  {
+    const step = Math.max(1, Math.ceil(historical.length / 4));
+    historical.forEach((d, i) => {
+      if (i !== 0 && i !== historical.length - 1 && i % step !== 0) return;
+      const anchor = i === 0 ? 'start' : i === historical.length - 1 ? 'end' : 'middle';
+      svg.appendChild(svgTxt(fmtPeriod(d.date), {
+        x: slotX(i), y: SVG_H - 2,
+        fill: '#475569', 'font-size': '7', 'font-family': 'monospace',
+        'text-anchor': anchor,
+      }));
+    });
+  }
 
   const lastHistX = slotX(historical.length - 1);
   const lastHistY = scaleY(historical[historical.length - 1].price);
