@@ -975,19 +975,26 @@ function renderSparkline() {
       }));
     });
 
-    // Dashed connector
+    // Price stamp above last historical point — shows where today's box begins
+    svg.appendChild(svgTxt(`$${historical[historical.length - 1].price.toFixed(2)}`, {
+      x: lastHistX, y: lastHistY - 5,
+      fill: '#f59e0b', 'font-size': '8', 'font-family': 'monospace',
+      'text-anchor': 'middle', opacity: '0.85',
+    }));
+
+    // Dashed connector — bright so the bridge is readable
     svg.appendChild(svgEl('line', {
       x1: lastHistX, y1: lastHistY,
       x2: intradayX(0), y2: scaleY(todayReadings[0].price),
-      stroke: '#38bdf8', 'stroke-width': '1.5', 'stroke-dasharray': '4 3', opacity: '0.35',
+      stroke: '#38bdf8', 'stroke-width': '1.5', 'stroke-dasharray': '4 3', opacity: '0.75',
     }));
 
-    // Intraday line
+    // Intraday line — lighter since it lives on a different scale inside the box
     if (todayReadings.length > 1) {
       svg.appendChild(svgEl('polyline', {
         points: todayReadings.map((r, i) => `${intradayX(i)},${scaleYBox(r.price)}`).join(' '),
         fill: 'none', stroke: '#38bdf8', 'stroke-width': '1.5',
-        'stroke-dasharray': '4 3', 'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: '0.9',
+        'stroke-dasharray': '4 3', 'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: '0.4',
       }));
     }
 
