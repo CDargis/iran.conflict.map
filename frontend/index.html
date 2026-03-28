@@ -755,7 +755,6 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 /* ── DATA ── */
-const STRIKES_URL = '/api/strikes';
 const TYPE_CFG = {
   strike: {label:'Airstrike'},
   missile:{label:'Missile Launch'},
@@ -1044,7 +1043,7 @@ function loadBrentData() {
 }
 
 /* ── MARKERS ── */
-let markers={},activeId=null,allStrikes=[],minDate=null,maxDate=null;
+let markers={},activeId=null,minDate=null,maxDate=null;
 const markerLayer=L.layerGroup().addTo(map);
 let fetchAbortController=null,currentFetchDate=null;
 const SEVERITY_SIZE={low:14,medium:18,high:22,critical:28};
@@ -1140,14 +1139,6 @@ function navigateDay(delta){
   if(brentRows.length) renderSparkline(sortedDates[idx]);
 }
 
-function initDateNav(data){
-  sortedDates=[...new Set(data.map(s=>s.date))].sort();
-  currentDayIdx=sortedDates.length-1;
-  updateDateDisplay(currentDayIdx);
-  document.getElementById('nav-prev').addEventListener('click',()=>navigateDay(-1));
-  document.getElementById('nav-next').addEventListener('click',()=>navigateDay(1));
-  if(brentRows.length) renderSparkline(sortedDates[currentDayIdx]||TODAY_DATE);
-}
 
 function fetchDayStrikes(dateStr){
   if(fetchAbortController) fetchAbortController.abort();
@@ -1288,24 +1279,16 @@ function legendHTML(){
     `<div class="legend-item"><div class="legend-dot" style="color:${v.color}"></div><span>${v.label}</span></div>`
   ).join('');
 }
-function render(data){
+function renderDates(dates){
   document.getElementById('mobile-legend').innerHTML = legendHTML();
   document.getElementById('desktop-legend').innerHTML = legendHTML();
-  allStrikes=data;
-  initDateNav(data);
-  // Show latest day on initial load
-  const latestDate=sortedDates[sortedDates.length-1];
-  const latestDay=data.filter(s=>s.date===latestDate);
-  initActorFilters(latestDay);
-  markerLayer.clearLayers();
-  markers={};
-  latestDay.forEach(s=>{
-    const m=L.marker([s.lat,s.lng],{icon:makeIcon(s.target_type,s.severity,false,s.disputed)})
-      .bindPopup(popupHTML(s),{maxWidth:300});
-    m.on('click',()=>focusStrike(s.id));
-    markers[s.id]={m,s};
-  });
-  applyFilters(latestDay);
+  sortedDates = dates;
+  currentDayIdx = sortedDates.length - 1;
+  updateDateDisplay(currentDayIdx);
+  document.getElementById('nav-prev').addEventListener('click', () => navigateDay(-1));
+  document.getElementById('nav-next').addEventListener('click', () => navigateDay(1));
+  if (brentRows.length) renderSparkline(sortedDates[currentDayIdx] || TODAY_DATE);
+  fetchDayStrikes(sortedDates[currentDayIdx]);
 }
 
 /* ── BOTTOM SHEET (mobile) ── */
@@ -1430,10 +1413,10 @@ function hideLoader(){
 }
 loadBrentData();
 
-fetch(STRIKES_URL)
+fetch('/api/strikes/dates')
   .then(r=>{if(!r.ok)throw new Error();return r.json();})
-  .then(data=>{render(data);hideLoader();})
-  .catch(()=>{console.warn('Failed to load strike data');render([]);hideLoader();});
+  .then(dates=>{renderDates(dates);hideLoader();})
+  .catch(()=>{console.warn('Failed to load strike dates');renderDates([]);hideLoader();});
 </script>
 </body>
 </html>

@@ -20,14 +20,15 @@ var app = builder.Build();
 
 // ── In-memory cache ────────────────────────────────────────────────────────────
 var strikeCache = new Dictionary<string, (List<object> data, DateTime expiry)>();
+List<string>? strikeDatesCache = null;
+var strikeDatesCacheExpiry = DateTime.MinValue;
 List<object>? syncCache = null;
 var syncCacheExpiry = DateTime.MinValue;
-const string AllDatesKey = "all";
 
 // ── GET /api/strikes ───────────────────────────────────────────────────────────
 app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo, string? date) =>
 {
-    var cacheKey = date ?? AllDatesKey;
+    string cacheKey = date ?? "all";
     if (strikeCache.TryGetValue(cacheKey, out var cached) && DateTime.UtcNow < cached.expiry)
         return Results.Ok(cached.data);
 
@@ -99,6 +100,40 @@ app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo, string? date) =>
 
     strikeCache[cacheKey] = (items, DateTime.UtcNow.AddMinutes(5));
     return Results.Ok(items);
+});
+
+// ── GET /api/strikes/dates ─────────────────────────────────────────────────────
+app.MapGet("/api/strikes/dates", async (IAmazonDynamoDB dynamo) =>
+{
+    if (strikeDatesCache is not null && DateTime.UtcNow < strikeDatesCacheExpiry)
+        return Results.Ok(strikeDatesCache);
+
+    string tableName = Environment.GetEnvironmentVariable("STRIKES_TABLE") ?? "strikes";
+    string indexName = Environment.GetEnvironmentVariable("STRIKES_GSI")   ?? "entity-date-index";
+
+    QueryResponse response = await dynamo.QueryAsync(new QueryRequest
+    {
+        TableName                 = tableName,
+        IndexName                 = indexName,
+        KeyConditionExpression    = "entity = :e AND #d >= :from",
+        ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date" },
+        ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+        {
+            [":e"]    = new AttributeValue { S = "strike" },
+            [":from"] = new AttributeValue { S = "2026-02-27" }
+        },
+        ProjectionExpression = "#d",
+    });
+
+    List<string> dates = response.Items
+        .Select(item => item["date"].S)
+        .Distinct()
+        .OrderBy(d => d)
+        .ToList();
+
+    strikeDatesCache = dates;
+    strikeDatesCacheExpiry = DateTime.UtcNow.AddMinutes(5);
+    return Results.Ok(dates);
 });
 
 // ── GET /api/syncs ─────────────────────────────────────────────────────────────
