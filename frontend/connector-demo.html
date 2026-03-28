@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Connector Demo</title>
+<style>
+  body { background: #0f172a; color: #e2e8f0; font-family: monospace; padding: 40px; }
+  h2 { color: #94a3b8; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; margin: 32px 0 8px; }
+  svg { display: block; background: #1e293b; border-radius: 4px; padding: 4px; }
+  .controls { margin-bottom: 24px; display: flex; gap: 12px; flex-wrap: wrap; }
+  button {
+    background: #1e293b; border: 1px solid #334155; color: #94a3b8;
+    padding: 6px 14px; border-radius: 4px; cursor: pointer; font-family: monospace; font-size: 12px;
+  }
+  button.active { border-color: #38bdf8; color: #38bdf8; }
+  p { color: #64748b; font-size: 12px; margin: 6px 0 0; }
+</style>
+</head>
+<body>
+
+<h1 style="color:#f1f5f9;font-size:16px;margin-bottom:4px">Sparkline connector options</h1>
+<p style="color:#64748b;font-size:12px;margin-bottom:24px">
+  Simulated data: historical price ~85, today's intraday reading ~111 (up). The connector currently goes DOWN visually due to scale mismatch.
+</p>
+
+<div class="controls">
+  <button id="btn-current" class="active" onclick="setMode('current')">Current (broken)</button>
+  <button id="btn-none"    onclick="setMode('none')">No connector</button>
+  <button id="btn-flat"    onclick="setMode('flat')">Flat mid-line</button>
+  <button id="btn-slash"   onclick="setMode('slash')">//  scale break</button>
+  <button id="btn-fade"    onclick="setMode('fade')">Fade out</button>
+  <button id="btn-step"    onclick="setMode('step')">Step to baseline</button>
+  <button id="btn-honest"  onclick="setMode('honest')">Honest slope</button>
+  <button id="btn-pip"     onclick="setMode('pip')">Picture-in-picture</button>
+</div>
+
+<svg id="spark" height="68"></svg>
+<p id="desc"></p>
+
+<script>
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs) {
+  const e = document.createElementNS(NS, tag);
+  Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k,v));
+  return e;
+}
+function txt(content, attrs) {
+  const e = document.createElementNS(NS, 'text');
+  Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k,v));
+  e.textContent = content;
+  return e;
+}
+
+const DESCRIPTIONS = {
+  current: 'The connector goes DOWN even though the price went up — because the two endpoints are on different y-scales.',
+  none:    'No connector. The gap + box border already reads as a separate panel. Clean and honest.',
+  flat:    'Flat dashed line at mid-height of the historical zone. Signals continuity without implying direction.',
+  slash:   '// symbols in the gap, common charting convention for a scale break. Explicit but adds visual noise.',
+  fade:    'The amber line tapers to opacity 0 before the gap. Soft visual end — no false slope implied.',
+  step:    'Drop a vertical line from the last historical point to the chart bottom, like a candlestick close. Common in financial charts.',
+  honest:  'Connect at the equivalent price on the historical y-scale. The slope direction is now correct — up means up.',
+  pip:     'Picture-in-picture: today\'s intraday data floats as a small inset in the top-right of the main chart. No separate box — the full historical line uses the whole width.',
+};
+
+// Simulated data
+const historical = [
+  { date: 'Feb 20', price: 71.66 },
+  { date: 'Feb 27', price: 71.36 },
+  { date: 'Mar 6',  price: 85.28 },
+  { date: 'Mar 13', price: 96.16 },
+  { date: 'Mar 20', price: 111.40 },
+];
+const todayReadings = [
+  { time: '00:00', price: 108.50 },
+  { time: '08:00', price: 111.40 },
+];
+const TODAY_LABEL = 'Mar 28';
+
+let currentMode = 'current';
+
+function setMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + mode).classList.add('active');
+  document.getElementById('desc').textContent = DESCRIPTIONS[mode];
+  draw(mode);
+}
+
+function draw(mode) {
+  const svg = document.getElementById('spark');
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+  const SVG_H     = 68;
+  const isPip     = mode === 'pip';
+  const PIP_W     = 72;
+  const PIP_H     = 36;
+  const BOX_GAP   = isPip ? 8  : 14;
+  const BOX_W     = isPip ? PIP_W : 80;
+  const BOX_PAD_X = 7;
+  const BOX_PAD_Y = 5;
+  const Y_LABEL_W = isPip ? 0  : 30;
+  const HIST_W    = 260;
+  const PAD       = { top: 8, bottom: 14, left: 4, right: Y_LABEL_W };
+  const SVG_W     = PAD.left + HIST_W + BOX_GAP + BOX_W + PAD.right;
+
+  svg.setAttribute('width', SVG_W);
+
+  const HIST_INNER_H = SVG_H - PAD.top - PAD.bottom;
+  const BOX_X        = PAD.left + HIST_W + BOX_GAP;
+  const BOX_Y        = PAD.top;
+  const BOX_INNER_H  = HIST_INNER_H;
+
+  // Historical y-scale
+  const prices = historical.map(d => d.price);
+  const minP = Math.min(...prices) - 0.5;
+  const maxP = Math.max(...prices) + 0.5;
+  function scaleY(p) { return PAD.top + HIST_INNER_H * (1 - (p - minP) / (maxP - minP)); }
+
+  const slotW = HIST_W / (historical.length - 1);
+  function slotX(i) { return PAD.left + i * slotW; }
+
+  // Historical line
+  svg.appendChild(el('polyline', {
+    points: historical.map((d,i) => `${slotX(i)},${scaleY(d.price)}`).join(' '),
+    fill: 'none', stroke: '#f59e0b', 'stroke-width': '1.5',
+    'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+  }));
+
+  historical.forEach((d,i) => {
+    svg.appendChild(el('circle', { cx: slotX(i), cy: scaleY(d.price), r: '2', fill: '#f59e0b', opacity: '0.4' }));
+  });
+
+  // X-axis labels
+  historical.forEach((d,i) => {
+    if (i !== 0 && i !== historical.length-1 && i % 2 !== 0) return;
+    const anchor = i === 0 ? 'start' : i === historical.length-1 ? 'end' : 'middle';
+    svg.appendChild(txt(d.date, { x: slotX(i), y: SVG_H-2, fill: '#64748b', 'font-size': '9', 'font-family': 'monospace', 'text-anchor': anchor }));
+  });
+
+  const lastHistX = slotX(historical.length - 1);
+  const lastHistY = scaleY(historical[historical.length - 1].price);
+
+  // Picture-in-picture inset (pip mode only) — floats over main chart, top-right
+  if (isPip) {
+    const PIP_X = PAD.left + HIST_W + BOX_GAP;
+    const PIP_Y = PAD.top;
+    const PIP_PAD_X = 5, PIP_PAD_Y = 4;
+
+    const tPricesPip = todayReadings.map(r => r.price);
+    const tHighPip = Math.max(...tPricesPip), tLowPip = Math.min(...tPricesPip);
+    const tPadPip  = Math.max((tHighPip - tLowPip) * 0.5, 0.8);
+    const tMinPip  = tLowPip - tPadPip, tMaxPip = tHighPip + tPadPip;
+    const pipTop = PIP_Y + PIP_PAD_Y, pipBot = PIP_Y + PIP_H - PIP_PAD_Y;
+
+    function scaleYPip(p) { return pipTop + (pipBot - pipTop) * (1 - (p - tMinPip) / (tMaxPip - tMinPip)); }
+    function pipX(i) { return PIP_X + PIP_PAD_X + (i / Math.max(todayReadings.length - 1, 1)) * (PIP_W - PIP_PAD_X * 2); }
+
+    // Semi-transparent background
+    svg.appendChild(el('rect', {
+      x: PIP_X, y: PIP_Y, width: PIP_W, height: PIP_H,
+      fill: '#0f172a', opacity: '0.85', rx: '2',
+    }));
+    // Border
+    svg.appendChild(el('rect', {
+      x: PIP_X, y: PIP_Y, width: PIP_W, height: PIP_H,
+      fill: 'none', stroke: '#38bdf8', 'stroke-width': '0.75', opacity: '0.7', rx: '2',
+    }));
+    // Date label
+    svg.appendChild(txt('Mar 28', {
+      x: PIP_X + PIP_W / 2, y: PIP_Y + 8,
+      fill: '#38bdf8', 'font-size': '7', 'font-family': 'monospace',
+      'text-anchor': 'middle', opacity: '0.7',
+    }));
+    // Intraday line
+    if (todayReadings.length > 1) {
+      svg.appendChild(el('polyline', {
+        points: todayReadings.map((r,i) => `${pipX(i)},${scaleYPip(r.price)}`).join(' '),
+        fill: 'none', stroke: '#38bdf8', 'stroke-width': '1.5',
+        'stroke-dasharray': '4 3', 'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: '0.9',
+      }));
+    }
+    // Dots
+    todayReadings.forEach((r,i) => {
+      svg.appendChild(el('circle', { cx: pipX(i), cy: scaleYPip(r.price), r: '2', fill: '#38bdf8', opacity: '0.6' }));
+    });
+    // Live pulse dot
+    const lx = pipX(todayReadings.length - 1);
+    const ly = scaleYPip(todayReadings[todayReadings.length - 1].price);
+    svg.appendChild(el('circle', { cx: lx, cy: ly, r: '3', fill: '#38bdf8' }));
+    // Pointer line from pip bottom-left corner to the last hist point on main chart
+    svg.appendChild(el('line', {
+      x1: lastHistX, y1: lastHistY,
+      x2: PIP_X, y2: PIP_Y + PIP_H,
+      stroke: '#38bdf8', 'stroke-width': '0.75', 'stroke-dasharray': '3 3', opacity: '0.25',
+    }));
+  }
+
+  if (isPip) return; // pip handles today inline above
+
+  // Today box (non-pip modes)
+  const tPrices = todayReadings.map(r => r.price);
+  const tHigh = Math.max(...tPrices), tLow = Math.min(...tPrices);
+  const tPad  = Math.max((tHigh - tLow) * 0.5, 0.8);
+  const tMinP = tLow - tPad, tMaxP = tHigh + tPad;
+  const boxTop = BOX_Y + BOX_PAD_Y, boxBot = BOX_Y + BOX_INNER_H - BOX_PAD_Y;
+  function scaleYBox(p) { return boxTop + (boxBot - boxTop) * (1 - (p - tMinP) / (tMaxP - tMinP)); }
+  function intradayX(i) { return BOX_X + BOX_PAD_X + (i / Math.max(todayReadings.length-1,1)) * (BOX_W - BOX_PAD_X*2); }
+
+  svg.appendChild(el('rect', {
+    x: BOX_X, y: BOX_Y, width: BOX_W, height: BOX_INNER_H,
+    fill: 'rgba(56,189,248,0.04)', stroke: '#38bdf8', 'stroke-width': '0.75', opacity: '0.7', rx: '2',
+  }));
+  svg.appendChild(txt(TODAY_LABEL, {
+    x: BOX_X + BOX_W/2, y: BOX_Y+9, fill: '#38bdf8', 'font-size': '9',
+    'font-family': 'monospace', 'text-anchor': 'middle', opacity: '0.7',
+  }));
+
+  // Y-axis labels
+  const yMid = (tMinP + tMaxP) / 2;
+  [[tMaxP,'start'],[yMid,'middle'],[tMinP,'end']].forEach(([p, a]) => {
+    const y = scaleYBox(p);
+    svg.appendChild(el('line', { x1: BOX_X+BOX_W, y1: y, x2: BOX_X+BOX_W+3, y2: y, stroke: '#475569', 'stroke-width': '0.75' }));
+    svg.appendChild(txt(`$${p.toFixed(1)}`, { x: BOX_X+BOX_W+5, y: y+3, fill: '#64748b', 'font-size': '9', 'font-family': 'monospace' }));
+  });
+
+  // Intraday
+  svg.appendChild(el('polyline', {
+    points: todayReadings.map((r,i) => `${intradayX(i)},${scaleYBox(r.price)}`).join(' '),
+    fill: 'none', stroke: '#38bdf8', 'stroke-width': '1.5',
+    'stroke-dasharray': '4 3', 'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: '0.9',
+  }));
+  todayReadings.forEach((r,i) => {
+    svg.appendChild(el('circle', { cx: intradayX(i), cy: scaleYBox(r.price), r: '2', fill: '#38bdf8', opacity: '0.6' }));
+  });
+
+  // Connectors
+  const gapMidX = lastHistX + BOX_GAP / 2;
+  const histMidY = PAD.top + HIST_INNER_H / 2;
+
+  if (mode === 'current') {
+    svg.appendChild(el('line', {
+      x1: lastHistX, y1: lastHistY,
+      x2: intradayX(0), y2: scaleYBox(todayReadings[0].price),
+      stroke: '#38bdf8', 'stroke-width': '1.5', 'stroke-dasharray': '4 3', opacity: '0.35',
+    }));
+
+  } else if (mode === 'flat') {
+    svg.appendChild(el('line', {
+      x1: lastHistX, y1: histMidY,
+      x2: BOX_X, y2: histMidY,
+      stroke: '#475569', 'stroke-width': '1', 'stroke-dasharray': '3 3', opacity: '0.5',
+    }));
+
+  } else if (mode === 'slash') {
+    const x1 = gapMidX - 4, x2 = gapMidX + 4;
+    const yTop = PAD.top + 4, yBot = SVG_H - PAD.bottom - 4;
+    [[x1-3, x1+3],[x2-3, x2+3]].forEach(([lx, rx]) => {
+      svg.appendChild(el('line', {
+        x1: lx, y1: yBot, x2: rx, y2: yTop,
+        stroke: '#475569', 'stroke-width': '1.5', opacity: '0.6',
+      }));
+    });
+
+  } else if (mode === 'fade') {
+    // Gradient from amber → transparent over the last segment
+    const gradId = 'fadeGrad';
+    const defs = document.createElementNS(NS, 'defs');
+    const grad = document.createElementNS(NS, 'linearGradient');
+    grad.setAttribute('id', gradId);
+    grad.setAttribute('x1', '0%'); grad.setAttribute('x2', '100%');
+    grad.setAttribute('y1', '0%'); grad.setAttribute('y2', '0%');
+    const s1 = document.createElementNS(NS, 'stop');
+    s1.setAttribute('offset', '0%'); s1.setAttribute('stop-color', '#f59e0b'); s1.setAttribute('stop-opacity', '1');
+    const s2 = document.createElementNS(NS, 'stop');
+    s2.setAttribute('offset', '100%'); s2.setAttribute('stop-color', '#f59e0b'); s2.setAttribute('stop-opacity', '0');
+    grad.appendChild(s1); grad.appendChild(s2); defs.appendChild(grad); svg.appendChild(defs);
+    // Draw fade segment from second-to-last point to last + a bit into the gap
+    const prevX = slotX(historical.length - 2);
+    const prevY = scaleY(historical[historical.length - 2].price);
+    svg.appendChild(el('line', {
+      x1: prevX, y1: prevY, x2: lastHistX + 6, y2: lastHistY,
+      stroke: `url(#${gradId})`, 'stroke-width': '1.5', 'stroke-linecap': 'round',
+    }));
+
+  } else if (mode === 'step') {
+    const chartBottom = SVG_H - PAD.bottom;
+    svg.appendChild(el('line', {
+      x1: lastHistX, y1: lastHistY, x2: lastHistX, y2: chartBottom,
+      stroke: '#f59e0b', 'stroke-width': '1', opacity: '0.3',
+    }));
+
+  } else if (mode === 'honest') {
+    // Project today's first intraday price onto the HISTORICAL y-scale for the connector endpoint
+    const firstIntradayPrice = todayReadings[0].price;
+    const projectedY = scaleY(firstIntradayPrice); // same y-scale as history
+    svg.appendChild(el('line', {
+      x1: lastHistX, y1: lastHistY,
+      x2: intradayX(0), y2: projectedY,
+      stroke: '#38bdf8', 'stroke-width': '1.5', 'stroke-dasharray': '4 3', opacity: '0.35',
+    }));
+  }
+  // mode === 'none': nothing drawn
+}
+
+setMode('current');
+</script>
+</body>
+</html>
