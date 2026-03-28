@@ -805,11 +805,13 @@ function svgTxt(content, attrs) {
   return e;
 }
 
-function buildSparkData(rows, cutoffDate) {
-  // Today box always shows regardless of selected date — collect today's readings separately
+// sparklineState persists across nav so we don't redraw on every date change
+let sparklineState = null;
+
+function buildSparkData(rows) {
+  // Always build full history + today — sparkline is not cutoff by selected date
   const byDate = {};
   rows.forEach(r => {
-    if (r.date > cutoffDate && r.date !== TODAY_DATE) return;
     if (!byDate[r.date]) byDate[r.date] = [];
     byDate[r.date].push(r);
   });
@@ -830,27 +832,27 @@ function buildSparkData(rows, cutoffDate) {
   return { historical, todayReadings };
 }
 
-function renderSparkline(cutoffDate) {
+function renderSparkline() {
+  // Full draw — called once when brent data loads (or on resize)
   const svg = document.getElementById('brent-sparkline');
   while (svg.firstChild) svg.removeChild(svg.firstChild);
+  sparklineState = null;
 
   if (!brentRows.length) return;
 
-  const { historical, todayReadings } = buildSparkData(brentRows, cutoffDate);
-  const isToday = todayReadings.length > 0; // today box always shows when readings exist
+  const { historical, todayReadings } = buildSparkData(brentRows);
+  const hasTodayBox = todayReadings.length > 0;
 
-  // Layout constants
+  // Layout
   const SVG_H     = 68;
-  const BOX_GAP   = isToday && todayReadings.length ? 14 : 0;
-  const BOX_W     = isToday && todayReadings.length ? 80 : 0;
+  const BOX_GAP   = hasTodayBox ? 14 : 0;
+  const BOX_W     = hasTodayBox ? 80 : 0;
   const BOX_PAD_X = 7;
   const BOX_PAD_Y = 5;
-  const Y_LABEL_W = isToday && todayReadings.length ? 30 : 0;
-  // Responsive: fit sparkline to available container width
+  const Y_LABEL_W = hasTodayBox ? 30 : 0;
   const sparkWrap = document.getElementById('spark-wrap');
-  const availW    = Math.max(120, (sparkWrap.clientWidth || 280) - 22); // 14px left pad + 8px right pad
+  const availW    = Math.max(120, (sparkWrap.clientWidth || 280) - 22);
   const HIST_W    = availW - BOX_GAP - BOX_W - Y_LABEL_W;
-  // Always reserve bottom space for historical date labels
   const PAD       = { top: 8, bottom: 14, left: 4, right: Y_LABEL_W };
   const SVG_W     = PAD.left + HIST_W + BOX_GAP + BOX_W + PAD.right;
 
@@ -861,6 +863,8 @@ function renderSparkline(cutoffDate) {
   const BOX_X        = PAD.left + HIST_W + BOX_GAP;
   const BOX_Y        = PAD.top;
   const BOX_INNER_H  = HIST_INNER_H;
+
+  if (historical.length === 0) return;
 
   // Y-scale (historical)
   const histPrices = historical.map(d => d.price);
@@ -873,8 +877,6 @@ function renderSparkline(cutoffDate) {
   // X positions for history
   const slotW = historical.length > 1 ? HIST_W / (historical.length - 1) : HIST_W;
   function slotX(i) { return PAD.left + i * slotW; }
-
-  if (historical.length === 0) return;
 
   // Historical line
   svg.appendChild(svgEl('polyline', {
@@ -907,8 +909,15 @@ function renderSparkline(cutoffDate) {
   const lastHistX = slotX(historical.length - 1);
   const lastHistY = scaleY(historical[historical.length - 1].price);
 
+  // Date marker — vertical line that moves when user navigates (updated by updateSparklineForDate)
+  svg.appendChild(svgEl('line', {
+    id: 'spark-date-marker',
+    x1: lastHistX, y1: PAD.top, x2: lastHistX, y2: SVG_H - PAD.bottom,
+    stroke: '#e2e8f0', 'stroke-width': '1', opacity: '0.45', 'stroke-dasharray': '2 2',
+  }));
+
   // Today box
-  if (isToday && todayReadings.length) {
+  if (hasTodayBox) {
     const todayPrices = todayReadings.map(r => r.price);
     const tHigh = Math.max(...todayPrices);
     const tLow  = Math.min(...todayPrices);
@@ -925,15 +934,14 @@ function renderSparkline(cutoffDate) {
       return BOX_X + BOX_PAD_X + (i / Math.max(todayReadings.length - 1, 1)) * (BOX_W - BOX_PAD_X * 2);
     }
 
-    // Box background + border
     svg.appendChild(svgEl('rect', {
       x: BOX_X, y: BOX_Y, width: BOX_W, height: BOX_INNER_H,
       fill: 'rgba(56,189,248,0.04)', stroke: '#38bdf8', 'stroke-width': '0.75', opacity: '0.7', rx: '2',
     }));
 
-    // TODAY label
-    svg.appendChild(svgTxt('TODAY', {
-      x: BOX_X + BOX_W / 2, y: BOX_Y + 7,
+    // Date label instead of "TODAY"
+    svg.appendChild(svgTxt(fmtPeriod(TODAY_DATE), {
+      x: BOX_X + BOX_W / 2, y: BOX_Y + 9,
       fill: '#38bdf8', 'font-size': '9', 'font-family': 'monospace',
       'text-anchor': 'middle', opacity: '0.7', 'letter-spacing': '0.08em',
     }));
@@ -1000,17 +1008,43 @@ function renderSparkline(cutoffDate) {
     svg.appendChild(liveDot);
   }
 
-  // Price label + % change
+  // Build date→x map for marker and price label updates
+  const dateToX = {};
+  historical.forEach((d, i) => { dateToX[d.date] = slotX(i); });
+
+  sparklineState = { historical, todayReadings, dateToX, PAD, SVG_H };
+  updateSparklineForDate(sortedDates[currentDayIdx] || TODAY_DATE);
+}
+
+function updateSparklineForDate(date) {
+  if (!sparklineState) return;
+  const { historical, todayReadings, dateToX, PAD, SVG_H } = sparklineState;
+
+  // Move date marker
+  const marker = document.getElementById('spark-date-marker');
+  if (marker) {
+    const x = dateToX[date];
+    if (x !== undefined) {
+      marker.setAttribute('x1', x);
+      marker.setAttribute('x2', x);
+      marker.style.display = '';
+    } else {
+      marker.style.display = 'none'; // selected date not in historical (e.g. future)
+    }
+  }
+
+  // Price label: show today's live price when on today, otherwise selected date's historical price
+  const isSelectedToday = date === TODAY_DATE;
   const priceForDate = (() => {
-    if (isToday && todayReadings.length) return todayReadings[todayReadings.length - 1].price;
-    const hist = historical.find(d => d.date === cutoffDate);
+    if (isSelectedToday && todayReadings.length) return todayReadings[todayReadings.length - 1].price;
+    const hist = historical.find(d => d.date === date);
     return hist ? hist.price : (historical.length ? historical[historical.length - 1].price : null);
   })();
 
   const prevPrice = (() => {
-    const prevIdx = historical.findIndex(d => d.date === cutoffDate);
-    if (prevIdx > 0) return historical[prevIdx - 1].price;
-    if (prevIdx === -1 && historical.length >= 2) return historical[historical.length - 2].price;
+    const idx = historical.findIndex(d => d.date === date);
+    if (idx > 0) return historical[idx - 1].price;
+    if (idx === -1 && historical.length >= 2) return historical[historical.length - 2].price;
     if (historical.length === 1) return historical[0].price;
     return null;
   })();
@@ -1036,7 +1070,7 @@ function loadBrentData() {
     .then(r => r.ok ? r.json() : [])
     .then(data => {
       brentRows = data;
-      if (data.length) renderSparkline(sortedDates[currentDayIdx] || TODAY_DATE);
+      if (data.length) renderSparkline();
       else document.getElementById('spark-wrap').style.display = 'none';
     })
     .catch(() => {});
@@ -1136,7 +1170,7 @@ function navigateDay(delta){
   currentDayIdx=idx;
   updateDateDisplay(idx);
   fetchDayStrikes(sortedDates[idx]);
-  if(brentRows.length) renderSparkline(sortedDates[idx]);
+  if(brentRows.length) updateSparklineForDate(sortedDates[idx]);
 }
 
 
@@ -1287,7 +1321,7 @@ function renderDates(dates){
   updateDateDisplay(currentDayIdx);
   document.getElementById('nav-prev').addEventListener('click', () => navigateDay(-1));
   document.getElementById('nav-next').addEventListener('click', () => navigateDay(1));
-  if (brentRows.length) renderSparkline(sortedDates[currentDayIdx] || TODAY_DATE);
+  if (brentRows.length) renderSparkline();
   fetchDayStrikes(sortedDates[currentDayIdx]);
 }
 
