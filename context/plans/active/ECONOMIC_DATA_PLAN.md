@@ -717,7 +717,7 @@ CDK, Brent Lambda, `GET /api/economic/brent`, frontend sparkline — all deploye
 
 ### Phase 2 — Tier 2 Signals + Full UI + Tier 2 Backfill
 
-**Deliverable:** Hormuz status live in topbar, status change dots on sparkline, economic tab populated — including backfilled signal data for all historical dates.
+**Deliverable:** Hormuz status live in topbar, status change dots on sparkline, economic tab populated with both forward-going and backfilled signal data.
 
 #### 2A. CDK
 1. Add `iran-conflict-map-economic-signals` table (see Section 6A).
@@ -748,8 +748,7 @@ CDK, Brent Lambda, `GET /api/economic/brent`, frontend sparkline — all deploye
 
 #### 2E. Tier 2 Backfill
 1. Extend `backfill-economic` command with `--only-claude` flag (see Section 7B).
-2. Run: `tools backfill-economic --start 2026-02-28 --end [day before Phase 2 deploy] --only-claude`
-   — uses URLs from `syncs-v2` table; falls back to constructed URL pattern for other dates.
+2. Run: `tools backfill-economic --start 2026-02-14 --end [day before Phase 2 deploy] --only-claude`
 3. Verify Hormuz status change dots appear on historical dates in the sparkline.
 
 **Phase 2 complete when:** Hormuz pill shows correct status for any selected date, status change dots appear on historical sparkline, economic tab renders extracted signals including backfilled history.
