@@ -1141,10 +1141,12 @@ function navigateDay(delta){
 }
 
 function initDateNav(data){
-  sortedDates=[...new Set(data.map(s=>s.date))].sort();
+  const strikeDates=[...new Set(data.map(s=>s.date))].sort();
+  sortedDates=strikeDates.slice();
   // Always include today so the sparkline today-box is reachable even with no strikes
   if (!sortedDates.includes(TODAY_DATE)) { sortedDates.push(TODAY_DATE); sortedDates.sort(); }
-  currentDayIdx=sortedDates.length-1;
+  // Start on latest date that has strikes, not today (today may have none)
+  currentDayIdx=sortedDates.indexOf(strikeDates[strikeDates.length-1]);
   updateDateDisplay(currentDayIdx);
   document.getElementById('nav-prev').addEventListener('click',()=>navigateDay(-1));
   document.getElementById('nav-next').addEventListener('click',()=>navigateDay(1));
@@ -1296,7 +1298,7 @@ function render(data){
   allStrikes=data;
   initDateNav(data);
   // Show latest day on initial load
-  const latestDate=sortedDates[sortedDates.length-1];
+  const latestDate=sortedDates[currentDayIdx];
   const latestDay=data.filter(s=>s.date===latestDate);
   initActorFilters(latestDay);
   markerLayer.clearLayers();
