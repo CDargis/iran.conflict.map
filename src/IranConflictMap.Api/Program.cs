@@ -154,7 +154,7 @@ app.MapGet("/api/syncs", async (IAmazonDynamoDB dynamo) =>
 app.MapGet("/api/economic/brent", async (IAmazonDynamoDB dynamo, string? from, string? to) =>
 {
     string tableName = Environment.GetEnvironmentVariable("BRENT_TABLE_NAME") ?? "iran-conflict-map-brent-prices";
-    string fromDate  = from ?? "2026-02-28";
+    string fromDate  = from ?? "2026-02-14";
     string toDate    = to   ?? DateTime.UtcNow.ToString("yyyy-MM-dd");
     string today     = DateTime.UtcNow.ToString("yyyy-MM-dd");
 

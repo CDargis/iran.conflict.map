@@ -1031,7 +1031,7 @@ function renderSparkline(cutoffDate) {
 }
 
 function loadBrentData() {
-  const from = '2026-02-28';
+  const from = '2026-02-14';
   const to   = TODAY_DATE;
   fetch(`/api/economic/brent?from=${from}&to=${to}`)
     .then(r => r.ok ? r.json() : [])
