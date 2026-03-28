@@ -807,10 +807,10 @@ function svgTxt(content, attrs) {
 }
 
 function buildSparkData(rows, cutoffDate) {
-  // Group all rows by date, filtered to <= cutoffDate
+  // Today box always shows regardless of selected date — collect today's readings separately
   const byDate = {};
   rows.forEach(r => {
-    if (r.date > cutoffDate) return;
+    if (r.date > cutoffDate && r.date !== TODAY_DATE) return;
     if (!byDate[r.date]) byDate[r.date] = [];
     byDate[r.date].push(r);
   });
@@ -820,7 +820,7 @@ function buildSparkData(rows, cutoffDate) {
 
   Object.entries(byDate).sort(([a],[b]) => a.localeCompare(b)).forEach(([date, group]) => {
     const sorted = group.slice().sort((a,b) => a.timestamp.localeCompare(b.timestamp));
-    if (date === TODAY_DATE && date === cutoffDate) {
+    if (date === TODAY_DATE) {
       sorted.forEach(r => todayReadings.push({ time: r.timestamp.slice(11,16), price: r.brent_price }));
     } else {
       const latest = sorted[sorted.length - 1];
@@ -838,7 +838,7 @@ function renderSparkline(cutoffDate) {
   if (!brentRows.length) return;
 
   const { historical, todayReadings } = buildSparkData(brentRows, cutoffDate);
-  const isToday = cutoffDate === TODAY_DATE;
+  const isToday = todayReadings.length > 0; // today box always shows when readings exist
 
   // Layout constants
   const SVG_H     = 68;
@@ -1141,12 +1141,8 @@ function navigateDay(delta){
 }
 
 function initDateNav(data){
-  const strikeDates=[...new Set(data.map(s=>s.date))].sort();
-  sortedDates=strikeDates.slice();
-  // Always include today so the sparkline today-box is reachable even with no strikes
-  if (!sortedDates.includes(TODAY_DATE)) { sortedDates.push(TODAY_DATE); sortedDates.sort(); }
-  // Start on latest date that has strikes, not today (today may have none)
-  currentDayIdx=sortedDates.indexOf(strikeDates[strikeDates.length-1]);
+  sortedDates=[...new Set(data.map(s=>s.date))].sort();
+  currentDayIdx=sortedDates.length-1;
   updateDateDisplay(currentDayIdx);
   document.getElementById('nav-prev').addEventListener('click',()=>navigateDay(-1));
   document.getElementById('nav-next').addEventListener('click',()=>navigateDay(1));
@@ -1298,7 +1294,7 @@ function render(data){
   allStrikes=data;
   initDateNav(data);
   // Show latest day on initial load
-  const latestDate=sortedDates[currentDayIdx];
+  const latestDate=sortedDates[sortedDates.length-1];
   const latestDay=data.filter(s=>s.date===latestDate);
   initActorFilters(latestDay);
   markerLayer.clearLayers();
