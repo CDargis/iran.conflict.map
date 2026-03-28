@@ -899,7 +899,7 @@ function renderSparkline(cutoffDate) {
       const anchor = i === 0 ? 'start' : i === historical.length - 1 ? 'end' : 'middle';
       svg.appendChild(svgTxt(fmtPeriod(d.date), {
         x: slotX(i), y: SVG_H - 2,
-        fill: '#475569', 'font-size': '7', 'font-family': 'monospace',
+        fill: '#64748b', 'font-size': '9', 'font-family': 'monospace',
         'text-anchor': anchor,
       }));
     });
@@ -935,7 +935,7 @@ function renderSparkline(cutoffDate) {
     // TODAY label
     svg.appendChild(svgTxt('TODAY', {
       x: BOX_X + BOX_W / 2, y: BOX_Y + 7,
-      fill: '#38bdf8', 'font-size': '7', 'font-family': 'monospace',
+      fill: '#38bdf8', 'font-size': '9', 'font-family': 'monospace',
       'text-anchor': 'middle', opacity: '0.7', 'letter-spacing': '0.08em',
     }));
 
@@ -949,7 +949,7 @@ function renderSparkline(cutoffDate) {
       }));
       svg.appendChild(svgTxt(`$${price.toFixed(1)}`, {
         x: BOX_X + BOX_W + 5, y: y + 3,
-        fill: '#64748b', 'font-size': '7', 'font-family': 'monospace',
+        fill: '#64748b', 'font-size': '9', 'font-family': 'monospace',
       }));
     });
 
@@ -963,7 +963,7 @@ function renderSparkline(cutoffDate) {
       }));
       svg.appendChild(svgTxt(r.time, {
         x, y: boxBottom + 9,
-        fill: '#64748b', 'font-size': '7', 'font-family': 'monospace',
+        fill: '#64748b', 'font-size': '9', 'font-family': 'monospace',
         'text-anchor': 'middle',
       }));
     });
@@ -1142,6 +1142,8 @@ function navigateDay(delta){
 
 function initDateNav(data){
   sortedDates=[...new Set(data.map(s=>s.date))].sort();
+  // Always include today so the sparkline today-box is reachable even with no strikes
+  if (!sortedDates.includes(TODAY_DATE)) { sortedDates.push(TODAY_DATE); sortedDates.sort(); }
   currentDayIdx=sortedDates.length-1;
   updateDateDisplay(currentDayIdx);
   document.getElementById('nav-prev').addEventListener('click',()=>navigateDay(-1));
