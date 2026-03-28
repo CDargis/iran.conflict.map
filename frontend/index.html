@@ -978,7 +978,7 @@ function renderSparkline() {
     // Dashed connector
     svg.appendChild(svgEl('line', {
       x1: lastHistX, y1: lastHistY,
-      x2: intradayX(0), y2: scaleYBox(todayReadings[0].price),
+      x2: intradayX(0), y2: scaleY(todayReadings[0].price),
       stroke: '#38bdf8', 'stroke-width': '1.5', 'stroke-dasharray': '4 3', opacity: '0.35',
     }));
 
