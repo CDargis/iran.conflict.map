@@ -75,13 +75,14 @@ public class Function
         update — reported in a prior report, this report adds detail or corrects it; include only changed fields plus date, lat, and lng as lookup keys (lat/lng as plain decimal numbers, not DynamoDB wire format); omit location and actor from the lookup; never include description in changes — use notes instead for any newly confirmed detail; IMPORTANT: the lookup date must be the date the event originally occurred (i.e. the date from the original report that first logged it), not the date of the current report being processed — use any context clues in the current report such as "on March 14" or "the March 14 strike" to identify the original date
         ambiguous — cannot confidently determine whether new or update; include a "note" explaining the uncertainty, a complete "as_new" item (same PutRequest/Item wire format as new events), and an "as_update" payload (same lookup/changes format as updates); only use ambiguous when genuinely uncertain — prefer new or update if you can reasonably classify the event
 
-        Output format — return a single JSON object:
+        Output format — return a single JSON object and NOTHING ELSE. No explanation, no preamble, no text after the closing brace. The response must begin with '{' and end with '}'. Any observations, caveats, or commentary must go inside the "sync_notes" array, not outside the JSON.
         {
           "new": [ { "PutRequest": { "Item": { ... DynamoDB wire format ... } } }, ... ],
           "updates": [ { "lookup": { "date": "...", "lat": 0.0, "lng": 0.0 }, "changes": { ... DynamoDB wire format ... } }, ... ],
-          "ambiguous": [ { "note": "...", "as_new": { "PutRequest": { "Item": { ... DynamoDB wire format ... } } }, "as_update": { "lookup": { "date": "...", "lat": 0.0, "lng": 0.0 }, "changes": { ... DynamoDB wire format ... } } }, ... ]
+          "ambiguous": [ { "note": "...", "as_new": { "PutRequest": { "Item": { ... DynamoDB wire format ... } } }, "as_update": { "lookup": { "date": "...", "lat": 0.0, "lng": 0.0 }, "changes": { ... DynamoDB wire format ... } } }, ... ],
+          "sync_notes": [ "...", ... ]
         }
-        Only include "disputed" when genuinely contested. Only include "citations" when footnotes are mappable. Only include fields in "changes" that are actually changing.
+        Only include "disputed" when genuinely contested. Only include "citations" when footnotes are mappable. Only include fields in "changes" that are actually changing. Include "sync_notes" only when there is something worth noting (e.g. ambiguous sourcing, unusual report, low-confidence classifications, data gaps). Omit the field entirely if there are no notes.
         """;
 
     public Function()
@@ -210,17 +211,29 @@ public class Function
 
             // ── 4. Push to processor SQS ──────────────────────────────────────
             // runId is used as synced_at so the Processor can UpdateItem the same record
+            List<string>? syncNotes = null;
+            if (claudeDoc.TryGetProperty("sync_notes", out var notesArr) && notesArr.ValueKind == JsonValueKind.Array)
+            {
+                syncNotes = notesArr.EnumerateArray()
+                    .Where(n => n.ValueKind == JsonValueKind.String)
+                    .Select(n => n.GetString()!)
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .ToList();
+                if (syncNotes.Count == 0) syncNotes = null;
+            }
+
             var envelope = JsonSerializer.Serialize(new
             {
                 source_url = reportUrl,
                 synced_at  = runId,
                 @new       = newWithIds,
                 updates    = claudeDoc.TryGetProperty("updates",   out var u) ? u : (JsonElement?)null,
-                ambiguous  = claudeDoc.TryGetProperty("ambiguous", out var a) ? a : (JsonElement?)null
+                ambiguous  = claudeDoc.TryGetProperty("ambiguous", out var a) ? a : (JsonElement?)null,
+                sync_notes = syncNotes
             });
 
             // Write initial record before pushing — Processor will update counts/status
-            await WriteSyncRecord(runId, "processing", 0, 0, 0, null, reportUrl, urlStrategy);
+            await WriteSyncRecord(runId, "processing", 0, 0, 0, null, reportUrl, urlStrategy, syncNotes);
 
             await _sqs.SendMessageAsync(new SendMessageRequest
             {
@@ -421,7 +434,8 @@ public class Function
     // ── DynamoDB ──────────────────────────────────────────────────────────────
 
     private async Task WriteSyncRecord(string runId, string status, int newEventCount, int updateCount,
-        int ambigCount, string? errorMessage, string? reportUrl, string? urlStrategy = null)
+        int ambigCount, string? errorMessage, string? reportUrl, string? urlStrategy = null,
+        List<string>? syncNotes = null)
     {
         var item = new Dictionary<string, AttributeValue>
         {
@@ -437,6 +451,8 @@ public class Function
             item["error_message"] = new() { S = errorMessage.Length > 1000 ? errorMessage[..1000] : errorMessage };
         if (!string.IsNullOrEmpty(urlStrategy))
             item["url_strategy"] = new() { S = urlStrategy };
+        if (syncNotes is { Count: > 0 })
+            item["sync_notes"] = new() { L = syncNotes.Select(n => new AttributeValue { S = n }).ToList() };
 
         await _dynamo.PutItemAsync(new PutItemRequest { TableName = SyncsTable, Item = item });
     }

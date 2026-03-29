@@ -1431,6 +1431,7 @@ function syncLogHTML(groups){
         ${reviewBadge}
       </div>
       <div style="font-size:9px;color:var(--dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${g.url}">${slug}</div>
+      ${runs.filter(r=>r.sync_notes?.length).map(r=>`<ul style="margin:4px 0 0 0;padding-left:14px;font-size:9px;color:var(--dim);list-style:disc">${r.sync_notes.map(n=>`<li>${n}</li>`).join('')}</ul>`).join('')}
     </div>`;
   }).join('');
 }

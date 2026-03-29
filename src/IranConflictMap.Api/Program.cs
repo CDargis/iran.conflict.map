@@ -166,7 +166,10 @@ app.MapGet("/api/syncs", async (IAmazonDynamoDB dynamo) =>
         dead_letter_count = item.ContainsKey("dead_letter_count")? int.Parse(item["dead_letter_count"].N): 0,
         review_count      = item.ContainsKey("review_count")     ? int.Parse(item["review_count"].N)     : 0,
         url_strategy      = item.ContainsKey("url_strategy")     ? item["url_strategy"].S                : "",
-        error_message     = item.ContainsKey("error_message")    ? item["error_message"].S               : ""
+        error_message     = item.ContainsKey("error_message")    ? item["error_message"].S               : "",
+        sync_notes        = item.ContainsKey("sync_notes") && item["sync_notes"].L != null
+                            ? item["sync_notes"].L.Select(n => n.S).ToList()
+                            : null
     };
 
     syncCache = response.Items

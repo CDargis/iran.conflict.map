@@ -27,7 +27,7 @@ var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(S
     ["drain-review"]       = ("Save all review queue messages to review-backlog/ and delete from queue [--confirm]", DrainReview),
     ["drain-dlq"]          = ("Save all DLQ messages to dlq-backlog/ and delete from queue [--confirm]", DrainDlq),
     ["send-envelope"]      = ("Send a SyncEnvelope JSON file to the processor queue [--file <path>] [--confirm]", SendEnvelope),
-    ["dedup-strikes"]      = ("Find and remove duplicate strikes by coordinates for a given date [--date yyyy-MM-dd] [--confirm]", DedupStrikes),
+    ["dedup-strikes"]      = ("Find and remove duplicate strikes by coordinates [--date yyyy-MM-dd | --all | --run-id <id>] [--confirm]", DedupStrikes),
     ["trigger-cleanup"]    = ("Discard stale review queue items for a URL by sending a cleanup message [--url <url>] [--run-id <id>] [--confirm]", TriggerCleanup),
     ["enrich-review"]      = ("Backfill nearest_record on legacy ambiguous review queue items [--confirm]", EnrichReview),
     ["backfill-economic"]  = ("Backfill Brent price history from EIA API [--start yyyy-MM-dd] [--end yyyy-MM-dd] [--eia-key <key>] [--confirm]", BackfillEconomic)
@@ -953,65 +953,152 @@ async Task SendEnvelope(string[] opts)
 
 async Task DedupStrikes(string[] opts)
 {
-    var confirm  = opts.Contains("--confirm");
-    var dateFlag = GetFlag(ref opts, "--date");
+    var confirm   = opts.Contains("--confirm");
+    var all       = opts.Contains("--all");
+    var dateFlag  = GetFlag(ref opts, "--date");
+    var runIdFlag = GetFlag(ref opts, "--run-id");
 
-    if (dateFlag == null)
-        throw new Exception("Usage: dedup-strikes --date yyyy-MM-dd [--confirm]");
+    if (!all && dateFlag == null && runIdFlag == null)
+        throw new Exception("Usage: dedup-strikes --date yyyy-MM-dd [--confirm]\n       dedup-strikes --all [--confirm]\n       dedup-strikes --run-id <run_id> [--confirm]");
+
+    // ── Run-id mode: delete all strikes created by a specific sync run ────────
+    var dynamo = BuildDynamoClient();
+
+    if (runIdFlag != null)
+    {
+        Console.WriteLine($"Table  : strikes");
+        Console.WriteLine($"Run ID : {runIdFlag}");
+        Console.WriteLine($"Mode   : {(confirm ? "LIVE — will delete matching strikes" : "DRY RUN — pass --confirm to delete")}");
+        Console.WriteLine();
+
+        var runItems = new List<Dictionary<string, AttributeValue>>();
+        Dictionary<string, AttributeValue>? runLastKey = null;
+
+        do
+        {
+            var resp = await dynamo.ScanAsync(new ScanRequest
+            {
+                TableName                 = "strikes",
+                FilterExpression          = "created_at = :run",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":run"] = new AttributeValue { S = runIdFlag }
+                },
+                ExclusiveStartKey = runLastKey
+            });
+            runItems.AddRange(resp.Items);
+            runLastKey = resp.LastEvaluatedKey?.Count > 0 ? resp.LastEvaluatedKey : null;
+        }
+        while (runLastKey != null);
+
+        if (runItems.Count == 0)
+        {
+            Console.WriteLine("No strikes found for that run ID.");
+            return;
+        }
+
+        foreach (Dictionary<string, AttributeValue> item in runItems)
+        {
+            string id    = item.TryGetValue("id",    out AttributeValue? iv) ? iv.S ?? "?" : "?";
+            string date  = item.TryGetValue("date",  out AttributeValue? dv) ? dv.S ?? "?" : "?";
+            string title = item.TryGetValue("title", out AttributeValue? tv) ? tv.S ?? "?" : "?";
+            Console.WriteLine($"  [DEL] id={id}  date={date}  title={title}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"Items to delete: {runItems.Count}");
+
+        if (!confirm)
+        {
+            Console.WriteLine("Re-run with --confirm to delete.");
+            return;
+        }
+
+        List<Dictionary<string, AttributeValue>> runKeys = runItems
+            .Select(i => new Dictionary<string, AttributeValue> { ["id"] = i["id"] })
+            .ToList();
+
+        Console.Write("Deleting... ");
+        await BatchDelete(dynamo, "strikes", runKeys);
+        Console.WriteLine($"done. {runItems.Count} item(s) deleted.");
+        return;
+    }
 
     const string tableName = "strikes";
     const string indexName = "entity-date-index";
 
-    var dynamo = BuildDynamoClient();
-
     Console.WriteLine($"Table  : {tableName}");
-    Console.WriteLine($"Date   : {dateFlag}");
+    Console.WriteLine($"Scope  : {(all ? "ALL dates" : dateFlag)}");
     Console.WriteLine($"Mode   : {(confirm ? "LIVE — will delete duplicates" : "DRY RUN — pass --confirm to delete")}");
     Console.WriteLine();
 
-    // ── 1. Query all strikes for the given date via GSI ──────────────────────
-    var items    = new List<Dictionary<string, AttributeValue>>();
+    // ── 1. Load strikes ───────────────────────────────────────────────────────
+    var items = new List<Dictionary<string, AttributeValue>>();
     Dictionary<string, AttributeValue>? lastKey = null;
 
-    do
+    if (all)
     {
-        var resp = await dynamo.QueryAsync(new QueryRequest
+        // Full scan — load all strikes across all dates
+        do
         {
-            TableName                 = tableName,
-            IndexName                 = indexName,
-            KeyConditionExpression    = "#ent = :ent AND #dt = :dt",
-            ExpressionAttributeNames  = new Dictionary<string, string>
+            var resp = await dynamo.ScanAsync(new ScanRequest
             {
-                ["#ent"] = "entity",
-                ["#dt"]  = "date"
-            },
-            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-            {
-                [":ent"] = new AttributeValue { S = "strike" },
-                [":dt"]  = new AttributeValue { S = dateFlag }
-            },
-            ExclusiveStartKey = lastKey
-        });
-
-        items.AddRange(resp.Items);
-        lastKey = resp.LastEvaluatedKey?.Count > 0 ? resp.LastEvaluatedKey : null;
+                TableName         = tableName,
+                FilterExpression  = "entity = :ent",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":ent"] = new AttributeValue { S = "strike" }
+                },
+                ExclusiveStartKey = lastKey
+            });
+            items.AddRange(resp.Items);
+            lastKey = resp.LastEvaluatedKey?.Count > 0 ? resp.LastEvaluatedKey : null;
+        }
+        while (lastKey != null);
+        Console.WriteLine($"Loaded {items.Count} strike(s) across all dates.");
     }
-    while (lastKey != null);
-
-    Console.WriteLine($"Found {items.Count} strike(s) on {dateFlag}.");
+    else
+    {
+        // Query by date via GSI
+        do
+        {
+            var resp = await dynamo.QueryAsync(new QueryRequest
+            {
+                TableName                 = tableName,
+                IndexName                 = indexName,
+                KeyConditionExpression    = "#ent = :ent AND #dt = :dt",
+                ExpressionAttributeNames  = new Dictionary<string, string>
+                {
+                    ["#ent"] = "entity",
+                    ["#dt"]  = "date"
+                },
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":ent"] = new AttributeValue { S = "strike" },
+                    [":dt"]  = new AttributeValue { S = dateFlag! }
+                },
+                ExclusiveStartKey = lastKey
+            });
+            items.AddRange(resp.Items);
+            lastKey = resp.LastEvaluatedKey?.Count > 0 ? resp.LastEvaluatedKey : null;
+        }
+        while (lastKey != null);
+        Console.WriteLine($"Found {items.Count} strike(s) on {dateFlag}.");
+    }
 
     if (items.Count == 0) return;
 
-    // ── 2. Group by (lat, lng) rounded to 4 decimal places ───────────────────
+    // ── 2. Group by (date, lat, lng, description prefix) ─────────────────────
     static string CoordKey(Dictionary<string, AttributeValue> item)
     {
-        double lat = item.TryGetValue("lat", out AttributeValue? latVal) && latVal.N != null
+        string date = item.TryGetValue("date", out AttributeValue? dateVal) ? dateVal.S ?? "" : "";
+        double lat  = item.TryGetValue("lat",  out AttributeValue? latVal)  && latVal.N != null
             ? Math.Round(double.Parse(latVal.N), 4) : 0;
-        double lng = item.TryGetValue("lng", out AttributeValue? lngVal) && lngVal.N != null
+        double lng  = item.TryGetValue("lng",  out AttributeValue? lngVal)  && lngVal.N != null
             ? Math.Round(double.Parse(lngVal.N), 4) : 0;
         string desc = item.TryGetValue("description", out AttributeValue? descVal) && descVal.S != null
             ? descVal.S.Trim().ToLowerInvariant()[..Math.Min(descVal.S.Length, 40)] : "";
-        return $"{lat:F4},{lng:F4}|{desc}";
+        return $"{date}|{lat:F4},{lng:F4}|{desc}";
     }
 
     Dictionary<string, List<Dictionary<string, AttributeValue>>> groups =
@@ -1026,8 +1113,9 @@ async Task DedupStrikes(string[] opts)
         if (group.Count == 1) continue;
 
         dupGroupCount++;
-        string displayKey = coordKey.Contains('|') ? coordKey[..coordKey.IndexOf('|')] : coordKey;
-        Console.WriteLine($"\nDuplicate group @ ({displayKey}) — {group.Count} items:");
+        string[] parts      = coordKey.Split('|');
+        string   displayKey = parts.Length >= 2 ? $"{parts[0]} ({parts[1]})" : coordKey;
+        Console.WriteLine($"\nDuplicate group @ {displayKey} — {group.Count} items:");
 
         // Keep the item with the most attributes; tie-break: earliest id
         Dictionary<string, AttributeValue> keeper = group
