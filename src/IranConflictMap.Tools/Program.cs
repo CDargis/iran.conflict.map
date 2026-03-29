@@ -1088,7 +1088,7 @@ async Task DedupStrikes(string[] opts)
 
     if (items.Count == 0) return;
 
-    // ── 2. Group by (date, lat, lng, description prefix) ─────────────────────
+    // ── 2. Group by (date, lat, lng) then cluster within each geo group ─────────
     static string CoordKey(Dictionary<string, AttributeValue> item)
     {
         string date = item.TryGetValue("date", out AttributeValue? dateVal) ? dateVal.S ?? "" : "";
@@ -1096,48 +1096,88 @@ async Task DedupStrikes(string[] opts)
             ? Math.Round(double.Parse(latVal.N), 4) : 0;
         double lng  = item.TryGetValue("lng",  out AttributeValue? lngVal)  && lngVal.N != null
             ? Math.Round(double.Parse(lngVal.N), 4) : 0;
-        string desc = item.TryGetValue("description", out AttributeValue? descVal) && descVal.S != null
-            ? descVal.S.Trim().ToLowerInvariant()[..Math.Min(descVal.S.Length, 40)] : "";
-        return $"{date}|{lat:F4},{lng:F4}|{desc}";
+        return $"{date}|{lat:F4},{lng:F4}";
     }
 
-    Dictionary<string, List<Dictionary<string, AttributeValue>>> groups =
+    static string TitleKey(Dictionary<string, AttributeValue> item) =>
+        item.TryGetValue("title", out AttributeValue? tv) && tv.S != null
+            ? tv.S.Trim().ToLowerInvariant() : "";
+
+    static string DescKey(Dictionary<string, AttributeValue> item) =>
+        item.TryGetValue("description", out AttributeValue? dv) && dv.S != null
+            ? dv.S.Trim().ToLowerInvariant()[..Math.Min(dv.S.Length, 40)] : "";
+
+    // Within each geo group, cluster items whose title OR description prefix matches
+    static List<List<Dictionary<string, AttributeValue>>> ClusterGeoGroup(
+        List<Dictionary<string, AttributeValue>> geoGroup)
+    {
+        List<List<Dictionary<string, AttributeValue>>> clusters = new();
+
+        foreach (Dictionary<string, AttributeValue> item in geoGroup)
+        {
+            string title = TitleKey(item);
+            string desc  = DescKey(item);
+
+            List<Dictionary<string, AttributeValue>>? match = clusters.FirstOrDefault(c =>
+                c.Any(x =>
+                    (title != "" && TitleKey(x) == title) ||
+                    (desc  != "" && DescKey(x)  == desc)));
+
+            if (match != null)
+            {
+                match.Add(item);
+            }
+            else
+            {
+                clusters.Add(new List<Dictionary<string, AttributeValue>> { item });
+            }
+        }
+
+        return clusters;
+    }
+
+    Dictionary<string, List<Dictionary<string, AttributeValue>>> geoGroups =
         items.GroupBy(CoordKey)
              .ToDictionary(g => g.Key, g => g.ToList());
 
     List<Dictionary<string, AttributeValue>> duplicates = new();
     int dupGroupCount = 0;
 
-    foreach (var (coordKey, group) in groups.OrderBy(g => g.Key))
+    foreach (var (coordKey, geoGroup) in geoGroups.OrderBy(g => g.Key))
     {
-        if (group.Count == 1) continue;
+        List<List<Dictionary<string, AttributeValue>>> clusters = ClusterGeoGroup(geoGroup);
 
-        dupGroupCount++;
-        string[] parts      = coordKey.Split('|');
-        string   displayKey = parts.Length >= 2 ? $"{parts[0]} ({parts[1]})" : coordKey;
-        Console.WriteLine($"\nDuplicate group @ {displayKey} — {group.Count} items:");
-
-        // Keep the item with the most attributes; tie-break: earliest id
-        Dictionary<string, AttributeValue> keeper = group
-            .OrderByDescending(i => i.Count)
-            .ThenBy(i => i.TryGetValue("id", out AttributeValue? idVal) ? idVal.S ?? "" : "")
-            .First();
-
-        foreach (Dictionary<string, AttributeValue> item in group)
+        foreach (List<Dictionary<string, AttributeValue>> group in clusters)
         {
-            bool isKeeper = item.TryGetValue("id", out AttributeValue? itemId) &&
-                            keeper.TryGetValue("id", out AttributeValue? keeperId) &&
-                            itemId.S == keeperId.S;
+            if (group.Count == 1) continue;
 
-            string id          = item.TryGetValue("id",          out AttributeValue? iv) ? iv.S ?? "?" : "?";
-            string description = item.TryGetValue("description", out AttributeValue? dv) ? (dv.S ?? "").Replace('\n', ' ')[..Math.Min((dv.S ?? "").Length, 60)] : "(no description)";
-            int    fieldCount  = item.Count;
+            dupGroupCount++;
+            string[] parts      = coordKey.Split('|');
+            string   displayKey = parts.Length >= 2 ? $"{parts[0]} ({parts[1]})" : coordKey;
+            Console.WriteLine($"\nDuplicate group @ {displayKey} — {group.Count} items:");
 
-            Console.WriteLine($"  [{(isKeeper ? "KEEP" : "DEL ")}] id={id}  fields={fieldCount}  desc={description}");
+            // Keep the item with the most attributes; tie-break: earliest id
+            Dictionary<string, AttributeValue> keeper = group
+                .OrderByDescending(i => i.Count)
+                .ThenBy(i => i.TryGetValue("id", out AttributeValue? idVal) ? idVal.S ?? "" : "")
+                .First();
 
-            if (!isKeeper)
+            foreach (Dictionary<string, AttributeValue> item in group)
             {
-                duplicates.Add(new Dictionary<string, AttributeValue> { ["id"] = item["id"] });
+                bool isKeeper = item.TryGetValue("id", out AttributeValue? itemId) &&
+                                keeper.TryGetValue("id", out AttributeValue? keeperId) &&
+                                itemId.S == keeperId.S;
+
+                string id          = item.TryGetValue("id",          out AttributeValue? iv) ? iv.S ?? "?" : "?";
+                string description = item.TryGetValue("description", out AttributeValue? dv) ? (dv.S ?? "").Replace('\n', ' ')[..Math.Min((dv.S ?? "").Length, 60)] : "(no description)";
+                int    fieldCount  = item.Count;
+
+                Console.WriteLine($"  [{(isKeeper ? "KEEP" : "DEL ")}] id={id}  fields={fieldCount}  desc={description}");
+
+                if (!isKeeper)
+                {
+                    duplicates.Add(new Dictionary<string, AttributeValue> { ["id"] = item["id"] });
+                }
             }
         }
     }
