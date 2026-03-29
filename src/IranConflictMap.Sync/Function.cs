@@ -349,10 +349,32 @@ public class Function
         }
 
         var start = text.IndexOf('{');
-        var end   = text.LastIndexOf('}');
-        if (start == -1 || end == -1 || end <= start)
+        if (start == -1)
         {
             ctx.Logger.LogLine($"[sync] no JSON object in Claude response: {text[..Math.Min(text.Length, 1000)]}");
+            return null;
+        }
+
+        // Walk the text to find the balanced closing brace — LastIndexOf('}') can pick up
+        // stray braces in any trailing commentary Claude adds after the JSON block.
+        int depth = 0;
+        bool inString = false;
+        bool escaped  = false;
+        int end = -1;
+        for (int i = start; i < text.Length; i++)
+        {
+            char c = text[i];
+            if (escaped)                    { escaped = false; continue; }
+            if (c == '\\' && inString)      { escaped = true;  continue; }
+            if (c == '"')                   { inString = !inString; continue; }
+            if (inString)                     continue;
+            if      (c == '{')              depth++;
+            else if (c == '}')              { if (--depth == 0) { end = i; break; } }
+        }
+
+        if (end == -1)
+        {
+            ctx.Logger.LogLine($"[sync] unbalanced JSON braces in Claude response: {text[..Math.Min(text.Length, 1000)]}");
             return null;
         }
 
