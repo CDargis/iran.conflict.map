@@ -916,33 +916,35 @@ function renderSparkline() {
     stroke: '#e2e8f0', 'stroke-width': '1', opacity: '0.45', 'stroke-dasharray': '2 2',
   }));
 
-  // Today box — y-axis is % change from today's open (first reading)
+  // Today box — y-axis is % change from yesterday's close (last historical point)
+  // Scale is symmetric so 0% is always at box center; connector always enters at center
   if (hasTodayBox) {
-    const firstPrice = todayReadings[0].price;
-    const lastPrice  = todayReadings[todayReadings.length - 1].price;
-    const dayPct     = (lastPrice - firstPrice) / firstPrice * 100;
+    const refPrice  = historical[historical.length - 1].price;  // yesterday's close
+    const lastPrice = todayReadings[todayReadings.length - 1].price;
+    const dayPct    = (lastPrice - refPrice) / refPrice * 100;
 
-    // % change from open for each reading
-    const pcts   = todayReadings.map(r => (r.price - firstPrice) / firstPrice * 100);
+    // % change from yesterday's close for each reading
+    const pcts   = todayReadings.map(r => (r.price - refPrice) / refPrice * 100);
     const maxPct = Math.max(...pcts);
     const minPct = Math.min(...pcts);
-    const pctPad = Math.max((maxPct - minPct) * 0.4, 0.3);
-    const tMaxPct = maxPct + pctPad;
-    const tMinPct = minPct - pctPad;
+    const absMax  = Math.max(Math.abs(maxPct), Math.abs(minPct));
+    const pctPad  = Math.max(absMax * 0.4, 0.3);
+    const tMaxPct =  absMax + pctPad;  // symmetric — 0% is always center
+    const tMinPct = -(absMax + pctPad);
 
     const boxInnerTop    = BOX_Y + BOX_PAD_Y;
     const boxInnerBottom = BOX_Y + BOX_INNER_H - BOX_PAD_Y;
 
     function scaleYBox(price) {
-      const pct = (price - firstPrice) / firstPrice * 100;
+      const pct = (price - refPrice) / refPrice * 100;
       return boxInnerTop + (boxInnerBottom - boxInnerTop) * (1 - (pct - tMinPct) / (tMaxPct - tMinPct));
     }
     function intradayX(i) {
       return BOX_X + BOX_PAD_X + (i / Math.max(todayReadings.length - 1, 1)) * (BOX_W - BOX_PAD_X * 2);
     }
 
-    const zeroY      = scaleYBox(firstPrice);  // 0% line — where open price sits
-    const lineColor  = dayPct >= 0 ? '#4ade80' : '#f87171';
+    const zeroY     = (boxInnerTop + boxInnerBottom) / 2;  // always center
+    const lineColor = dayPct >= 0 ? '#4ade80' : '#f87171';
 
     // Box background
     svg.appendChild(svgEl('rect', {
@@ -992,7 +994,7 @@ function renderSparkline() {
       'text-anchor': 'middle', opacity: '0.85',
     }));
 
-    // Connector — enters box at 0% line (today's open), not always at top
+    // Connector — always enters at center (yesterday's close = 0%)
     svg.appendChild(svgEl('line', {
       x1: lastHistX, y1: lastHistY,
       x2: intradayX(0), y2: zeroY,
