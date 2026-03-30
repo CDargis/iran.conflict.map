@@ -209,6 +209,12 @@
     .sync-ts { color: var(--dim); min-width: 110px; }
     .sync-review { color: var(--blue); margin-left: 4px; }
     .sync-error { color: var(--dim); font-size: 10px; padding: 2px 0 2px 120px; word-break: break-all; }
+    .sync-notes { font-size: 10px; padding: 2px 0 2px 120px; }
+    .sync-notes summary { cursor: pointer; color: var(--dim); list-style: none; }
+    .sync-notes summary::-webkit-details-marker { display: none; }
+    .sync-notes summary::before { content: '▸ '; }
+    details.sync-notes[open] summary::before { content: '▾ '; }
+    .sync-notes ul { margin: 4px 0 4px 10px; padding: 0; list-style: disc; color: var(--dim); }
   </style>
 </head>
 <body>
@@ -609,10 +615,13 @@
         const strat = run.url_strategy ? ` <span style="opacity:.5">via ${run.url_strategy.replace(/_/g,' ')}</span>` : '';
         const err = run.error_message ? `<div class="sync-error">${escHtml(run.error_message)}</div>` : '';
         const rb = run.review_count > 0 ? `<span class="sync-review">↷ ${run.review_count}</span>` : '';
+        const notes = run.sync_notes?.length
+          ? `<details class="sync-notes"><summary>notes (${run.sync_notes.length})</summary><ul>${run.sync_notes.map(n => `<li>${escHtml(n)}</li>`).join('')}</ul></details>`
+          : '';
         return `<div class="sync-run">
           <span class="sync-ts">${fmtTs(run.run_id)}</span>
           <span class="sync-result ${rc}">${rl}</span>${strat}${rb}
-        </div>${err}`;
+        </div>${err}${notes}`;
       }).join('');
 
       return `<div class="sync-url-group" id="sg${gi}">
