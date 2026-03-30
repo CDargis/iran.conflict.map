@@ -994,9 +994,9 @@ function renderSparkline() {
       'text-anchor': 'middle', opacity: '0.85',
     }));
 
-    // Connector — always enters at center (yesterday's close = 0%)
+    // Connector — flat horizontal at center height
     svg.appendChild(svgEl('line', {
-      x1: lastHistX, y1: lastHistY,
+      x1: lastHistX, y1: zeroY,
       x2: intradayX(0), y2: zeroY,
       stroke: '#38bdf8', 'stroke-width': '1.5', 'stroke-dasharray': '4 3', opacity: '0.75',
     }));
