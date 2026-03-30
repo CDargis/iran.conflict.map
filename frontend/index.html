@@ -866,10 +866,13 @@ function renderSparkline() {
 
   if (historical.length === 0) return;
 
-  // Y-scale (historical)
+  // Y-scale (historical) — anchored so last price always lands at vertical center
   const histPrices = historical.map(d => d.price);
-  const minP = Math.min(...histPrices) - 0.5;
-  const maxP = Math.max(...histPrices) + 0.5;
+  const refHistPrice = historical[historical.length - 1].price;
+  const maxDev = Math.max(...histPrices.map(p => Math.abs(p - refHistPrice)));
+  const devPad = Math.max(maxDev * 0.1, 0.5);
+  const minP = refHistPrice - maxDev - devPad;
+  const maxP = refHistPrice + maxDev + devPad;
   function scaleY(price) {
     return PAD.top + HIST_INNER_H * (1 - (price - minP) / (maxP - minP));
   }
@@ -994,9 +997,9 @@ function renderSparkline() {
       'text-anchor': 'middle', opacity: '0.85',
     }));
 
-    // Connector — flat horizontal at center height
+    // Connector — flat because lastHistY === zeroY (both anchored to center)
     svg.appendChild(svgEl('line', {
-      x1: lastHistX, y1: zeroY,
+      x1: lastHistX, y1: lastHistY,
       x2: intradayX(0), y2: zeroY,
       stroke: '#38bdf8', 'stroke-width': '1.5', 'stroke-dasharray': '4 3', opacity: '0.75',
     }));
