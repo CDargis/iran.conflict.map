@@ -916,99 +916,102 @@ function renderSparkline() {
     stroke: '#e2e8f0', 'stroke-width': '1', opacity: '0.45', 'stroke-dasharray': '2 2',
   }));
 
-  // Today box
+  // Today box — y-axis is % change from today's open (first reading)
   if (hasTodayBox) {
-    const todayPrices = todayReadings.map(r => r.price);
-    const tHigh = Math.max(...todayPrices);
-    const tLow  = Math.min(...todayPrices);
-    const tPad  = Math.max((tHigh - tLow) * 0.5, 0.8);
-    const tMinP = tLow  - tPad;
-    const tMaxP = tHigh + tPad;
+    const firstPrice = todayReadings[0].price;
+    const lastPrice  = todayReadings[todayReadings.length - 1].price;
+    const dayPct     = (lastPrice - firstPrice) / firstPrice * 100;
+
+    // % change from open for each reading
+    const pcts   = todayReadings.map(r => (r.price - firstPrice) / firstPrice * 100);
+    const maxPct = Math.max(...pcts);
+    const minPct = Math.min(...pcts);
+    const pctPad = Math.max((maxPct - minPct) * 0.4, 0.3);
+    const tMaxPct = maxPct + pctPad;
+    const tMinPct = minPct - pctPad;
+
     const boxInnerTop    = BOX_Y + BOX_PAD_Y;
     const boxInnerBottom = BOX_Y + BOX_INNER_H - BOX_PAD_Y;
 
     function scaleYBox(price) {
-      return boxInnerTop + (boxInnerBottom - boxInnerTop) * (1 - (price - tMinP) / (tMaxP - tMinP));
+      const pct = (price - firstPrice) / firstPrice * 100;
+      return boxInnerTop + (boxInnerBottom - boxInnerTop) * (1 - (pct - tMinPct) / (tMaxPct - tMinPct));
     }
     function intradayX(i) {
       return BOX_X + BOX_PAD_X + (i / Math.max(todayReadings.length - 1, 1)) * (BOX_W - BOX_PAD_X * 2);
     }
 
+    const zeroY      = scaleYBox(firstPrice);  // 0% line — where open price sits
+    const lineColor  = dayPct >= 0 ? '#4ade80' : '#f87171';
+
+    // Box background
     svg.appendChild(svgEl('rect', {
       x: BOX_X, y: BOX_Y, width: BOX_W, height: BOX_INNER_H,
       fill: 'rgba(56,189,248,0.04)', stroke: '#38bdf8', 'stroke-width': '0.75', opacity: '0.7', rx: '2',
     }));
 
-    // Date label instead of "TODAY"
-    svg.appendChild(svgTxt(fmtPeriod(TODAY_DATE), {
-      x: BOX_X + BOX_W / 2, y: BOX_Y + 9,
-      fill: '#38bdf8', 'font-size': '9', 'font-family': 'monospace',
-      'text-anchor': 'middle', opacity: '0.7', 'letter-spacing': '0.08em',
+    // 0% dotted grid line
+    svg.appendChild(svgEl('line', {
+      x1: BOX_X + 1, y1: zeroY, x2: BOX_X + BOX_W - 1, y2: zeroY,
+      stroke: '#475569', 'stroke-width': '0.75', 'stroke-dasharray': '2 2',
     }));
 
-    // Y-axis labels (right side)
-    const yMidP = (tMinP + tMaxP) / 2;
-    [[tMaxP, 'start'], [yMidP, 'middle'], [tMinP, 'end']].forEach(([price, anchor]) => {
-      const y = scaleYBox(price);
+    // Date label (top-left)
+    svg.appendChild(svgTxt(fmtPeriod(TODAY_DATE), {
+      x: BOX_X + 4, y: BOX_Y + 9,
+      fill: '#38bdf8', 'font-size': '8', 'font-family': 'monospace',
+      'text-anchor': 'start', opacity: '0.7',
+    }));
+
+    // Day % change (top-right)
+    const pctLabel = (dayPct >= 0 ? '+' : '') + dayPct.toFixed(1) + '%';
+    svg.appendChild(svgTxt(pctLabel, {
+      x: BOX_X + BOX_W - 3, y: BOX_Y + 9,
+      fill: lineColor, 'font-size': '8', 'font-family': 'monospace',
+      'text-anchor': 'end', opacity: '0.9',
+    }));
+
+    // Y-axis % labels (right side) at top, 0%, bottom
+    [[tMaxPct], [0], [tMinPct]].forEach(([pct]) => {
+      const y = boxInnerTop + (boxInnerBottom - boxInnerTop) * (1 - (pct - tMinPct) / (tMaxPct - tMinPct));
       svg.appendChild(svgEl('line', {
         x1: BOX_X + BOX_W, y1: y, x2: BOX_X + BOX_W + 3, y2: y,
         stroke: '#475569', 'stroke-width': '0.75',
       }));
-      svg.appendChild(svgTxt(`$${price.toFixed(1)}`, {
+      const lbl = pct === 0 ? '0%' : (pct > 0 ? '+' : '') + pct.toFixed(1) + '%';
+      svg.appendChild(svgTxt(lbl, {
         x: BOX_X + BOX_W + 5, y: y + 3,
-        fill: '#64748b', 'font-size': '9', 'font-family': 'monospace',
+        fill: '#64748b', 'font-size': '8', 'font-family': 'monospace',
       }));
     });
 
-    // X-axis time labels
-    todayReadings.forEach((r, i) => {
-      const x = intradayX(i);
-      const boxBottom = BOX_Y + BOX_INNER_H;
-      svg.appendChild(svgEl('line', {
-        x1: x, y1: boxBottom, x2: x, y2: boxBottom + 3,
-        stroke: '#475569', 'stroke-width': '0.75',
-      }));
-      svg.appendChild(svgTxt(r.time, {
-        x, y: boxBottom + 9,
-        fill: '#64748b', 'font-size': '9', 'font-family': 'monospace',
-        'text-anchor': 'middle',
-      }));
-    });
-
-    // Price stamp above last historical point — shows where today's box begins
+    // Price stamp above last historical point
     svg.appendChild(svgTxt(`$${historical[historical.length - 1].price.toFixed(2)}`, {
       x: lastHistX, y: lastHistY - 5,
       fill: '#f59e0b', 'font-size': '8', 'font-family': 'monospace',
       'text-anchor': 'middle', opacity: '0.85',
     }));
 
-    // Dashed connector — bright so the bridge is readable
+    // Connector — enters box at 0% line (today's open), not always at top
     svg.appendChild(svgEl('line', {
       x1: lastHistX, y1: lastHistY,
-      x2: intradayX(0), y2: scaleY(todayReadings[0].price),
+      x2: intradayX(0), y2: zeroY,
       stroke: '#38bdf8', 'stroke-width': '1.5', 'stroke-dasharray': '4 3', opacity: '0.75',
     }));
 
-    // Intraday line — lighter since it lives on a different scale inside the box
+    // Intraday line — colored by day direction
     if (todayReadings.length > 1) {
       svg.appendChild(svgEl('polyline', {
         points: todayReadings.map((r, i) => `${intradayX(i)},${scaleYBox(r.price)}`).join(' '),
-        fill: 'none', stroke: '#38bdf8', 'stroke-width': '1.5',
-        'stroke-dasharray': '4 3', 'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: '0.4',
+        fill: 'none', stroke: lineColor, 'stroke-width': '1.5',
+        'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: '0.85',
       }));
     }
-
-    // Intraday dots
-    todayReadings.forEach((r, i) => {
-      svg.appendChild(svgEl('circle', {
-        cx: intradayX(i), cy: scaleYBox(r.price), r: '2', fill: '#38bdf8', opacity: '0.6',
-      }));
-    });
 
     // Live pulsing dot
     const liveDot = svgEl('circle', {
       cx: intradayX(todayReadings.length - 1),
-      cy: scaleYBox(todayReadings[todayReadings.length - 1].price),
+      cy: scaleYBox(lastPrice),
       r: '3', fill: '#38bdf8',
     });
     liveDot.style.animation = 'livePulse 2s ease-in-out infinite';
