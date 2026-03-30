@@ -846,7 +846,7 @@ function renderSparkline() {
   // Layout
   const SVG_H     = 68;
   const BOX_GAP   = hasTodayBox ? 14 : 0;
-  const BOX_W     = hasTodayBox ? 80 : 0;
+  const BOX_W     = hasTodayBox ? 50 : 0;
   const BOX_PAD_X = 7;
   const BOX_PAD_Y = 5;
   const Y_LABEL_W = hasTodayBox ? 30 : 0;
@@ -1009,7 +1009,7 @@ function renderSparkline() {
       svg.appendChild(svgEl('polyline', {
         points: todayReadings.map((r, i) => `${intradayX(i)},${scaleYBox(r.price)}`).join(' '),
         fill: 'none', stroke: lineColor, 'stroke-width': '1.5',
-        'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: '0.85',
+        'stroke-dasharray': '4 3', 'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: '0.85',
       }));
     }
 
