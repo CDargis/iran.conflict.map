@@ -556,8 +556,15 @@
     /* Date nav inline — right side of econ bar */
     .date-nav-inline {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      flex-shrink: 0; border-left: 1px solid var(--border);
+      flex-shrink: 0;
+      border-left: 2px solid var(--dim);
+      background: rgba(255,255,255,0.03);
       padding: 0 4px;
+      gap: 0;
+    }
+    .date-nav-label {
+      font-size: 7px; letter-spacing: .18em; text-transform: uppercase;
+      color: var(--dim); margin-bottom: 2px;
     }
     .nav-arrow {
       width: 44px; height: 28px;
@@ -673,6 +680,7 @@
     <svg id="brent-sparkline" height="68"></svg>
   </div>
   <div class="date-nav-inline">
+    <div class="date-nav-label">map date</div>
     <button class="nav-arrow" id="nav-next" aria-label="Next day">&#8594;</button>
     <div id="date-display">
       <div class="td-month" id="lbl-month">—</div>
