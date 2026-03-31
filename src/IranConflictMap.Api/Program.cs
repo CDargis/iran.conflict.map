@@ -24,6 +24,8 @@ List<string>? strikeDatesCache = null;
 var strikeDatesCacheExpiry = DateTime.MinValue;
 List<object>? syncCache = null;
 var syncCacheExpiry = DateTime.MinValue;
+List<object>? signalsCache = null;
+var signalsCacheExpiry = DateTime.MinValue;
 
 // ── GET /api/strikes ───────────────────────────────────────────────────────────
 app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo, string? date) =>
@@ -236,6 +238,46 @@ static object MapBrentItem(Dictionary<string, AttributeValue> item) => new
     timestamp   = item["timestamp"].S,
     brent_price = double.Parse(item["brent_price"].N),
 };
+
+// ── GET /api/economic/signals ──────────────────────────────────────────────────
+// Returns all economic signal rows from the signals table, sorted by date desc.
+// Each row is a flat object: { date, source_url, <indicator>: value, ... }
+app.MapGet("/api/economic/signals", async (IAmazonDynamoDB dynamo) =>
+{
+    if (signalsCache is not null && DateTime.UtcNow < signalsCacheExpiry)
+        return Results.Ok(signalsCache);
+
+    string tableName = Environment.GetEnvironmentVariable("SIGNALS_TABLE_NAME") ?? "iran-conflict-map-economic-signals";
+
+    ScanResponse response = await dynamo.ScanAsync(new ScanRequest { TableName = tableName });
+
+    // Convert each DynamoDB item to a flat dictionary (string/number values only — skip unit/note attrs)
+    static object MapSignalItem(Dictionary<string, AttributeValue> item)
+    {
+        var d = new Dictionary<string, object?>
+        {
+            ["date"]       = item.ContainsKey("date")       ? item["date"].S       : null,
+            ["source_url"] = item.ContainsKey("source_url") ? item["source_url"].S : null
+        };
+        foreach (KeyValuePair<string, AttributeValue> kv in item)
+        {
+            if (kv.Key is "date" or "source_url") continue;
+            if (kv.Value.N != null)
+                d[kv.Key] = double.Parse(kv.Value.N);
+            else if (kv.Value.S != null)
+                d[kv.Key] = kv.Value.S;
+        }
+        return d;
+    }
+
+    signalsCache = response.Items
+        .OrderByDescending(item => item.ContainsKey("date") ? item["date"].S : "")
+        .Select(item => MapSignalItem(item))
+        .ToList();
+
+    signalsCacheExpiry = DateTime.UtcNow.AddMinutes(5);
+    return Results.Ok(signalsCache);
+});
 
 // ── URL normalization ──────────────────────────────────────────────────────────
 static string NormalizeReportUrl(string url)

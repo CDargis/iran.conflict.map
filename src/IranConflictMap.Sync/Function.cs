@@ -35,6 +35,7 @@ public class Function
 
     private static readonly string StrikesTable      = Env("STRIKES_TABLE",       "strikes");
     private static readonly string SyncsTable        = Env("SYNCS_TABLE",         "syncs");
+    private static readonly string SignalsTable      = Env("SIGNALS_TABLE_NAME",  "iran-conflict-map-economic-signals");
     private static readonly string SsmPrefix         = Env("SSM_PREFIX",          "/iran-conflict-map");
     private static readonly string ProcessorQueueUrl = Env("PROCESSOR_QUEUE_URL", "");
     private static readonly string CleanupQueueUrl   = Env("CLEANUP_QUEUE_URL",   "");
@@ -83,6 +84,23 @@ public class Function
           "sync_notes": [ "...", ... ]
         }
         Only include "disputed" when genuinely contested. Only include "citations" when footnotes are mappable. Only include fields in "changes" that are actually changing. Include "sync_notes" only when there is something worth noting (e.g. ambiguous sourcing, unusual report, low-confidence classifications, data gaps). Omit the field entirely if there are no notes.
+
+        Additionally, extract any economic signals mentioned in the report. Look for quantifiable economic data about Iran, such as:
+        - IRR/USD exchange rate (Iranian rial per US dollar on the free/parallel market)
+        - Gold prices in IRR (per gram or per mithqal)
+        - Inflation rate or CPI data
+        - Oil export volumes or revenues
+        - Any other specific, quantifiable economic indicators
+
+        If economic data is present, include an "economic" object in your response:
+        {
+          "date": "YYYY-MM-DD",
+          "signals": [
+            { "indicator": "irr_usd", "value": 750000, "unit": "IRR per USD", "note": "optional context" },
+            { "indicator": "gold_gram_irr", "value": 45000000, "unit": "IRR per gram" }
+          ]
+        }
+        Use the date the data refers to (not the publication date, if distinguishable). Omit "economic" entirely if the report contains no quantifiable economic data. Omit "note" on each signal if there is nothing to add.
         """;
 
     public Function()
@@ -243,7 +261,13 @@ public class Function
             });
             context.Logger.LogLine("[sync] Claude response pushed to processor queue");
 
-            // ── 4b. Notify cleanup queue — discard stale review items from prior runs ──
+            // ── 4b. Write economic signals ────────────────────────────────────
+            if (claudeDoc.TryGetProperty("economic", out JsonElement economic) && economic.ValueKind == JsonValueKind.Object)
+            {
+                await WriteEconomicSignals(economic, reportUrl, context, token);
+            }
+
+            // ── 4d. Notify cleanup queue — discard stale review items from prior runs ──
             if (!string.IsNullOrEmpty(CleanupQueueUrl))
             {
                 string cleanupMessage = System.Text.Json.JsonSerializer.Serialize(new
@@ -420,6 +444,62 @@ public class Function
             ctx.Logger.LogLine($"[sync] raw Claude text: {text[..Math.Min(text.Length, 1000)]}");
             return null;
         }
+    }
+
+    // ── Economic signals ──────────────────────────────────────────────────────
+
+    private async Task WriteEconomicSignals(JsonElement economic, string sourceUrl, ILambdaContext ctx,
+        System.Threading.CancellationToken token)
+    {
+        if (!economic.TryGetProperty("date", out JsonElement dateEl) || dateEl.ValueKind != JsonValueKind.String)
+        {
+            ctx.Logger.LogLine("[sync] economic object missing 'date' — skipping write");
+            return;
+        }
+        string date = dateEl.GetString()!;
+
+        if (!economic.TryGetProperty("signals", out JsonElement signalsEl) || signalsEl.ValueKind != JsonValueKind.Array)
+        {
+            ctx.Logger.LogLine("[sync] economic object missing 'signals' array — skipping write");
+            return;
+        }
+
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["date"]       = new() { S = date },
+            ["source_url"] = new() { S = sourceUrl }
+        };
+
+        foreach (JsonElement signal in signalsEl.EnumerateArray())
+        {
+            if (!signal.TryGetProperty("indicator", out JsonElement indEl) || indEl.ValueKind != JsonValueKind.String)
+                continue;
+            if (!signal.TryGetProperty("value", out JsonElement valEl))
+                continue;
+
+            string indicator = indEl.GetString()!;
+            string valueStr  = valEl.ValueKind == JsonValueKind.Number
+                ? valEl.GetRawText()
+                : valEl.ToString();
+
+            item[indicator] = new() { N = valueStr };
+
+            if (signal.TryGetProperty("unit", out JsonElement unitEl) && unitEl.ValueKind == JsonValueKind.String)
+                item[$"{indicator}_unit"] = new() { S = unitEl.GetString()! };
+
+            if (signal.TryGetProperty("note", out JsonElement noteEl) && noteEl.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(noteEl.GetString()))
+                item[$"{indicator}_note"] = new() { S = noteEl.GetString()! };
+        }
+
+        if (item.Count <= 2)   // only date + source_url, no actual signals
+        {
+            ctx.Logger.LogLine("[sync] no parseable signals in economic object — skipping write");
+            return;
+        }
+
+        await _dynamo.PutItemAsync(new PutItemRequest { TableName = SignalsTable, Item = item }, token);
+        ctx.Logger.LogLine($"[sync] economic signals written: date={date} source_url={sourceUrl}");
     }
 
     // ── S3 ────────────────────────────────────────────────────────────────────

@@ -55,6 +55,16 @@ public class IranConflictMapStack : Stack
             RemovalPolicy = RemovalPolicy.RETAIN
         });
 
+        // ── DynamoDB — Economic Signals Table ────────────────────────────
+        var signalsTable = new Table(this, "EconomicSignalsTable", new TableProps
+        {
+            TableName     = "iran-conflict-map-economic-signals",
+            PartitionKey  = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "date",       Type = AttributeType.STRING },
+            SortKey       = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "source_url", Type = AttributeType.STRING },
+            BillingMode   = BillingMode.PAY_PER_REQUEST,
+            RemovalPolicy = RemovalPolicy.RETAIN
+        });
+
         // ── DynamoDB Table ─────────────────────────────────────────────────
         var strikesTable = new Table(this, "StrikesTable", new TableProps
         {
@@ -256,6 +266,7 @@ public class IranConflictMapStack : Stack
 
         strikesTable.GrantReadData(apiLambda);
         brentPricesTable.GrantReadData(apiLambda);
+        signalsTable.GrantReadData(apiLambda);
         syncsTable.GrantReadWriteData(apiLambda);   // write needed for review-approval sync records
         reviewQueue.GrantConsumeMessages(apiLambda);
         processorQueue.GrantSendMessages(apiLambda);
@@ -395,7 +406,8 @@ public class IranConflictMapStack : Stack
                 ["SSM_PREFIX"]          = "/iran-conflict-map",
                 ["PROCESSOR_QUEUE_URL"] = processorQueue.QueueUrl,
                 ["CLEANUP_QUEUE_URL"]   = cleanupQueue.QueueUrl,
-                ["EMAIL_BUCKET"]        = emailBucket.BucketName
+                ["EMAIL_BUCKET"]        = emailBucket.BucketName,
+                ["SIGNALS_TABLE_NAME"]  = signalsTable.TableName
             },
             Timeout      = Duration.Minutes(5),
             MemorySize   = 512,
@@ -409,6 +421,7 @@ public class IranConflictMapStack : Stack
 
         strikesTable.GrantReadData(syncLambda);
         syncsTable.GrantReadWriteData(syncLambda);
+        signalsTable.GrantWriteData(syncLambda);
         processorQueue.GrantSendMessages(syncLambda);
         cleanupQueue.GrantSendMessages(syncLambda);
         reviewQueue.GrantSendMessages(syncLambda);   // in case Sync Lambda ever routes to review directly
@@ -434,6 +447,7 @@ public class IranConflictMapStack : Stack
         apiLambda.AddEnvironment("SYNCS_TABLE",            syncsTable.TableName);
         apiLambda.AddEnvironment("SSM_PREFIX",             "/iran-conflict-map");
         apiLambda.AddEnvironment("BRENT_TABLE_NAME",       brentPricesTable.TableName);
+        apiLambda.AddEnvironment("SIGNALS_TABLE_NAME",     signalsTable.TableName);
 
         apiLambda.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
         {
