@@ -970,6 +970,12 @@ function renderSparkline() {
       stroke: '#475569', 'stroke-width': '0.75', 'stroke-dasharray': '2 2',
     }));
 
+    // Dark bg behind labels so the intraday line doesn't visually run through them
+    svg.appendChild(svgEl('rect', {
+      x: BOX_X + 1, y: BOX_Y + 1, width: BOX_W - 2, height: 21,
+      fill: 'rgba(19,17,14,0.75)', rx: '2',
+    }));
+
     // Date label (top-center) and % change (below it) — stacked to avoid collision
     svg.appendChild(svgTxt(TODAY_DATE.slice(5).replace('-', '/').replace(/^0/, ''), {
       x: BOX_X + BOX_W / 2, y: BOX_Y + 8,
