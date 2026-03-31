@@ -30,7 +30,8 @@ var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(S
     ["dedup-strikes"]      = ("Find and remove duplicate strikes by coordinates [--date yyyy-MM-dd | --all | --run-id <id>] [--confirm]", DedupStrikes),
     ["trigger-cleanup"]    = ("Discard stale review queue items for a URL by sending a cleanup message [--url <url>] [--run-id <id>] [--confirm]", TriggerCleanup),
     ["enrich-review"]      = ("Backfill nearest_record on legacy ambiguous review queue items [--confirm]", EnrichReview),
-    ["backfill-economic"]  = ("Backfill Brent price history from EIA API [--start yyyy-MM-dd] [--end yyyy-MM-dd] [--eia-key <key>] [--confirm]", BackfillEconomic)
+    ["backfill-economic"]  = ("Backfill Brent price history from EIA API [--start yyyy-MM-dd] [--end yyyy-MM-dd] [--eia-key <key>] [--confirm]", BackfillEconomic),
+    ["backfill-signals"]   = ("Backfill economic signals from historical CTP-ISW reports [--start yyyy-MM-dd] [--end yyyy-MM-dd] [--anthropic-key <key>] [--confirm]", BackfillSignals)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -1760,6 +1761,256 @@ async Task BackfillEconomic(string[] opts)
 
     Console.WriteLine();
     Console.WriteLine($"Done. {written} written, {skipped} skipped.");
+}
+
+// ── backfill-signals ──────────────────────────────────────────────────────────
+
+async Task BackfillSignals(string[] opts)
+{
+    string startStr      = GetFlag(ref opts, "--start") ?? "2025-10-07";
+    string endStr        = GetFlag(ref opts, "--end")   ?? DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd");
+    string? anthropicKey = GetFlag(ref opts, "--anthropic-key");
+    bool confirm         = opts.Contains("--confirm");
+
+    if (string.IsNullOrEmpty(anthropicKey))
+    {
+        Console.WriteLine("ERROR: --anthropic-key is required");
+        Console.WriteLine("Usage: backfill-signals [--start yyyy-MM-dd] [--end yyyy-MM-dd] --anthropic-key <key> [--confirm]");
+        return;
+    }
+
+    if (!DateTime.TryParse(startStr, out DateTime startDate) || !DateTime.TryParse(endStr, out DateTime endDate))
+    {
+        Console.WriteLine("ERROR: --start and --end must be valid dates (yyyy-MM-dd)");
+        return;
+    }
+
+    const string syncsTableName   = "syncs-v2";
+    const string signalsTableName = "iran-conflict-map-economic-signals";
+
+    IAmazonDynamoDB dynamo = BuildDynamoClient();
+
+    // ── 1. Collect unique report URLs from syncs-v2 ───────────────────────
+    Console.WriteLine($"Scanning syncs-v2 for completed runs between {startStr} and {endStr}...");
+
+    // Scan all pages; filter by run_id (ISO 8601 date prefix) in memory
+    List<string> reportUrls = new();
+    Dictionary<string, AttributeValue>? lastKey = null;
+    do
+    {
+        ScanResponse scan = await dynamo.ScanAsync(new ScanRequest
+        {
+            TableName = syncsTableName,
+            ExclusiveStartKey = lastKey,
+            FilterExpression = "#s = :completed",
+            ExpressionAttributeNames  = new Dictionary<string, string> { ["#s"] = "status" },
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":completed"] = new AttributeValue { S = "complete" }
+            }
+        });
+
+        foreach (Dictionary<string, AttributeValue> item in scan.Items)
+        {
+            if (!item.ContainsKey("run_id") || !item.ContainsKey("report_url")) continue;
+            string runId = item["run_id"].S;
+            // run_id is an ISO 8601 datetime — compare date prefix only
+            if (runId.Length < 10) continue;
+            string runDate = runId[..10];
+            if (string.Compare(runDate, startStr, StringComparison.Ordinal) < 0) continue;
+            if (string.Compare(runDate, endStr,   StringComparison.Ordinal) > 0) continue;
+            string url = item["report_url"].S;
+            if (!reportUrls.Contains(url))
+                reportUrls.Add(url);
+        }
+
+        lastKey = scan.LastEvaluatedKey?.Count > 0 ? scan.LastEvaluatedKey : null;
+    } while (lastKey != null);
+
+    if (reportUrls.Count == 0)
+    {
+        Console.WriteLine("No completed sync runs found in that date range. Nothing to backfill.");
+        return;
+    }
+
+    Console.WriteLine($"Found {reportUrls.Count} unique report URL(s) to process:");
+    foreach (string u in reportUrls)
+        Console.WriteLine($"  {u}");
+    Console.WriteLine();
+
+    if (!confirm)
+    {
+        Console.WriteLine($"Dry run — would call Claude for {reportUrls.Count} report(s). Pass --confirm to execute.");
+        return;
+    }
+
+    // ── 2. Fetch each report and extract economic signals via Claude ───────
+    using HttpClient http = new(new HttpClientHandler { AllowAutoRedirect = true, MaxAutomaticRedirections = 10 })
+    {
+        Timeout = TimeSpan.FromSeconds(60)
+    };
+
+    const string economicPrompt = """
+        I'm analysing a CTP-ISW Iran update report for economic signals only. Do NOT extract any conflict events.
+
+        Extract any quantifiable economic data mentioned in the report about Iran's economy, such as:
+        - IRR/USD exchange rate (Iranian rial per US dollar on the free/parallel market)
+        - Gold prices in IRR (per gram or per mithqal/tola)
+        - Inflation rate or CPI data
+        - Oil export volumes or revenues
+        - Any other specific, measurable economic indicators
+
+        Return a single JSON object and NOTHING ELSE:
+        {
+          "date": "YYYY-MM-DD",
+          "signals": [
+            { "indicator": "irr_usd", "value": 750000, "unit": "IRR per USD", "note": "optional" },
+            { "indicator": "gold_gram_irr", "value": 45000000, "unit": "IRR per gram" }
+          ]
+        }
+
+        Use the date the data refers to (prefer the specific date mentioned; fall back to the report date). Return { "signals": [] } if no quantifiable economic data is present. The "note" field on each signal is optional — omit it if there is nothing meaningful to add.
+        """;
+
+    int written = 0, skipped = 0, noData = 0, errors = 0;
+
+    foreach (string reportUrl in reportUrls)
+    {
+        Console.WriteLine($"Processing: {reportUrl}");
+        try
+        {
+            // Fetch report
+            HttpResponseMessage fetchResp = await http.GetAsync(reportUrl);
+            if (!fetchResp.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"  WARN: fetch returned {(int)fetchResp.StatusCode} — skipping");
+                errors++;
+                continue;
+            }
+            string html = await fetchResp.Content.ReadAsStringAsync();
+            string text = System.Text.RegularExpressions.Regex.Replace(html, @"<[^>]+>", " ");
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"[ \t]{2,}", " ");
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"(\r?\n){3,}", "\n\n").Trim();
+            if (text.Length > 80_000) text = text[..80_000];
+
+            // Call Claude
+            string requestBody = JsonSerializer.Serialize(new
+            {
+                model      = "claude-haiku-4-5-20251001",
+                max_tokens = 1024,
+                system     = economicPrompt,
+                messages   = new[] { new { role = "user", content = $"Report URL: {reportUrl}\n\n{text}" } }
+            });
+
+            using HttpRequestMessage req = new(HttpMethod.Post, "https://api.anthropic.com/v1/messages")
+            {
+                Content = new System.Net.Http.StringContent(requestBody, System.Text.Encoding.UTF8, "application/json")
+            };
+            req.Headers.Add("x-api-key", anthropicKey);
+            req.Headers.Add("anthropic-version", "2023-06-01");
+
+            HttpResponseMessage claudeResp = await http.SendAsync(req);
+            string claudeBody = await claudeResp.Content.ReadAsStringAsync();
+
+            if (!claudeResp.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"  WARN: Claude API error {(int)claudeResp.StatusCode}: {claudeBody[..Math.Min(claudeBody.Length, 200)]}");
+                errors++;
+                continue;
+            }
+
+            using JsonDocument claudeDoc = JsonDocument.Parse(claudeBody);
+            string rawText = claudeDoc.RootElement.GetProperty("content")[0].GetProperty("text").GetString() ?? "";
+
+            int start = rawText.IndexOf('{');
+            int end   = rawText.LastIndexOf('}');
+            if (start == -1 || end == -1 || end <= start)
+            {
+                Console.WriteLine($"  WARN: no JSON in Claude response — skipping");
+                errors++;
+                continue;
+            }
+
+            using JsonDocument result = JsonDocument.Parse(rawText[start..(end + 1)]);
+            JsonElement root = result.RootElement;
+
+            if (!root.TryGetProperty("signals", out JsonElement signalsEl) || signalsEl.ValueKind != JsonValueKind.Array)
+            {
+                Console.WriteLine($"  INFO: Claude returned no signals array — skipping");
+                noData++;
+                continue;
+            }
+
+            List<JsonElement> signals = signalsEl.EnumerateArray().ToList();
+            if (signals.Count == 0)
+            {
+                Console.WriteLine($"  INFO: no economic signals found in report");
+                noData++;
+                continue;
+            }
+
+            string date = root.TryGetProperty("date", out JsonElement dateEl) && dateEl.ValueKind == JsonValueKind.String
+                ? dateEl.GetString()!
+                : DateTime.UtcNow.ToString("yyyy-MM-dd");
+
+            // Build DynamoDB item
+            Dictionary<string, AttributeValue> item = new()
+            {
+                ["date"]       = new AttributeValue { S = date },
+                ["source_url"] = new AttributeValue { S = reportUrl }
+            };
+
+            foreach (JsonElement signal in signals)
+            {
+                if (!signal.TryGetProperty("indicator", out JsonElement indEl) || indEl.ValueKind != JsonValueKind.String) continue;
+                if (!signal.TryGetProperty("value",     out JsonElement valEl)) continue;
+
+                string indicator = indEl.GetString()!;
+                string valueStr  = valEl.ValueKind == JsonValueKind.Number
+                    ? valEl.GetRawText()
+                    : valEl.ToString();
+
+                item[indicator] = new AttributeValue { N = valueStr };
+
+                if (signal.TryGetProperty("unit", out JsonElement unitEl) && unitEl.ValueKind == JsonValueKind.String)
+                    item[$"{indicator}_unit"] = new AttributeValue { S = unitEl.GetString()! };
+
+                if (signal.TryGetProperty("note", out JsonElement noteEl) && noteEl.ValueKind == JsonValueKind.String
+                    && !string.IsNullOrWhiteSpace(noteEl.GetString()))
+                    item[$"{indicator}_note"] = new AttributeValue { S = noteEl.GetString()! };
+            }
+
+            if (item.Count <= 2)
+            {
+                Console.WriteLine($"  INFO: no parseable signal values — skipping");
+                noData++;
+                continue;
+            }
+
+            // Print preview
+            Console.WriteLine($"  date={date}  signals:");
+            foreach (KeyValuePair<string, AttributeValue> kv in item)
+            {
+                if (kv.Key is "date" or "source_url") continue;
+                if (kv.Value.N != null) Console.WriteLine($"    {kv.Key} = {kv.Value.N}");
+            }
+
+            // Write (idempotent — overwrites same date+source_url if re-run)
+            await dynamo.PutItemAsync(new PutItemRequest { TableName = signalsTableName, Item = item });
+            Console.WriteLine($"  wrote {item.Count - 2} signal attribute(s) for {date}");
+            written++;
+
+            await Task.Delay(500);   // rate-limit Claude API calls
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  ERROR: {ex.GetType().Name}: {ex.Message}");
+            errors++;
+        }
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"Done. {written} written, {noData} no-data, {skipped} skipped, {errors} errors.");
 }
 
 // ── AWS Client Builders ───────────────────────────────────────────────────────
