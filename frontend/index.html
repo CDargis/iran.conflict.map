@@ -984,19 +984,15 @@ function renderSparkline() {
       'text-anchor': 'middle', opacity: '0.9',
     }));
 
-    // Y-axis % labels (right side) at top, 0%, bottom
-    [[tMaxPct], [0], [tMinPct]].forEach(([pct]) => {
-      const y = boxInnerTop + (boxInnerBottom - boxInnerTop) * (1 - (pct - tMinPct) / (tMaxPct - tMinPct));
-      svg.appendChild(svgEl('line', {
-        x1: BOX_X + BOX_W, y1: y, x2: BOX_X + BOX_W + 3, y2: y,
-        stroke: '#475569', 'stroke-width': '0.75',
-      }));
-      const lbl = pct === 0 ? '0%' : (pct > 0 ? '+' : '') + pct.toFixed(1) + '%';
-      svg.appendChild(svgTxt(lbl, {
-        x: BOX_X + BOX_W + 5, y: y + 3,
-        fill: '#64748b', 'font-size': '8', 'font-family': 'monospace',
-      }));
-    });
+    // Y-axis — only 0% label at center (top/bottom redundant with day % in header)
+    svg.appendChild(svgEl('line', {
+      x1: BOX_X + BOX_W, y1: zeroY, x2: BOX_X + BOX_W + 3, y2: zeroY,
+      stroke: '#475569', 'stroke-width': '0.75',
+    }));
+    svg.appendChild(svgTxt('0%', {
+      x: BOX_X + BOX_W + 5, y: zeroY + 3,
+      fill: '#64748b', 'font-size': '8', 'font-family': 'monospace',
+    }));
 
 
     // Connector — flat because lastHistY === zeroY (both anchored to center)
