@@ -546,8 +546,8 @@
       font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
       color: var(--dim); flex-shrink: 0;
     }
-    #brent-price-label { font-size: 12px; color: #e2e8f0; }
-    #brent-price-label strong { font-size: 14px; color: #f1f5f9; font-family: var(--sans); }
+    #brent-price-label { font-size: 12px; color: #c4b5fd; }
+    #brent-price-label strong { font-size: 14px; color: #c4b5fd; font-family: var(--sans); }
     .brent-up   { font-size: 10px; color: #4ade80; }
     .brent-down { font-size: 10px; color: #f87171; }
 
@@ -925,7 +925,7 @@ function renderSparkline() {
   svg.appendChild(svgEl('line', {
     id: 'spark-date-marker',
     x1: lastHistX, y1: PAD.top, x2: lastHistX, y2: SVG_H - PAD.bottom,
-    stroke: '#e2e8f0', 'stroke-width': '1', opacity: '0.45', 'stroke-dasharray': '2 2',
+    stroke: '#c4b5fd', 'stroke-width': '1', opacity: '0.6', 'stroke-dasharray': '2 2',
   }));
 
   // Today box — y-axis is % change from yesterday's close (last historical point)
