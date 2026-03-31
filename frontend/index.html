@@ -998,12 +998,6 @@ function renderSparkline() {
       }));
     });
 
-    // Price stamp above last historical point
-    svg.appendChild(svgTxt(`$${historical[historical.length - 1].price.toFixed(2)}`, {
-      x: lastHistX, y: lastHistY - 5,
-      fill: '#f59e0b', 'font-size': '8', 'font-family': 'monospace',
-      'text-anchor': 'middle', opacity: '0.85',
-    }));
 
     // Connector — flat because lastHistY === zeroY (both anchored to center)
     svg.appendChild(svgEl('line', {
