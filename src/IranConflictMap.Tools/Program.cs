@@ -1893,7 +1893,7 @@ async Task BackfillSignals(string[] opts)
             // Call Claude
             string requestBody = JsonSerializer.Serialize(new
             {
-                model      = "claude-haiku-4-5-20251001",
+                model      = "claude-sonnet-4-6",
                 max_tokens = 1024,
                 system     = economicPrompt,
                 messages   = new[] { new { role = "user", content = $"Report URL: {reportUrl}\n\n{text}" } }
