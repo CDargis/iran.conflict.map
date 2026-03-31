@@ -1791,30 +1791,27 @@ async Task BackfillSignals(string[] opts)
     IAmazonDynamoDB dynamo = BuildDynamoClient();
 
     // ── 1. Collect unique report URLs from syncs-v2 ───────────────────────
-    Console.WriteLine($"Scanning syncs-v2 for completed runs between {startStr} and {endStr}...");
+    Console.WriteLine($"Scanning syncs-v2 for sync runs between {startStr} and {endStr}...");
 
-    // Scan all pages; filter by run_id (ISO 8601 date prefix) in memory
+    // Scan all pages — filter in memory by run_id date prefix (ISO 8601).
+    // No status filter: include any run that landed in the window (processing, complete, etc.)
+    // to avoid missing reports where the final status string differs from expectations.
     List<string> reportUrls = new();
     Dictionary<string, AttributeValue>? lastKey = null;
     do
     {
         ScanResponse scan = await dynamo.ScanAsync(new ScanRequest
         {
-            TableName = syncsTableName,
-            ExclusiveStartKey = lastKey,
-            FilterExpression = "#s = :completed",
-            ExpressionAttributeNames  = new Dictionary<string, string> { ["#s"] = "status" },
-            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-            {
-                [":completed"] = new AttributeValue { S = "complete" }
-            }
+            TableName         = syncsTableName,
+            ExclusiveStartKey = lastKey
         });
 
         foreach (Dictionary<string, AttributeValue> item in scan.Items)
         {
             if (!item.ContainsKey("run_id") || !item.ContainsKey("report_url")) continue;
+            // Skip error/fetch_error runs — they have no processed content
+            if (item.ContainsKey("status") && item["status"].S is "error" or "fetch_error" or "claude_error") continue;
             string runId = item["run_id"].S;
-            // run_id is an ISO 8601 datetime — compare date prefix only
             if (runId.Length < 10) continue;
             string runDate = runId[..10];
             if (string.Compare(runDate, startStr, StringComparison.Ordinal) < 0) continue;
@@ -1829,7 +1826,7 @@ async Task BackfillSignals(string[] opts)
 
     if (reportUrls.Count == 0)
     {
-        Console.WriteLine("No completed sync runs found in that date range. Nothing to backfill.");
+        Console.WriteLine("No sync runs found in that date range. Nothing to backfill.");
         return;
     }
 
@@ -1840,7 +1837,7 @@ async Task BackfillSignals(string[] opts)
 
     if (!confirm)
     {
-        Console.WriteLine($"Dry run — would call Claude for {reportUrls.Count} report(s). Pass --confirm to execute.");
+        Console.WriteLine($"Dry run — would call Claude for {reportUrls.Count} report(s) to extract economic signals. Pass --confirm to execute.");
         return;
     }
 
