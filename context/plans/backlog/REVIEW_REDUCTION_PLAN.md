@@ -99,6 +99,10 @@ You have access to a search_strikes tool. Use it when you encounter an event tha
 it may be an update to something already in the database — a follow-up strike on the same
 target, additional casualties reported for a known event, etc.
 
+Date differences of ±1 day between the current report and a candidate are common due to
+timezone differences — do not treat a one-day gap as disqualifying, but do not reach for
+a match that is off by a day unless the descriptions clearly align.
+
 When you find a strong match (same location, actor, and event type — judge by comparing
 descriptions, not just distance):
 - Place it in "tool_updates" with the matched event's "id" and only the changed fields
