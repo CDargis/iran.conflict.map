@@ -103,8 +103,16 @@ Date differences of ±1 day between the current report and a candidate are commo
 timezone differences — do not treat a one-day gap as disqualifying, but do not reach for
 a match that is off by a day unless the descriptions clearly align.
 
-When you find a strong match (same location, actor, and event type — judge by comparing
-descriptions, not just distance):
+When evaluating candidates, weight signals in this order:
+1. Description similarity — does it describe the same action at the same target?
+2. Location — same place name or close coordinates
+3. Date — same or ±1 day
+4. Type — strike, missile, drone, etc.
+5. Actor — least reliable; attribution often changes between reports (e.g. "Iran" in an
+   early report later clarified as IRGC or a specific militia). Do not let actor mismatch
+   disqualify an otherwise strong match.
+
+When you find a strong match:
 - Place it in "tool_updates" with the matched event's "id" and only the changed fields
 - Do NOT place it in "updates" or "ambiguous"
 
