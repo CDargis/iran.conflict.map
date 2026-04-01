@@ -85,22 +85,19 @@ public class Function
         }
         Only include "disputed" when genuinely contested. Only include "citations" when footnotes are mappable. Only include fields in "changes" that are actually changing. Include "sync_notes" only when there is something worth noting (e.g. ambiguous sourcing, unusual report, low-confidence classifications, data gaps). Omit the field entirely if there are no notes.
 
-        Additionally, extract any economic signals mentioned in the report. Look for quantifiable economic data about Iran, such as:
-        - IRR/USD exchange rate (Iranian rial per US dollar on the free/parallel market)
-        - Gold prices in IRR (per gram or per mithqal)
-        - Inflation rate or CPI data
-        - Oil export volumes or revenues
-        - Any other specific, quantifiable economic indicators
-
-        If economic data is present, include an "economic" object in your response:
+        Additionally, extract economic signals from the report and include an "economic" object in your response:
         {
           "date": "YYYY-MM-DD",
-          "signals": [
-            { "indicator": "irr_usd", "value": 750000, "unit": "IRR per USD", "note": "optional context" },
-            { "indicator": "gold_gram_irr", "value": 45000000, "unit": "IRR per gram" }
-          ]
+          "hormuz_status": "no_alert",
+          "economic_notes": ["..."]
         }
-        Use the date the data refers to (not the publication date, if distinguishable). Omit "economic" entirely if the report contains no quantifiable economic data. Omit "note" on each signal if there is nothing to add.
+
+        Field definitions:
+        - date — YYYY-MM-DD of the report
+        - hormuz_status — "no_alert" if the report is silent on Hormuz; "restricted" if it explicitly describes interference, seizures, mining, or blockade activity at the Strait; "closed" if it describes a full blockade or closure; "unknown" only if the report explicitly acknowledges uncertainty about Hormuz status
+        - economic_notes — flat array of concise complete sentences, one per distinct signal. Include: active or newly-announced sanctions and designations, OFAC/Treasury actions, energy infrastructure damage or threats, oil/gas price mentions tied to conflict activity, shipping insurance or Lloyd's notices, export bans or waivers, financial system impacts (SWIFT, correspondent banking). Empty array [] if nothing qualifies.
+
+        Always include the "economic" object — even if hormuz_status is "no_alert" and economic_notes is empty.
         """;
 
     public Function()
@@ -458,48 +455,29 @@ public class Function
         }
         string date = dateEl.GetString()!;
 
-        if (!economic.TryGetProperty("signals", out JsonElement signalsEl) || signalsEl.ValueKind != JsonValueKind.Array)
-        {
-            ctx.Logger.LogLine("[sync] economic object missing 'signals' array — skipping write");
-            return;
-        }
+        string hormuzStatus = economic.TryGetProperty("hormuz_status", out JsonElement hormuzEl) && hormuzEl.ValueKind == JsonValueKind.String
+            ? hormuzEl.GetString()!
+            : "no_alert";
 
         var item = new Dictionary<string, AttributeValue>
         {
-            ["date"]       = new() { S = date },
-            ["source_url"] = new() { S = sourceUrl }
+            ["date"]          = new() { S = date },
+            ["source_url"]    = new() { S = sourceUrl },
+            ["hormuz_status"] = new() { S = hormuzStatus }
         };
 
-        foreach (JsonElement signal in signalsEl.EnumerateArray())
+        if (economic.TryGetProperty("economic_notes", out JsonElement notesEl) && notesEl.ValueKind == JsonValueKind.Array)
         {
-            if (!signal.TryGetProperty("indicator", out JsonElement indEl) || indEl.ValueKind != JsonValueKind.String)
-                continue;
-            if (!signal.TryGetProperty("value", out JsonElement valEl))
-                continue;
-
-            string indicator = indEl.GetString()!;
-            string valueStr  = valEl.ValueKind == JsonValueKind.Number
-                ? valEl.GetRawText()
-                : valEl.ToString();
-
-            item[indicator] = new() { N = valueStr };
-
-            if (signal.TryGetProperty("unit", out JsonElement unitEl) && unitEl.ValueKind == JsonValueKind.String)
-                item[$"{indicator}_unit"] = new() { S = unitEl.GetString()! };
-
-            if (signal.TryGetProperty("note", out JsonElement noteEl) && noteEl.ValueKind == JsonValueKind.String
-                && !string.IsNullOrWhiteSpace(noteEl.GetString()))
-                item[$"{indicator}_note"] = new() { S = noteEl.GetString()! };
-        }
-
-        if (item.Count <= 2)   // only date + source_url, no actual signals
-        {
-            ctx.Logger.LogLine("[sync] no parseable signals in economic object — skipping write");
-            return;
+            List<AttributeValue> noteValues = notesEl.EnumerateArray()
+                .Where(n => n.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(n.GetString()))
+                .Select(n => new AttributeValue { S = n.GetString()! })
+                .ToList();
+            if (noteValues.Count > 0)
+                item["economic_notes"] = new() { L = noteValues };
         }
 
         await _dynamo.PutItemAsync(new PutItemRequest { TableName = SignalsTable, Item = item }, token);
-        ctx.Logger.LogLine($"[sync] economic signals written: date={date} source_url={sourceUrl}");
+        ctx.Logger.LogLine($"[sync] economic signals written: date={date} hormuz={hormuzStatus} source_url={sourceUrl}");
     }
 
     // ── S3 ────────────────────────────────────────────────────────────────────

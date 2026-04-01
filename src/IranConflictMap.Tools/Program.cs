@@ -1850,23 +1850,18 @@ async Task BackfillSignals(string[] opts)
     const string economicPrompt = """
         I'm analysing a CTP-ISW Iran update report for economic signals only. Do NOT extract any conflict events.
 
-        Extract any quantifiable economic data mentioned in the report about Iran's economy, such as:
-        - IRR/USD exchange rate (Iranian rial per US dollar on the free/parallel market)
-        - Gold prices in IRR (per gram or per mithqal/tola)
-        - Inflation rate or CPI data
-        - Oil export volumes or revenues
-        - Any other specific, measurable economic indicators
+        Extract the following fields:
+
+        - date — YYYY-MM-DD of the report
+        - hormuz_status — "no_alert" if the report is silent on Hormuz; "restricted" if it explicitly describes interference, seizures, mining, or blockade activity at the Strait; "closed" if it describes a full blockade or closure; "unknown" only if the report explicitly acknowledges uncertainty about Hormuz status
+        - economic_notes — flat array of concise complete sentences, one per distinct signal. Include: active or newly-announced sanctions and designations, OFAC/Treasury actions, energy infrastructure damage or threats, oil/gas price mentions tied to conflict activity, shipping insurance or Lloyd's notices, export bans or waivers, financial system impacts (SWIFT, correspondent banking). Empty array [] if nothing qualifies.
 
         Return a single JSON object and NOTHING ELSE:
         {
           "date": "YYYY-MM-DD",
-          "signals": [
-            { "indicator": "irr_usd", "value": 750000, "unit": "IRR per USD", "note": "optional" },
-            { "indicator": "gold_gram_irr", "value": 45000000, "unit": "IRR per gram" }
-          ]
+          "hormuz_status": "no_alert",
+          "economic_notes": ["..."]
         }
-
-        Use the date the data refers to (prefer the specific date mentioned; fall back to the report date). Return { "signals": [] } if no quantifiable economic data is present. The "note" field on each signal is optional — omit it if there is nothing meaningful to add.
         """;
 
     int written = 0, skipped = 0, noData = 0, errors = 0;
@@ -1950,70 +1945,41 @@ async Task BackfillSignals(string[] opts)
             using JsonDocument result = JsonDocument.Parse(rawText[start..(end + 1)]);
             JsonElement root = result.RootElement;
 
-            if (!root.TryGetProperty("signals", out JsonElement signalsEl) || signalsEl.ValueKind != JsonValueKind.Array)
-            {
-                Console.WriteLine($"  INFO: Claude returned no signals array — skipping");
-                noData++;
-                continue;
-            }
-
-            List<JsonElement> signals = signalsEl.EnumerateArray().ToList();
-            if (signals.Count == 0)
-            {
-                Console.WriteLine($"  INFO: no economic signals found in report");
-                noData++;
-                continue;
-            }
-
             string date = root.TryGetProperty("date", out JsonElement dateEl) && dateEl.ValueKind == JsonValueKind.String
                 ? dateEl.GetString()!
                 : DateTime.UtcNow.ToString("yyyy-MM-dd");
 
+            string hormuzStatus = root.TryGetProperty("hormuz_status", out JsonElement hormuzEl) && hormuzEl.ValueKind == JsonValueKind.String
+                ? hormuzEl.GetString()!
+                : "no_alert";
+
             // Build DynamoDB item
             Dictionary<string, AttributeValue> item = new()
             {
-                ["date"]       = new AttributeValue { S = date },
-                ["source_url"] = new AttributeValue { S = reportUrl }
+                ["date"]          = new AttributeValue { S = date },
+                ["source_url"]    = new AttributeValue { S = reportUrl },
+                ["hormuz_status"] = new AttributeValue { S = hormuzStatus }
             };
 
-            foreach (JsonElement signal in signals)
+            if (root.TryGetProperty("economic_notes", out JsonElement notesEl) && notesEl.ValueKind == JsonValueKind.Array)
             {
-                if (!signal.TryGetProperty("indicator", out JsonElement indEl) || indEl.ValueKind != JsonValueKind.String) continue;
-                if (!signal.TryGetProperty("value",     out JsonElement valEl)) continue;
-
-                string indicator = indEl.GetString()!;
-                string valueStr  = valEl.ValueKind == JsonValueKind.Number
-                    ? valEl.GetRawText()
-                    : valEl.ToString();
-
-                item[indicator] = new AttributeValue { N = valueStr };
-
-                if (signal.TryGetProperty("unit", out JsonElement unitEl) && unitEl.ValueKind == JsonValueKind.String)
-                    item[$"{indicator}_unit"] = new AttributeValue { S = unitEl.GetString()! };
-
-                if (signal.TryGetProperty("note", out JsonElement noteEl) && noteEl.ValueKind == JsonValueKind.String
-                    && !string.IsNullOrWhiteSpace(noteEl.GetString()))
-                    item[$"{indicator}_note"] = new AttributeValue { S = noteEl.GetString()! };
-            }
-
-            if (item.Count <= 2)
-            {
-                Console.WriteLine($"  INFO: no parseable signal values — skipping");
-                noData++;
-                continue;
+                List<AttributeValue> noteValues = notesEl.EnumerateArray()
+                    .Where(n => n.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(n.GetString()))
+                    .Select(n => new AttributeValue { S = n.GetString()! })
+                    .ToList();
+                if (noteValues.Count > 0)
+                    item["economic_notes"] = new AttributeValue { L = noteValues };
             }
 
             // Print preview
-            Console.WriteLine($"  date={date}  signals:");
-            foreach (KeyValuePair<string, AttributeValue> kv in item)
-            {
-                if (kv.Key is "date" or "source_url") continue;
-                if (kv.Value.N != null) Console.WriteLine($"    {kv.Key} = {kv.Value.N}");
-            }
+            Console.WriteLine($"  date={date}  hormuz={hormuzStatus}");
+            if (item.ContainsKey("economic_notes"))
+                foreach (AttributeValue n in item["economic_notes"].L)
+                    Console.WriteLine($"  note: {n.S}");
 
             // Write (idempotent — overwrites same date+source_url if re-run)
             await dynamo.PutItemAsync(new PutItemRequest { TableName = signalsTableName, Item = item });
-            Console.WriteLine($"  wrote {item.Count - 2} signal attribute(s) for {date}");
+            Console.WriteLine($"  wrote {date}");
             written++;
 
             await Task.Delay(500);   // rate-limit Claude API calls
