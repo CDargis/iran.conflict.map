@@ -145,7 +145,14 @@ This avoids a big-bang trust decision. The output format change is minimal:
 }
 ```
 
-The `updates` array is retired — Claude no longer falls back to coordinate-based lookup.
+The `updates` array is retired entirely. Everything currently going into `updates`
+(Claude suspects it's an update, no ID) will now resolve to one of:
+- `tool_updates` — tool found a match, ID attached
+- `new` — tool found no match; treat as a new event
+
+The Processor Lambda's proximity matching logic (Haversine, 10km, ±1 day GSI query)
+also goes away — it only exists to resolve `updates` lookups.
+
 Processor Lambda routes `tool_updates` to review initially. Later: write directly and skip review.
 
 ### Matching strategy — ±1 day and location variance
