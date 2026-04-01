@@ -1029,57 +1029,60 @@ function renderSparkline() {
     svg.appendChild(liveDot);
   }
 
-  // Build date→x map for marker and price label updates
+  // Build date→x and date→y maps for marker and price tag
   const dateToX = {};
-  historical.forEach((d, i) => { dateToX[d.date] = slotX(i); });
+  const dateToY = {};
+  historical.forEach((d, i) => { dateToX[d.date] = slotX(i); dateToY[d.date] = scaleY(d.price); });
 
-  sparklineState = { historical, todayReadings, dateToX, PAD, SVG_H };
+  // Price tag — moves with the date marker; created here, positioned by updateSparklineForDate
+  svg.appendChild(svgTxt('', {
+    id: 'spark-price-tag',
+    fill: '#c4b5fd', 'font-size': '9', 'font-family': 'monospace',
+    'text-anchor': 'middle', 'dominant-baseline': 'auto',
+    opacity: '0.9',
+  }));
+
+  sparklineState = { historical, todayReadings, dateToX, dateToY, PAD, SVG_H };
+
+  // Header: always show latest known price (most recent row overall)
+  const latestRow = brentRows[brentRows.length - 1];
+  if (latestRow) {
+    document.getElementById('brent-price-label').innerHTML = `<strong>$${latestRow.brent_price.toFixed(2)}</strong>`;
+    document.getElementById('brent-change-label').textContent = '';
+  }
+
   updateSparklineForDate(sortedDates[currentDayIdx] || TODAY_DATE);
 }
 
 function updateSparklineForDate(date) {
   if (!sparklineState) return;
-  const { historical, todayReadings, dateToX, PAD, SVG_H } = sparklineState;
+  const { historical, dateToX, dateToY, PAD, SVG_H } = sparklineState;
+
+  const x = dateToX[date];
+  const y = dateToY[date];
 
   // Move date marker
   const marker = document.getElementById('spark-date-marker');
   if (marker) {
-    const x = dateToX[date];
     if (x !== undefined) {
-      marker.setAttribute('x1', x);
-      marker.setAttribute('x2', x);
+      marker.setAttribute('x1', x); marker.setAttribute('x2', x);
       marker.style.display = '';
     } else {
-      marker.style.display = 'none'; // selected date not in historical (e.g. future)
+      marker.style.display = 'none';
     }
   }
 
-  // Price label: show today's live price when on today, otherwise selected date's historical price
-  const isSelectedToday = date === TODAY_DATE;
-  const priceForDate = (() => {
-    if (isSelectedToday && todayReadings.length) return todayReadings[todayReadings.length - 1].price;
-    const hist = historical.find(d => d.date === date);
-    return hist ? hist.price : (historical.length ? historical[historical.length - 1].price : null);
-  })();
-
-  const prevPrice = (() => {
-    const idx = historical.findIndex(d => d.date === date);
-    if (idx > 0) return historical[idx - 1].price;
-    if (idx === -1 && historical.length >= 2) return historical[historical.length - 2].price;
-    if (historical.length === 1) return historical[0].price;
-    return null;
-  })();
-
-  if (priceForDate !== null) {
-    document.getElementById('brent-price-label').innerHTML = `<strong>$${priceForDate.toFixed(2)}</strong>`;
-    if (prevPrice !== null && prevPrice !== priceForDate) {
-      const pct = ((priceForDate - prevPrice) / prevPrice * 100).toFixed(2);
-      const up  = pct >= 0;
-      const el  = document.getElementById('brent-change-label');
-      el.textContent = `${up ? '▲' : '▼'} ${Math.abs(pct)}%`;
-      el.className   = up ? 'brent-up' : 'brent-down';
+  // Price tag on sparkline — anchored below the marker at the historical price point
+  const tag = document.getElementById('spark-price-tag');
+  if (tag) {
+    if (x !== undefined && y !== undefined) {
+      const hist = historical.find(d => d.date === date);
+      tag.setAttribute('x', x);
+      tag.setAttribute('y', y - 4);   // just above the dot
+      tag.textContent = hist ? `$${hist.price.toFixed(2)}` : '';
+      tag.style.display = '';
     } else {
-      document.getElementById('brent-change-label').textContent = '';
+      tag.style.display = 'none';
     }
   }
 }
