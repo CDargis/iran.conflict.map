@@ -26,7 +26,7 @@
       --sans:     'Libre Baskerville', serif;
       --header-h: 44px;
       --filter-h: 34px;
-      --time-h:   120px;
+      --time-h:   104px;
       --bar-h:    0px;
       --peek:     120px;
     }
@@ -205,12 +205,12 @@
       box-shadow: 0 -4px 32px rgba(0,0,0,.85), inset 0 1px 0 rgba(200,57,43,.15);
       display: flex; flex-direction: column;
       touch-action: none; will-change: transform;
-      height: calc(100vh - var(--header-h) - var(--filter-h) - var(--time-h));
+      height: calc(100dvh - var(--header-h) - var(--filter-h) - var(--time-h));
       transform: translateY(calc(100% - var(--peek)));
       transition: transform .3s cubic-bezier(.4,0,.2,1);
     }
     #sheet.snap-closed { transform: translateY(calc(100% - var(--peek))); }
-    #sheet.snap-mid    { transform: translateY(calc(100% - 40vh)); }
+    #sheet.snap-mid    { transform: translateY(calc(100% - 52vh)); }
     #sheet.snap-open   { transform: translateY(0); }
     #sheet.dragging    { transition: none; }
 
@@ -1360,7 +1360,7 @@ function sheetTranslateY(){
   const h=sheet.offsetHeight;
   const peek=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--peek'));
   if(snapState==='closed') return h-peek;
-  if(snapState==='mid')    return h-window.innerHeight*0.40;
+  if(snapState==='mid')    return h-window.innerHeight*0.52;
   return 0;
 }
 function snapSheet(state){
