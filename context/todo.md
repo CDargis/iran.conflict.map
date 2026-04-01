@@ -26,11 +26,8 @@ or submitted manually before any implementation begins.
 - Processor: nuke-and-replace logic for preliminary events on evening sync
 
 ### Admin UI (review queue)
-**Status**: Backend endpoints complete (`GET /api/review`, `POST /api/review/resolve`).
-`admin.html` exists but the review queue UI is minimal.
-**What's missing**: A usable interface to display review queue items (showing note, existing
-record, proposed changes side-by-side) and buttons to approve as new / approve as update /
-discard.
+**Status**: Complete. Backend endpoints and frontend both fully implemented. Load queue,
+review items side-by-side, approve as new / approve as update / discard.
 
 ### DLQ Alerting
 **Status**: Not implemented. The DLQ exists and items are routed to it, but there are no
