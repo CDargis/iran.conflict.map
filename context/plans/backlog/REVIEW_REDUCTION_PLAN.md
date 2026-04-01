@@ -145,13 +145,17 @@ This avoids a big-bang trust decision. The output format change is minimal:
 }
 ```
 
-The `updates` array is retired entirely. Everything currently going into `updates`
-(Claude suspects it's an update, no ID) will now resolve to one of:
+Everything currently going into `updates` will now resolve to one of:
 - `tool_updates` — tool found a match, ID attached
 - `new` — tool found no match; treat as a new event
 
-The Processor Lambda's proximity matching logic (Haversine, 10km, ±1 day GSI query)
-also goes away — it only exists to resolve `updates` lookups.
+**Phase 1 (initial rollout):** Keep `updates` and proximity matching in the Processor as a
+safety net. Claude should not use `updates` anymore, but the Processor still handles it in
+case something slips through.
+
+**Phase 2 (once tool accuracy is validated):** Remove `updates` support and the Processor's
+proximity matching logic (Haversine, 10km, ±1 day GSI query) — it only exists to resolve
+`updates` lookups and will no longer be needed.
 
 Processor Lambda routes `tool_updates` to review initially. Later: write directly and skip review.
 
