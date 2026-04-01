@@ -1474,8 +1474,6 @@ function hideLoader(){
 loadBrentData();
 
 /* ── ECONOMIC SIGNALS ── */
-let economicSignals = [];   // all rows from /api/economic/signals
-
 const HORMUZ_CFG = {
   no_alert:   { color: '#4ade80', label: 'Open' },
   restricted: { color: '#f59e0b', label: 'Restricted' },
@@ -1484,53 +1482,48 @@ const HORMUZ_CFG = {
 };
 
 function renderEconomicSignals(dateStr) {
-  const row = economicSignals.find(r => r.date === dateStr);
+  document.getElementById('desktop-economic').innerHTML = '<div class="data-note" style="color:var(--dim)">Loading…</div>';
+  document.getElementById('mobile-economic').innerHTML  = '<div class="data-note" style="color:var(--dim)">Loading…</div>';
 
-  // ── Hormuz pill ──
-  const pill = document.getElementById('hormuz-pill');
-  const dot  = document.getElementById('hormuz-dot');
-  const txt  = document.getElementById('hormuz-text');
-  const status = row?.hormuz_status || 'no_alert';
-  const cfg = HORMUZ_CFG[status] || HORMUZ_CFG.no_alert;
-  pill.style.display = 'flex';
-  dot.style.background = cfg.color;
-  dot.style.boxShadow = status !== 'no_alert' ? `0 0 5px ${cfg.color}` : 'none';
-  txt.textContent = cfg.label;
+  fetch(`/api/economic/signals?date=${dateStr}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(row => {
+      // ── Hormuz pill ──
+      const pill   = document.getElementById('hormuz-pill');
+      const dot    = document.getElementById('hormuz-dot');
+      const txt    = document.getElementById('hormuz-text');
+      const status = row?.hormuz_status || 'no_alert';
+      const cfg    = HORMUZ_CFG[status] || HORMUZ_CFG.no_alert;
+      pill.style.display  = 'flex';
+      dot.style.background  = cfg.color;
+      dot.style.boxShadow   = status !== 'no_alert' ? `0 0 5px ${cfg.color}` : 'none';
+      txt.textContent = cfg.label;
 
-  // ── Notes pane ──
-  let html;
-  if (!row) {
-    html = '<div class="data-note" style="color:var(--dim)">No signals for this date.</div>';
-  } else {
-    const notes = row.economic_notes || [];
-    const hormuzLine = status !== 'no_alert'
-      ? `<div class="econ-signal-row hormuz-${status}"><span class="econ-signal-label">Hormuz</span>${cfg.label}</div>`
-      : '';
-    const noteLines = notes.map(n =>
-      `<div class="econ-note-item">${escHtml(n)}</div>`
-    ).join('');
-    html = hormuzLine + (noteLines || '<div class="data-note" style="color:var(--dim)">No notable signals.</div>');
-  }
+      // ── Notes pane ──
+      const notes = row?.economic_notes || [];
+      const hormuzLine = status !== 'no_alert'
+        ? `<div class="econ-signal-row hormuz-${status}"><span class="econ-signal-label">Hormuz${row?.is_fallback ? ' *' : ''}</span>${cfg.label}</div>`
+        : '';
+      const noteLines = notes.map(n =>
+        `<div class="econ-note-item">${escHtml(n)}</div>`
+      ).join('');
+      const fallbackNote = row?.is_fallback
+        ? `<div class="data-note" style="color:var(--dim);margin-top:4px">* Status as of ${row.date}</div>`
+        : '';
+      const html = hormuzLine + (noteLines || '<div class="data-note" style="color:var(--dim)">No notable signals.</div>') + fallbackNote;
 
-  document.getElementById('desktop-economic').innerHTML = html;
-  document.getElementById('mobile-economic').innerHTML  = html;
+      document.getElementById('desktop-economic').innerHTML = html;
+      document.getElementById('mobile-economic').innerHTML  = html;
+    })
+    .catch(() => {
+      document.getElementById('desktop-economic').innerHTML = '<div class="data-note" style="color:var(--dim)">Unavailable.</div>';
+      document.getElementById('mobile-economic').innerHTML  = '<div class="data-note" style="color:var(--dim)">Unavailable.</div>';
+    });
 }
 
 function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
-
-function loadEconomicSignals() {
-  fetch('/api/economic/signals')
-    .then(r => r.ok ? r.json() : [])
-    .then(data => {
-      economicSignals = data;
-      const d = getSelectedDate();
-      if (d) renderEconomicSignals(d);
-    })
-    .catch(() => {});
-}
-loadEconomicSignals();
 
 fetch('/api/strikes/dates')
   .then(r=>{if(!r.ok)throw new Error();return r.json();})

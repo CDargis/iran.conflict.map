@@ -31,7 +31,8 @@ var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(S
     ["trigger-cleanup"]    = ("Discard stale review queue items for a URL by sending a cleanup message [--url <url>] [--run-id <id>] [--confirm]", TriggerCleanup),
     ["enrich-review"]      = ("Backfill nearest_record on legacy ambiguous review queue items [--confirm]", EnrichReview),
     ["backfill-economic"]  = ("Backfill Brent price history from EIA API [--start yyyy-MM-dd] [--end yyyy-MM-dd] [--eia-key <key>] [--confirm]", BackfillEconomic),
-    ["backfill-signals"]   = ("Backfill economic signals from historical CTP-ISW reports [--start yyyy-MM-dd] [--end yyyy-MM-dd] [--anthropic-key <key>] [--confirm]", BackfillSignals)
+    ["backfill-signals"]   = ("Backfill economic signals from historical CTP-ISW reports [--start yyyy-MM-dd] [--end yyyy-MM-dd] [--anthropic-key <key>] [--confirm]", BackfillSignals),
+    ["stamp-signal-entity"] = ("Backfill entity='signal' on existing economic signals rows missing the attribute [--confirm]", StampSignalEntity)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -1958,6 +1959,7 @@ async Task BackfillSignals(string[] opts)
             {
                 ["date"]          = new AttributeValue { S = date },
                 ["source_url"]    = new AttributeValue { S = reportUrl },
+                ["entity"]        = new AttributeValue { S = "signal" },
                 ["hormuz_status"] = new AttributeValue { S = hormuzStatus }
             };
 
@@ -1993,6 +1995,68 @@ async Task BackfillSignals(string[] opts)
 
     Console.WriteLine();
     Console.WriteLine($"Done. {written} written, {noData} no-data, {skipped} skipped, {errors} errors.");
+}
+
+// ── stamp-signal-entity ───────────────────────────────────────────────────────
+
+async Task StampSignalEntity(string[] opts)
+{
+    bool confirm = opts.Contains("--confirm");
+    const string tableName = "iran-conflict-map-economic-signals";
+
+    IAmazonDynamoDB dynamo = BuildDynamoClient();
+
+    // Scan for items missing entity attribute
+    List<Dictionary<string, AttributeValue>> toUpdate = new();
+    Dictionary<string, AttributeValue>? lastKey = null;
+    do
+    {
+        ScanResponse scan = await dynamo.ScanAsync(new ScanRequest
+        {
+            TableName         = tableName,
+            ExclusiveStartKey = lastKey,
+            FilterExpression  = "attribute_not_exists(entity)",
+            ProjectionExpression = "#d, source_url",
+            ExpressionAttributeNames = new Dictionary<string, string> { ["#d"] = "date" }
+        });
+        toUpdate.AddRange(scan.Items);
+        lastKey = scan.LastEvaluatedKey?.Count > 0 ? scan.LastEvaluatedKey : null;
+    } while (lastKey != null);
+
+    Console.WriteLine($"Found {toUpdate.Count} row(s) missing entity attribute.");
+    if (toUpdate.Count == 0) return;
+
+    foreach (Dictionary<string, AttributeValue> row in toUpdate)
+        Console.WriteLine($"  {row["date"].S}  {row["source_url"].S}");
+
+    if (!confirm)
+    {
+        Console.WriteLine($"\nDry run — pass --confirm to stamp entity='signal' on {toUpdate.Count} row(s).");
+        return;
+    }
+
+    int updated = 0;
+    foreach (Dictionary<string, AttributeValue> row in toUpdate)
+    {
+        await dynamo.UpdateItemAsync(new UpdateItemRequest
+        {
+            TableName = tableName,
+            Key = new Dictionary<string, AttributeValue>
+            {
+                ["date"]       = new AttributeValue { S = row["date"].S },
+                ["source_url"] = new AttributeValue { S = row["source_url"].S }
+            },
+            UpdateExpression = "SET entity = :e",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":e"] = new AttributeValue { S = "signal" }
+            }
+        });
+        Console.WriteLine($"  stamped {row["date"].S}");
+        updated++;
+    }
+
+    Console.WriteLine($"\nDone. {updated} row(s) updated.");
 }
 
 // ── AWS Client Builders ───────────────────────────────────────────────────────

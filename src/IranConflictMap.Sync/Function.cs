@@ -463,6 +463,7 @@ public class Function
         {
             ["date"]          = new() { S = date },
             ["source_url"]    = new() { S = sourceUrl },
+            ["entity"]        = new() { S = "signal" },
             ["hormuz_status"] = new() { S = hormuzStatus }
         };
 

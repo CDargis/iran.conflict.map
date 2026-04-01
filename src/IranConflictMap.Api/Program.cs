@@ -24,8 +24,7 @@ List<string>? strikeDatesCache = null;
 var strikeDatesCacheExpiry = DateTime.MinValue;
 List<object>? syncCache = null;
 var syncCacheExpiry = DateTime.MinValue;
-List<object>? signalsCache = null;
-var signalsCacheExpiry = DateTime.MinValue;
+var signalsCache = new Dictionary<string, (object data, DateTime expiry)>();
 
 // ── GET /api/strikes ───────────────────────────────────────────────────────────
 app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo, string? date) =>
@@ -239,45 +238,85 @@ static object MapBrentItem(Dictionary<string, AttributeValue> item) => new
     brent_price = double.Parse(item["brent_price"].N),
 };
 
-// ── GET /api/economic/signals ──────────────────────────────────────────────────
-// Returns all economic signal rows from the signals table, sorted by date desc.
-// Each row is a flat object: { date, source_url, <indicator>: value, ... }
-app.MapGet("/api/economic/signals", async (IAmazonDynamoDB dynamo) =>
+// ── GET /api/economic/signals?date=YYYY-MM-DD ──────────────────────────────────
+// Returns economic signals for a specific date. If no row exists for that date,
+// falls back to the most recent row before it via GSI (for sticky Hormuz status).
+// Response: { date, hormuz_status, economic_notes, source_url } or 404.
+app.MapGet("/api/economic/signals", async (IAmazonDynamoDB dynamo, string? date) =>
 {
-    if (signalsCache is not null && DateTime.UtcNow < signalsCacheExpiry)
-        return Results.Ok(signalsCache);
+    if (string.IsNullOrEmpty(date))
+        return Results.BadRequest(new { error = "date query parameter is required (YYYY-MM-DD)" });
+
+    if (signalsCache.TryGetValue(date, out var cached) && DateTime.UtcNow < cached.expiry)
+        return Results.Ok(cached.data);
 
     string tableName = Environment.GetEnvironmentVariable("SIGNALS_TABLE_NAME") ?? "iran-conflict-map-economic-signals";
 
-    ScanResponse response = await dynamo.ScanAsync(new ScanRequest { TableName = tableName });
-
-    // Convert each DynamoDB item to a flat dictionary (string/number values only — skip unit/note attrs)
-    static object MapSignalItem(Dictionary<string, AttributeValue> item)
+    // Query table by PK for full record (includes economic_notes)
+    QueryResponse tableResp = await dynamo.QueryAsync(new QueryRequest
     {
-        var d = new Dictionary<string, object?>
+        TableName                 = tableName,
+        KeyConditionExpression    = "#d = :date",
+        ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date" },
+        ExpressionAttributeValues = new Dictionary<string, AttributeValue>
         {
-            ["date"]       = item.ContainsKey("date")       ? item["date"].S       : null,
-            ["source_url"] = item.ContainsKey("source_url") ? item["source_url"].S : null
-        };
-        foreach (KeyValuePair<string, AttributeValue> kv in item)
-        {
-            if (kv.Key is "date" or "source_url") continue;
-            if (kv.Value.N != null)
-                d[kv.Key] = double.Parse(kv.Value.N);
-            else if (kv.Value.S != null)
-                d[kv.Key] = kv.Value.S;
-        }
-        return d;
+            [":date"] = new AttributeValue { S = date }
+        },
+        Limit = 1
+    });
+
+    if (tableResp.Items.Count > 0)
+    {
+        Dictionary<string, AttributeValue> item = tableResp.Items[0];
+        object result = MapSignalItem(item);
+        signalsCache[date] = (result, DateTime.UtcNow.AddMinutes(5));
+        return Results.Ok(result);
     }
 
-    signalsCache = response.Items
-        .OrderByDescending(item => item.ContainsKey("date") ? item["date"].S : "")
-        .Select(item => MapSignalItem(item))
-        .ToList();
+    // No row for this date — query GSI for most recent row before it (sticky Hormuz)
+    QueryResponse gsiResp = await dynamo.QueryAsync(new QueryRequest
+    {
+        TableName                 = tableName,
+        IndexName                 = "entity-date-index",
+        KeyConditionExpression    = "entity = :e AND #d <= :date",
+        ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date" },
+        ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+        {
+            [":e"]    = new AttributeValue { S = "signal" },
+            [":date"] = new AttributeValue { S = date }
+        },
+        ScanIndexForward = false,
+        Limit            = 1
+    });
 
-    signalsCacheExpiry = DateTime.UtcNow.AddMinutes(5);
-    return Results.Ok(signalsCache);
+    if (gsiResp.Items.Count > 0)
+    {
+        Dictionary<string, AttributeValue> item = gsiResp.Items[0];
+        object result = new
+        {
+            date           = item.ContainsKey("date")          ? item["date"].S          : date,
+            source_url     = item.ContainsKey("source_url")    ? item["source_url"].S    : "",
+            hormuz_status  = item.ContainsKey("hormuz_status") ? item["hormuz_status"].S : "no_alert",
+            economic_notes = (List<string>?)null,   // not projected in GSI
+            is_fallback    = true                    // signals to frontend that this is a prior date's status
+        };
+        signalsCache[date] = (result, DateTime.UtcNow.AddMinutes(5));
+        return Results.Ok(result);
+    }
+
+    return Results.Ok(new { date, hormuz_status = "no_alert", economic_notes = (List<string>?)null });
 });
+
+static object MapSignalItem(Dictionary<string, AttributeValue> item) => new
+{
+    date           = item.ContainsKey("date")          ? item["date"].S          : "",
+    source_url     = item.ContainsKey("source_url")    ? item["source_url"].S    : "",
+    hormuz_status  = item.ContainsKey("hormuz_status") ? item["hormuz_status"].S : "no_alert",
+    economic_notes = item.ContainsKey("economic_notes")
+        ? item["economic_notes"].L.Select(n => n.S).Where(s => s != null).ToList()
+        : null,
+    is_fallback    = false
+};
 
 // ── URL normalization ──────────────────────────────────────────────────────────
 static string NormalizeReportUrl(string url)

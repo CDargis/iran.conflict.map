@@ -65,6 +65,15 @@ public class IranConflictMapStack : Stack
             RemovalPolicy = RemovalPolicy.RETAIN
         });
 
+        signalsTable.AddGlobalSecondaryIndex(new GlobalSecondaryIndexProps
+        {
+            IndexName        = "entity-date-index",
+            PartitionKey     = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "entity", Type = AttributeType.STRING },
+            SortKey          = new Amazon.CDK.AWS.DynamoDB.Attribute { Name = "date",   Type = AttributeType.STRING },
+            ProjectionType   = ProjectionType.INCLUDE,
+            NonKeyAttributes = new[] { "hormuz_status" }
+        });
+
         // ── DynamoDB Table ─────────────────────────────────────────────────
         var strikesTable = new Table(this, "StrikesTable", new TableProps
         {
