@@ -104,15 +104,12 @@ descriptions, not just distance):
 - Place it in "tool_updates" with the matched event's "id" and only the changed fields
 - Do NOT place it in "updates" or "ambiguous"
 
-When the tool returns no good candidates, or you cannot confidently identify a match:
-- If it looks like an update but no match found: place in "updates" with lookup coordinates
-- If genuinely uncertain whether new or update: place in "ambiguous"
+When the tool returns no good candidates: place in "new".
+When genuinely uncertain whether new or update even after a lookup: place in "ambiguous".
+When clearly a new event (first mention, novel location): place in "new" without calling the tool.
 
-When clearly a new event (first mention, novel location): place in "new".
-
-Do not call search_strikes for events that are clearly new.
-The "updates" array is only for cases where you believe it's an update but the tool
-found nothing — it will fall back to proximity matching on the server side.
+Do not use the "updates" array at all — it is being retired. Every event is either
+"new", "tool_updates" (matched via tool), or "ambiguous".
 ```
 
 ---
@@ -144,13 +141,12 @@ This avoids a big-bang trust decision. The output format change is minimal:
 {
   "new":          [ ... ],
   "tool_updates": [ { "id": "...", "changes": { ... } } ],  // Claude found match via tool
-  "updates":      [ { "lookup": { ... }, "changes": { ... } } ],  // no tool match found
   "ambiguous":    [ ... ]
 }
 ```
 
-Processor Lambda handles `tool_updates` the same as `updates` initially (route to review).
-Later: write directly and skip review.
+The `updates` array is retired — Claude no longer falls back to coordinate-based lookup.
+Processor Lambda routes `tool_updates` to review initially. Later: write directly and skip review.
 
 ### Matching strategy — ±1 day and location variance
 
