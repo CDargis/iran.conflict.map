@@ -125,21 +125,40 @@ Tool use reduces the queue — it doesn't eliminate it. Cases that should still 
 
 ## Open Questions
 
-### Should "all updates go to review" still apply?
+### Rollout approach — staged review
 
-Currently every matched update — even a confident one — goes to review. That policy was
-adopted to prevent silent data corruption from false-positive proximity matches. With tool
-use, Claude is attaching a specific `id` it found by lookup rather than the Processor
-guessing via proximity. That's a higher-confidence signal.
+Claude puts confident tool-lookup matches in a new `tool_updates` array (separate from
+`ambiguous`). On initial rollout, `tool_updates` go straight to the review queue like
+everything else — but the review item will already have the matched `id` attached, making
+it fast to verify. After a few days of manually checking accuracy, if Claude's matches are
+good, flip `tool_updates` to bypass review and write directly.
 
-**Option A**: Keep the policy. All updates still go to review, but the queue shrinks because
-fewer items are classified as `ambiguous` and proximity-match false positives drop.
+This avoids a big-bang trust decision. The output format change is minimal:
 
-**Option B**: Let Claude-confirmed updates (with `id` attached via tool lookup) bypass
-review and write directly. Only ambiguous items go to review.
+```json
+{
+  "new":          [ ... ],
+  "tool_updates": [ { "id": "...", "changes": { ... } } ],  // Claude found match via tool
+  "updates":      [ { "lookup": { ... }, "changes": { ... } } ],  // no tool match found
+  "ambiguous":    [ ... ]
+}
+```
 
-Option B would dramatically reduce the queue but requires trusting Claude's lookup result.
-Decide when implementation is underway and the tool's accuracy can be assessed.
+Processor Lambda handles `tool_updates` the same as `updates` initially (route to review).
+Later: write directly and skip review.
+
+### Matching strategy — ±1 day and location variance
+
+The tool should query ±1 day unconditionally. The one-day variance is likely a timezone
+issue — events near midnight in Iraq/Iran/Israel (UTC+2 to UTC+3) can land on different
+calendar dates depending on how the report and the sync handle them. No point trying to
+fix the root cause; just widen the window.
+
+Location variance is real — the same target described differently across reports can produce
+coordinates 5–15km apart. The current Processor proximity threshold (10km) may be too tight.
+The tool should return all candidates within a generous radius (say 25km) and let Claude
+decide based on semantic similarity — title, location string, actor, type, description.
+Claude reading both descriptions is far more reliable than any distance threshold alone.
 
 ### Actor name matching
 
