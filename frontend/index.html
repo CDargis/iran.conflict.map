@@ -1476,9 +1476,9 @@ loadBrentData();
 /* ── ECONOMIC SIGNALS ── */
 const HORMUZ_CFG = {
   no_alert:   { color: '#4ade80', label: 'Open' },
+  open:       { color: '#4ade80', label: 'Open' },
   restricted: { color: '#f59e0b', label: 'Restricted' },
   closed:     { color: '#f87171', label: 'Closed' },
-  unknown:    { color: '#94a3b8', label: 'Unknown' },
 };
 
 function renderEconomicSignals(dateStr) {
@@ -1508,7 +1508,7 @@ function renderEconomicSignals(dateStr) {
         `<div class="econ-note-item">${escHtml(n)}</div>`
       ).join('');
       const fallbackNote = row?.is_fallback
-        ? `<div class="data-note" style="color:var(--dim);margin-top:4px">* Status as of ${row.date}</div>`
+        ? `<div class="data-note" style="color:var(--dim);margin-top:4px">* Status as of ${row.hormuz_as_of || row.date}</div>`
         : '';
       const html = hormuzLine + (noteLines || '<div class="data-note" style="color:var(--dim)">No notable signals.</div>') + fallbackNote;
 

@@ -94,7 +94,7 @@ public class Function
 
         Field definitions:
         - date — YYYY-MM-DD of the report
-        - hormuz_status — "no_alert" if the report is silent on Hormuz; "restricted" if it explicitly describes interference, seizures, mining, or blockade activity at the Strait; "closed" if it describes a full blockade or closure; "unknown" only if the report explicitly acknowledges uncertainty about Hormuz status
+        - hormuz_status — "no_alert" if the report is silent on Hormuz; "open" if the report explicitly confirms normal/open passage at the Strait; "restricted" if it explicitly describes interference, seizures, mining, blockade activity, or legislative/military actions asserting control over the Strait; "closed" if it describes a full blockade or closure
         - economic_notes — flat array of concise complete sentences, one per distinct signal. Include: active or newly-announced sanctions and designations, OFAC/Treasury actions, energy infrastructure damage or threats, oil/gas price mentions tied to conflict activity, shipping insurance or Lloyd's notices, export bans or waivers, financial system impacts (SWIFT, correspondent banking). Empty array [] if nothing qualifies.
 
         Always include the "economic" object — even if hormuz_status is "no_alert" and economic_notes is empty.

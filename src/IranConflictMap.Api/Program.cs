@@ -265,15 +265,25 @@ app.MapGet("/api/economic/signals", async (IAmazonDynamoDB dynamo, string? date)
         Limit = 1
     });
 
+    // Extract notes from exact row if present; skip to sticky if status is no_alert (report was silent)
+    List<string>? exactNotes = null;
     if (tableResp.Items.Count > 0)
     {
-        Dictionary<string, AttributeValue> item = tableResp.Items[0];
-        object result = MapSignalItem(item);
-        signalsCache[date] = (result, DateTime.UtcNow.AddMinutes(5));
-        return Results.Ok(result);
+        Dictionary<string, AttributeValue> exactItem = tableResp.Items[0];
+        string exactStatus = exactItem.ContainsKey("hormuz_status") ? exactItem["hormuz_status"].S : "no_alert";
+        exactNotes = exactItem.ContainsKey("economic_notes")
+            ? exactItem["economic_notes"].L.Select(n => n.S).Where(s => s != null).ToList()
+            : null;
+
+        if (exactStatus != "no_alert")
+        {
+            object directResult = MapSignalItem(exactItem);
+            signalsCache[date] = (directResult, DateTime.UtcNow.AddMinutes(5));
+            return Results.Ok(directResult);
+        }
     }
 
-    // No row for this date — query GSI for most recent row before it (sticky Hormuz)
+    // No row, or row was silent on Hormuz — query GSI for most recent known status
     QueryResponse gsiResp = await dynamo.QueryAsync(new QueryRequest
     {
         TableName                 = tableName,
@@ -286,25 +296,30 @@ app.MapGet("/api/economic/signals", async (IAmazonDynamoDB dynamo, string? date)
             [":date"] = new AttributeValue { S = date }
         },
         ScanIndexForward = false,
-        Limit            = 1
+        Limit            = 20
     });
 
-    if (gsiResp.Items.Count > 0)
+    // Find the most recent row with a real status (skip no_alert — those were silent reports)
+    Dictionary<string, AttributeValue>? stickyItem = gsiResp.Items
+        .FirstOrDefault(i => i.ContainsKey("hormuz_status") && i["hormuz_status"].S != "no_alert");
+
+    if (stickyItem != null)
     {
-        Dictionary<string, AttributeValue> item = gsiResp.Items[0];
-        object result = new
+        string stickyDate = stickyItem.ContainsKey("date") ? stickyItem["date"].S : date;
+        object stickyResult = new
         {
-            date           = item.ContainsKey("date")          ? item["date"].S          : date,
-            source_url     = item.ContainsKey("source_url")    ? item["source_url"].S    : "",
-            hormuz_status  = item.ContainsKey("hormuz_status") ? item["hormuz_status"].S : "no_alert",
-            economic_notes = (List<string>?)null,   // not projected in GSI
-            is_fallback    = true                    // signals to frontend that this is a prior date's status
+            date           = date,
+            source_url     = stickyItem.ContainsKey("source_url") ? stickyItem["source_url"].S : "",
+            hormuz_status  = stickyItem["hormuz_status"].S,
+            economic_notes = exactNotes,    // notes from exact row if we had one; null otherwise
+            is_fallback    = true,
+            hormuz_as_of   = stickyDate
         };
-        signalsCache[date] = (result, DateTime.UtcNow.AddMinutes(5));
-        return Results.Ok(result);
+        signalsCache[date] = (stickyResult, DateTime.UtcNow.AddMinutes(5));
+        return Results.Ok(stickyResult);
     }
 
-    return Results.Ok(new { date, hormuz_status = "no_alert", economic_notes = (List<string>?)null });
+    return Results.Ok(new { date, hormuz_status = "no_alert", economic_notes = exactNotes, is_fallback = false });
 });
 
 static object MapSignalItem(Dictionary<string, AttributeValue> item) => new
