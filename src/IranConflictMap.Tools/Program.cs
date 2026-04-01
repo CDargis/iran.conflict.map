@@ -1894,7 +1894,7 @@ async Task BackfillSignals(string[] opts)
             string requestBody = JsonSerializer.Serialize(new
             {
                 model      = "claude-haiku-4-5-20251001",
-                max_tokens = 1024,
+                max_tokens = 2048,
                 system     = economicPrompt,
                 messages   = new[] { new { role = "user", content = $"Report URL: {reportUrl}\n\n{text}" } }
             });
@@ -1920,10 +1920,29 @@ async Task BackfillSignals(string[] opts)
             string rawText = claudeDoc.RootElement.GetProperty("content")[0].GetProperty("text").GetString() ?? "";
 
             int start = rawText.IndexOf('{');
-            int end   = rawText.LastIndexOf('}');
-            if (start == -1 || end == -1 || end <= start)
+            if (start == -1)
             {
-                Console.WriteLine($"  WARN: no JSON in Claude response — skipping");
+                Console.WriteLine($"  WARN: no JSON in Claude response: {rawText[..Math.Min(rawText.Length, 300)]}");
+                errors++;
+                continue;
+            }
+
+            // Walk to find balanced closing brace (same approach as Sync Lambda)
+            int depth = 0; bool inStr = false; bool esc = false; int end = -1;
+            for (int i = start; i < rawText.Length; i++)
+            {
+                char c = rawText[i];
+                if (esc)                       { esc = false; continue; }
+                if (c == '\\' && inStr)        { esc = true;  continue; }
+                if (c == '"')                  { inStr = !inStr; continue; }
+                if (inStr)                       continue;
+                if      (c == '{')             depth++;
+                else if (c == '}' && --depth == 0) { end = i; break; }
+            }
+
+            if (end == -1)
+            {
+                Console.WriteLine($"  WARN: unbalanced JSON braces in Claude response — skipping");
                 errors++;
                 continue;
             }
