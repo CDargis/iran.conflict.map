@@ -210,7 +210,7 @@
       transition: transform .3s cubic-bezier(.4,0,.2,1);
     }
     #sheet.snap-closed { transform: translateY(calc(100% - var(--peek))); }
-    #sheet.snap-mid    { transform: translateY(calc(100% - 52vh)); }
+    #sheet.snap-mid    { transform: translateY(calc(100% - 40vh)); }
     #sheet.snap-open   { transform: translateY(0); }
     #sheet.dragging    { transition: none; }
 
@@ -1360,7 +1360,7 @@ function sheetTranslateY(){
   const h=sheet.offsetHeight;
   const peek=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--peek'));
   if(snapState==='closed') return h-peek;
-  if(snapState==='mid')    return h-window.innerHeight*0.52;
+  if(snapState==='mid')    return h-window.innerHeight*0.40;
   return 0;
 }
 function snapSheet(state){
@@ -1369,7 +1369,7 @@ function snapSheet(state){
   sheet.classList.add(`snap-${state}`);
   const peek=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--peek'));
   const coordEl=document.getElementById('coords');
-  coordEl.style.bottom=state==='closed'?`calc(${peek}px + 10px)`:`calc(${window.innerHeight*0.52}px + 10px)`;
+  coordEl.style.bottom=state==='closed'?`calc(${peek}px + 10px)`:`calc(${window.innerHeight*0.40}px + 10px)`;
 }
 function onStart(y){dragStart=y;sheet.classList.add('dragging');}
 function onMove(y){
