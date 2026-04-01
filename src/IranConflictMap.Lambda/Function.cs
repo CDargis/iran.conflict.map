@@ -57,6 +57,9 @@ public class Function
                 if (payload.New is { Count: > 0 })
                     newCount = await ProcessNewEvents(payload.New, payload.SourceUrl, payload.SyncedAt, context);
 
+                if (payload.ToolUpdates is { Count: > 0 })
+                    reviewCount += await ProcessToolUpdates(payload.ToolUpdates, payload.SourceUrl, payload.SyncedAt, context);
+
                 if (payload.Updates is { Count: > 0 })
                 {
                     int updateReviewed;
@@ -309,6 +312,48 @@ public class Function
         }
 
         return (applied, deadLettered, reviewed);
+    }
+
+    // ── Tool Updates ────────────────────────────────────────────────────────────
+
+    private async Task<int> ProcessToolUpdates(List<ToolUpdateEvent> toolUpdates, string? sourceUrl, string? syncedAt, ILambdaContext context)
+    {
+        int reviewed = 0;
+
+        foreach (ToolUpdateEvent update in toolUpdates)
+        {
+            GetItemResponse getResp = await _dynamo.GetItemAsync(new GetItemRequest
+            {
+                TableName = StrikesTable,
+                Key       = new Dictionary<string, AttributeValue>
+                {
+                    ["id"] = new AttributeValue { S = update.Id }
+                }
+            });
+
+            if (getResp.Item == null || getResp.Item.Count == 0)
+            {
+                context.Logger.LogLine($"[processor] tool_update: id={update.Id} not found in DB, sending to review");
+                // Build a minimal failed-update review item with the id in the lookup
+                UpdateEvent asUpdate = new()
+                {
+                    Lookup  = new Dictionary<string, JsonElement>
+                    {
+                        ["id"] = JsonSerializer.SerializeToElement(update.Id)
+                    },
+                    Changes = update.Changes
+                };
+                await SendFailedUpdateToReviewQueue($"Tool update: id={update.Id} not found in DB.", asUpdate, sourceUrl, syncedAt);
+                reviewed++;
+                continue;
+            }
+
+            context.Logger.LogLine($"[processor] tool_update: matched id={update.Id}, sending to review");
+            await SendToolUpdateToReviewQueue(update.Id, getResp.Item, update.Changes, sourceUrl, syncedAt);
+            reviewed++;
+        }
+
+        return reviewed;
     }
 
     private async Task ApplyUpdate(string id, Dictionary<string, AttributeValue> existing,
@@ -572,6 +617,29 @@ public class Function
         });
     }
 
+    private async Task SendToolUpdateToReviewQueue(string existingId, Dictionary<string, AttributeValue> existingItem,
+        Dictionary<string, JsonElement> changes, string? sourceUrl, string? syncId)
+    {
+        if (string.IsNullOrEmpty(ReviewQueueUrl)) return;
+
+        var item = new
+        {
+            note            = $"Tool-confirmed match: id={existingId}.",
+            existing_id     = existingId,
+            existing_record = SimplifyItem(existingItem),
+            as_update       = new { lookup = new { id = existingId }, changes },
+            as_new          = (object?)null
+        };
+        string body = JsonSerializer.Serialize(new { source_url = sourceUrl, sync_id = syncId, item });
+
+        await _sqs.SendMessageAsync(new SendMessageRequest
+        {
+            QueueUrl       = ReviewQueueUrl,
+            MessageBody    = body,
+            MessageGroupId = "review"
+        });
+    }
+
     private async Task SendToDeadLetter(string reason, string body)
     {
         if (string.IsNullOrEmpty(DeadLetterQueueUrl)) return;
@@ -719,6 +787,9 @@ public class SyncEnvelope
     [System.Text.Json.Serialization.JsonPropertyName("new")]
     public List<NewEvent>? New { get; set; }
 
+    [System.Text.Json.Serialization.JsonPropertyName("tool_updates")]
+    public List<ToolUpdateEvent>? ToolUpdates { get; set; }
+
     [System.Text.Json.Serialization.JsonPropertyName("updates")]
     public List<UpdateEvent>? Updates { get; set; }
 
@@ -743,6 +814,15 @@ public class UpdateEvent
 {
     [System.Text.Json.Serialization.JsonPropertyName("lookup")]
     public Dictionary<string, JsonElement> Lookup { get; set; } = new();
+
+    [System.Text.Json.Serialization.JsonPropertyName("changes")]
+    public Dictionary<string, JsonElement> Changes { get; set; } = new();
+}
+
+public class ToolUpdateEvent
+{
+    [System.Text.Json.Serialization.JsonPropertyName("id")]
+    public string Id { get; set; } = "";
 
     [System.Text.Json.Serialization.JsonPropertyName("changes")]
     public Dictionary<string, JsonElement> Changes { get; set; } = new();

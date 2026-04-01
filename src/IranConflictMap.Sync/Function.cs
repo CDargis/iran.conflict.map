@@ -82,9 +82,24 @@ public class Function
         update — reported in a prior report, this report adds detail or corrects it; include only changed fields plus date, lat, and lng as lookup keys (lat/lng as plain decimal numbers, not DynamoDB wire format); omit location and actor from the lookup; never include description in changes — use notes instead for any newly confirmed detail; IMPORTANT: the lookup date must be the date the event originally occurred (i.e. the date from the original report that first logged it), not the date of the current report being processed — use any context clues in the current report such as "on March 14" or "the March 14 strike" to identify the original date
         ambiguous — cannot confidently determine whether new or update; include a "note" explaining the uncertainty, a complete "as_new" item (same PutRequest/Item wire format as new events), and an "as_update" payload (same lookup/changes format as updates); only use ambiguous when genuinely uncertain — prefer new or update if you can reasonably classify the event
 
+        Tool use: You have access to a search_strikes tool. When you identify an event that sounds like an update to something already in the database — a follow-up strike on the same target, additional casualties confirmed for a known event, new details about a prior operation — call the tool with the approximate coordinates and the date the original event occurred before classifying it.
+
+        When evaluating candidates returned by the tool, weight signals in this order:
+        1. Description similarity — does it describe the same action at the same target?
+        2. Location — same place name or close coordinates
+        3. Date — same or ±1 day (date differences of ±1 day are common due to timezone offsets — do not treat a one-day gap as disqualifying, but do not reach for a match that is off by a day unless the descriptions clearly align)
+        4. Type — strike, missile, drone, etc.
+        5. Actor — least reliable; attribution often changes between reports. Do not let actor mismatch disqualify an otherwise strong match.
+
+        When you find a strong match via the tool: place it in "tool_updates" with the matched event's "id" and only the changed fields (same "changes" format as updates — never include description; use notes instead). Do NOT place it in "updates".
+        When the tool returns no good candidates: place in "new".
+        When genuinely uncertain even after a lookup: place in "ambiguous".
+        When clearly a new event (first mention, novel location): place in "new" without calling the tool.
+
         Output format — return a single JSON object and NOTHING ELSE. No explanation, no preamble, no text after the closing brace. The response must begin with '{' and end with '}'. Any observations, caveats, or commentary must go inside the "sync_notes" array, not outside the JSON.
         {
           "new": [ { "PutRequest": { "Item": { ... DynamoDB wire format ... } } }, ... ],
+          "tool_updates": [ { "id": "...", "changes": { ... DynamoDB wire format — changed fields only, never include description ... } }, ... ],
           "updates": [ { "lookup": { "date": "...", "lat": 0.0, "lng": 0.0 }, "changes": { ... DynamoDB wire format ... } }, ... ],
           "ambiguous": [ { "note": "...", "as_new": { "PutRequest": { "Item": { ... DynamoDB wire format ... } } }, "as_update": { "lookup": { "date": "...", "lat": 0.0, "lng": 0.0 }, "changes": { ... DynamoDB wire format ... } } }, ... ],
           "sync_notes": [ "...", ... ]
@@ -245,12 +260,13 @@ public class Function
 
             var envelope = JsonSerializer.Serialize(new
             {
-                source_url = reportUrl,
-                synced_at  = runId,
-                @new       = newWithIds,
-                updates    = claudeDoc.TryGetProperty("updates",   out var u) ? u : (JsonElement?)null,
-                ambiguous  = claudeDoc.TryGetProperty("ambiguous", out var a) ? a : (JsonElement?)null,
-                sync_notes = syncNotes
+                source_url   = reportUrl,
+                synced_at    = runId,
+                @new         = newWithIds,
+                tool_updates = claudeDoc.TryGetProperty("tool_updates", out var tu) ? tu : (JsonElement?)null,
+                updates      = claudeDoc.TryGetProperty("updates",      out var u)  ? u  : (JsonElement?)null,
+                ambiguous    = claudeDoc.TryGetProperty("ambiguous",    out var a)  ? a  : (JsonElement?)null,
+                sync_notes   = syncNotes
             });
 
             // Write initial record before pushing — Processor will update counts/status
@@ -347,48 +363,134 @@ public class Function
         string reportText, string reportUrl, string lastSynced, string apiKey, ILambdaContext ctx,
         System.Threading.CancellationToken token)
     {
-        var userMessage =
+        string userMessage =
             $"Events already logged cover dates up to {lastSynced}. " +
             $"The source_url for all new events in this report is: {reportUrl}\n\n" +
             $"Please process the following CTP-ISW report:\n\n" +
             reportText;
 
-        var requestBody = JsonSerializer.Serialize(new
+        // Tool definition for search_strikes
+        object searchStrikesTool = new
         {
-            model      = "claude-sonnet-4-6",
-            max_tokens = 16000,
-            system     = SystemPrompt,
-            messages   = new[] { new { role = "user", content = userMessage } }
-        });
-
-        using var req = new HttpRequestMessage(HttpMethod.Post, "https://api.anthropic.com/v1/messages")
-        {
-            Content = new StringContent(requestBody, Encoding.UTF8, "application/json")
+            name        = "search_strikes",
+            description = "Search for existing strike events near a given location and date. Use this when an event may be an update to a previously recorded strike.",
+            input_schema = new
+            {
+                type       = "object",
+                properties = new
+                {
+                    lat         = new { type = "number", description = "Approximate latitude from the report" },
+                    lng         = new { type = "number", description = "Approximate longitude from the report" },
+                    date        = new { type = "string", description = "YYYY-MM-DD — the date the original event occurred" },
+                    description = new { type = "string", description = "Brief description of the event to help distinguish candidates" }
+                },
+                required = new[] { "lat", "lng", "date" }
+            }
         };
-        req.Headers.Add("x-api-key", apiKey);
-        req.Headers.Add("anthropic-version", "2023-06-01");
 
-        var res     = await Http.SendAsync(req, token);
-        var resBody = await res.Content.ReadAsStringAsync(token);
-        ctx.Logger.LogLine($"[sync] Claude status: {res.StatusCode}");
-
-        if (!res.IsSuccessStatusCode)
+        List<object> messages = new()
         {
-            ctx.Logger.LogLine($"[sync] Claude API error: {resBody[..Math.Min(resBody.Length, 500)]}");
-            return null;
+            new { role = "user", content = userMessage }
+        };
+
+        for (int turn = 0; turn < 10; turn++)
+        {
+            string requestBody = JsonSerializer.Serialize(new
+            {
+                model      = "claude-sonnet-4-6",
+                max_tokens = 16000,
+                system     = SystemPrompt,
+                tools      = new[] { searchStrikesTool },
+                messages
+            });
+
+            using HttpRequestMessage req = new(HttpMethod.Post, "https://api.anthropic.com/v1/messages")
+            {
+                Content = new StringContent(requestBody, Encoding.UTF8, "application/json")
+            };
+            req.Headers.Add("x-api-key", apiKey);
+            req.Headers.Add("anthropic-version", "2023-06-01");
+
+            HttpResponseMessage res = await Http.SendAsync(req, token);
+            string resBody = await res.Content.ReadAsStringAsync(token);
+            ctx.Logger.LogLine($"[sync] Claude status (turn {turn}): {res.StatusCode}");
+
+            if (!res.IsSuccessStatusCode)
+            {
+                ctx.Logger.LogLine($"[sync] Claude API error: {resBody[..Math.Min(resBody.Length, 500)]}");
+                return null;
+            }
+
+            JsonDocument responseDoc = JsonDocument.Parse(resBody);
+            string stopReason = responseDoc.RootElement.TryGetProperty("stop_reason", out JsonElement srEl)
+                ? srEl.GetString() ?? "end_turn"
+                : "end_turn";
+            JsonElement contentEl = responseDoc.RootElement.GetProperty("content").Clone();
+
+            if (stopReason == "tool_use")
+            {
+                // Add the assistant turn (with tool_use blocks) to the conversation
+                messages.Add(new { role = "assistant", content = contentEl });
+
+                // Execute each tool call and collect results
+                List<object> toolResults = new();
+                foreach (JsonElement block in contentEl.EnumerateArray())
+                {
+                    if (!block.TryGetProperty("type", out JsonElement typeEl) || typeEl.GetString() != "tool_use")
+                        continue;
+
+                    string toolId   = block.GetProperty("id").GetString()!;
+                    string toolName = block.GetProperty("name").GetString()!;
+                    JsonElement toolInput = block.GetProperty("input");
+
+                    ctx.Logger.LogLine($"[sync] tool call: {toolName} id={toolId}");
+
+                    string resultJson;
+                    if (toolName == "search_strikes")
+                    {
+                        object result = await ExecuteSearchStrikes(toolInput, ctx, token);
+                        resultJson = JsonSerializer.Serialize(result);
+                    }
+                    else
+                    {
+                        resultJson = JsonSerializer.Serialize(new { error = $"Unknown tool: {toolName}" });
+                    }
+
+                    toolResults.Add(new { type = "tool_result", tool_use_id = toolId, content = resultJson });
+                }
+
+                messages.Add(new { role = "user", content = toolResults });
+                continue;
+            }
+
+            // end_turn — extract text from first text block
+            string text = "";
+            foreach (JsonElement block in contentEl.EnumerateArray())
+            {
+                if (block.TryGetProperty("type", out JsonElement t) && t.GetString() == "text")
+                {
+                    text = block.GetProperty("text").GetString() ?? "";
+                    break;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                ctx.Logger.LogLine("[sync] Claude returned empty text");
+                ctx.Logger.LogLine($"[sync] raw response body: {resBody[..Math.Min(resBody.Length, 1000)]}");
+                return null;
+            }
+
+            return ExtractJson(text, ctx);
         }
 
-        var doc  = JsonDocument.Parse(resBody);
-        var text = doc.RootElement.GetProperty("content")[0].GetProperty("text").GetString() ?? "";
+        ctx.Logger.LogLine("[sync] Claude tool call loop exceeded maximum turns");
+        return null;
+    }
 
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            ctx.Logger.LogLine("[sync] Claude returned empty text");
-            ctx.Logger.LogLine($"[sync] raw response body: {resBody[..Math.Min(resBody.Length, 1000)]}");
-            return null;
-        }
-
-        var start = text.IndexOf('{');
+    private string? ExtractJson(string text, ILambdaContext ctx)
+    {
+        int start = text.IndexOf('{');
         if (start == -1)
         {
             ctx.Logger.LogLine($"[sync] no JSON object in Claude response: {text[..Math.Min(text.Length, 1000)]}");
@@ -404,12 +506,12 @@ public class Function
         for (int i = start; i < text.Length; i++)
         {
             char c = text[i];
-            if (escaped)                    { escaped = false; continue; }
-            if (c == '\\' && inString)      { escaped = true;  continue; }
-            if (c == '"')                   { inString = !inString; continue; }
-            if (inString)                     continue;
-            if      (c == '{')              depth++;
-            else if (c == '}')              { if (--depth == 0) { end = i; break; } }
+            if (escaped)               { escaped = false; continue; }
+            if (c == '\\' && inString) { escaped = true;  continue; }
+            if (c == '"')              { inString = !inString; continue; }
+            if (inString)                continue;
+            if      (c == '{')         depth++;
+            else if (c == '}')         { if (--depth == 0) { end = i; break; } }
         }
 
         if (end == -1)
@@ -418,22 +520,27 @@ public class Function
             return null;
         }
 
-        var jsonText = text[start..(end + 1)];
+        string jsonText = text[start..(end + 1)];
 
         try
         {
-            var parsed     = JsonDocument.Parse(jsonText);
-            var hasNew     = parsed.RootElement.TryGetProperty("new",       out var nv) && nv.ValueKind == JsonValueKind.Array;
-            var hasUpdates = parsed.RootElement.TryGetProperty("updates",   out var uv) && uv.ValueKind == JsonValueKind.Array;
-            var hasAmbig   = parsed.RootElement.TryGetProperty("ambiguous", out var av) && av.ValueKind == JsonValueKind.Array;
+            JsonDocument parsed        = JsonDocument.Parse(jsonText);
+            bool hasNew          = parsed.RootElement.TryGetProperty("new",          out JsonElement nv) && nv.ValueKind == JsonValueKind.Array;
+            bool hasToolUpdates  = parsed.RootElement.TryGetProperty("tool_updates", out JsonElement tv) && tv.ValueKind == JsonValueKind.Array;
+            bool hasUpdates      = parsed.RootElement.TryGetProperty("updates",      out JsonElement uv) && uv.ValueKind == JsonValueKind.Array;
+            bool hasAmbig        = parsed.RootElement.TryGetProperty("ambiguous",    out JsonElement av) && av.ValueKind == JsonValueKind.Array;
 
-            if (!hasNew && !hasUpdates && !hasAmbig)
+            if (!hasNew && !hasToolUpdates && !hasUpdates && !hasAmbig)
             {
-                ctx.Logger.LogLine($"[sync] Claude response missing all three expected arrays — json: {jsonText[..Math.Min(jsonText.Length, 1000)]}");
+                ctx.Logger.LogLine($"[sync] Claude response missing all expected arrays — json: {jsonText[..Math.Min(jsonText.Length, 1000)]}");
                 return null;
             }
 
-            ctx.Logger.LogLine($"[sync] Claude response valid: new={nv.GetArrayLength()} updates={uv.GetArrayLength()} ambiguous={av.GetArrayLength()}");
+            ctx.Logger.LogLine(
+                $"[sync] Claude response valid: new={( hasNew ? nv.GetArrayLength() : 0 )} " +
+                $"tool_updates={( hasToolUpdates ? tv.GetArrayLength() : 0 )} " +
+                $"updates={( hasUpdates ? uv.GetArrayLength() : 0 )} " +
+                $"ambiguous={( hasAmbig ? av.GetArrayLength() : 0 )}");
             return jsonText;
         }
         catch (OperationCanceledException)
@@ -447,6 +554,102 @@ public class Function
             ctx.Logger.LogLine($"[sync] raw Claude text: {text[..Math.Min(text.Length, 1000)]}");
             return null;
         }
+    }
+
+    private async Task<object> ExecuteSearchStrikes(JsonElement input, ILambdaContext ctx,
+        System.Threading.CancellationToken token)
+    {
+        if (!input.TryGetProperty("lat",  out JsonElement latEl)  || latEl.ValueKind  != JsonValueKind.Number ||
+            !input.TryGetProperty("lng",  out JsonElement lngEl)  || lngEl.ValueKind  != JsonValueKind.Number ||
+            !input.TryGetProperty("date", out JsonElement dateEl) || dateEl.ValueKind != JsonValueKind.String)
+        {
+            ctx.Logger.LogLine("[sync] search_strikes: missing required inputs (lat/lng/date)");
+            return new { matches = Array.Empty<object>() };
+        }
+
+        double lat  = latEl.GetDouble();
+        double lng  = lngEl.GetDouble();
+        string date = dateEl.GetString()!;
+
+        DateTime parsedDate   = DateTime.Parse(date);
+        string[] datesToQuery =
+        [
+            parsedDate.AddDays(-1).ToString("yyyy-MM-dd"),
+            date,
+            parsedDate.AddDays(1).ToString("yyyy-MM-dd")
+        ];
+
+        List<Dictionary<string, AttributeValue>> allCandidates = new();
+        foreach (string queryDate in datesToQuery)
+        {
+            QueryResponse queryResp = await _dynamo.QueryAsync(new QueryRequest
+            {
+                TableName                 = StrikesTable,
+                IndexName                 = "entity-date-index",
+                KeyConditionExpression    = "entity = :entity AND #d = :date",
+                ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date" },
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":entity"] = new() { S = "strike" },
+                    [":date"]   = new() { S = queryDate }
+                }
+            }, token);
+            allCandidates.AddRange(queryResp.Items);
+        }
+
+        const double RadiusKm = 25.0;
+        List<object> matches = allCandidates
+            .Where(i => i.ContainsKey("lat") && i.ContainsKey("lng"))
+            .Select(i =>
+            {
+                double iLat = double.Parse(i["lat"].N);
+                double iLng = double.Parse(i["lng"].N);
+                double dist = HaversineKm(lat, lng, iLat, iLng);
+                return (item: i, dist);
+            })
+            .Where(x => x.dist <= RadiusKm)
+            .OrderBy(x => x.dist)
+            .Take(5)
+            .Select(x =>
+            {
+                x.item.TryGetValue("id",          out AttributeValue? idV);
+                x.item.TryGetValue("date",         out AttributeValue? dateV);
+                x.item.TryGetValue("title",        out AttributeValue? titleV);
+                x.item.TryGetValue("location",     out AttributeValue? locationV);
+                x.item.TryGetValue("lat",          out AttributeValue? latV);
+                x.item.TryGetValue("lng",          out AttributeValue? lngV);
+                x.item.TryGetValue("actor",        out AttributeValue? actorV);
+                x.item.TryGetValue("type",         out AttributeValue? typeV);
+                x.item.TryGetValue("description",  out AttributeValue? descV);
+                return (object)new
+                {
+                    id          = idV?.S,
+                    date        = dateV?.S,
+                    title       = titleV?.S,
+                    location    = locationV?.S,
+                    lat         = latV?.N,
+                    lng         = lngV?.N,
+                    actor       = actorV?.S,
+                    type        = typeV?.S,
+                    description = descV?.S,
+                    distance_km = Math.Round(x.dist, 1)
+                };
+            })
+            .ToList();
+
+        ctx.Logger.LogLine($"[sync] search_strikes: lat={lat} lng={lng} date={date} → {matches.Count} candidate(s)");
+        return new { matches };
+    }
+
+    private static double HaversineKm(double lat1, double lon1, double lat2, double lon2)
+    {
+        const double R = 6371;
+        double dLat = (lat2 - lat1) * Math.PI / 180;
+        double dLon = (lon2 - lon1) * Math.PI / 180;
+        double a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2)
+                 + Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180)
+                 * Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
     }
 
     // ── Economic signals ──────────────────────────────────────────────────────
