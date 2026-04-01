@@ -161,15 +161,37 @@ Everything currently going into `updates` will now resolve to one of:
 - `tool_updates` — tool found a match, ID attached
 - `new` — tool found no match; treat as a new event
 
-**Phase 1 (initial rollout):** Keep `updates` and proximity matching in the Processor as a
-safety net. Claude should not use `updates` anymore, but the Processor still handles it in
-case something slips through.
+---
 
-**Phase 2 (once tool accuracy is validated):** Remove `updates` support and the Processor's
-proximity matching logic (Haversine, 10km, ±1 day GSI query) — it only exists to resolve
-`updates` lookups and will no longer be needed.
+## Phase 1 — Ship with safety net
 
-Processor Lambda routes `tool_updates` to review initially. Later: write directly and skip review.
+**Sync Lambda changes:**
+- Add `search_strikes` tool definition to Claude API call
+- Switch Claude API call from single-shot to tool call loop
+- Add tool execution handler (GSI query ±1 day + Haversine, return top candidates)
+- Update system prompt: use `tool_updates` for confirmed matches, `new` if no match found,
+  no more `updates` array
+- Grant Sync Lambda read access to strikes table in CDK
+
+**Processor Lambda changes:**
+- Handle new `tool_updates` array: route each item to review queue (same as today's updates)
+- Keep existing `updates` handling and proximity matching as safety net
+
+**Result:** Review queue still gets everything. But `tool_updates` items arrive with `id`
+already attached — faster to verify. Watch for a few days to assess Claude's match accuracy.
+
+---
+
+## Phase 2 — Cut review queue (once accuracy validated)
+
+**Processor Lambda changes:**
+- `tool_updates`: write directly to DynamoDB, skip review queue
+- Remove `updates` handling and proximity matching logic (Haversine, 10km, ±1 day GSI query)
+
+**Sync Lambda changes:**
+- Remove `updates` from system prompt entirely
+
+**Result:** Only `ambiguous` items go to review. `tool_updates` write directly.
 
 ### Matching strategy — ±1 day and location variance
 
