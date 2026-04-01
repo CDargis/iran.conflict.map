@@ -29,6 +29,13 @@ or submitted manually before any implementation begins.
 **Status**: Complete. Backend endpoints and frontend both fully implemented. Load queue,
 review items side-by-side, approve as new / approve as update / discard.
 
+### Review Queue Reduction (Tool Use)
+**Status**: Plan written in `plans/backlog/REVIEW_REDUCTION_PLAN.md`. Not started.
+**Approach**: Give Claude a `search_strikes` tool during extraction so it can look up
+existing events and attach a known `id` to updates — eliminating proximity-match ambiguity.
+**Open question**: Whether Claude-confirmed updates should bypass review entirely (Option B)
+or still go to review (Option A). Decide after seeing tool accuracy in practice.
+
 ### DLQ Alerting
 **Status**: Not implemented. The DLQ exists and items are routed to it, but there are no
 CloudWatch alarms or SNS notifications when messages accumulate.
