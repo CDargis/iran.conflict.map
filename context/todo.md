@@ -2,6 +2,15 @@
 
 ---
 
+## Recently Completed
+
+### Economic Signals Feature (2026-03-31)
+Brent crude sparkline, Hormuz status pill, economic signals pane. Full pipeline: Sync Lambda
+extraction, `backfill-signals` CLI, GSI on signals table for sticky Hormuz, per-date API
+fetch, frontend display. See `plans/complete/ECONOMIC_DATA_PLAN.md`.
+
+---
+
 ## Active / Incomplete
 
 ### Morning Reports Feature
