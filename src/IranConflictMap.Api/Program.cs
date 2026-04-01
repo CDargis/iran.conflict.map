@@ -84,6 +84,9 @@ app.MapGet("/api/strikes", async (IAmazonDynamoDB dynamo, string? date) =>
             estimated = int.Parse(item["casualties"].M["estimated"].N),
         },
         source_url          = item.ContainsKey("source_url")          ? item["source_url"].S          : "",
+        notes               = item.ContainsKey("notes")
+            ? item["notes"].L.Select(n => n.S).Where(n => !string.IsNullOrEmpty(n)).ToList()
+            : new List<string>(),
         citations           = item.ContainsKey("citations")
             ? item["citations"].L.Select(c => c.S).Where(c => !string.IsNullOrEmpty(c)).ToList()
             : new List<string>(),
