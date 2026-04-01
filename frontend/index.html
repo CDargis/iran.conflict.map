@@ -1146,6 +1146,7 @@ function popupHTML(s){
     <div class="popup-title">${s.title}</div>
     <div class="popup-date">${s.date} · ${s.location}</div>
     <div class="popup-desc">${s.description}</div>
+    ${s.notes?.length?`<div class="popup-desc" style="margin-top:4px;color:var(--dim)">${s.notes.map(n=>escHtml(n)).join('<br>')}</div>`:''}
     <div style="margin-top:6px;font-size:9px;color:var(--dim)">${albl} &nbsp;·&nbsp; severity: <span style="color:${sc}">${s.severity||'—'}</span></div>
     ${s.disputed?`<div style="margin-top:5px;font-size:9px;color:var(--amber)">⚠ Disputed — attribution or details contested</div>`:''}
     ${s.casualties?.confirmed>0||s.casualties?.estimated>0
