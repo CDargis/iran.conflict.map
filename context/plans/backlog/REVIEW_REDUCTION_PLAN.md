@@ -99,15 +99,20 @@ You have access to a search_strikes tool. Use it when you encounter an event tha
 it may be an update to something already in the database — a follow-up strike on the same
 target, additional casualties reported for a known event, etc.
 
-When you find a strong match (same location, actor, and event type, distance < 5km):
-- Set the update's "id" to the matched event's id
-- Route it as an update, not ambiguous
+When you find a strong match (same location, actor, and event type — judge by comparing
+descriptions, not just distance):
+- Place it in "tool_updates" with the matched event's "id" and only the changed fields
+- Do NOT place it in "updates" or "ambiguous"
 
-When no match is found, or the match is uncertain:
-- Route new events as new
-- Route genuinely uncertain cases as ambiguous
+When the tool returns no good candidates, or you cannot confidently identify a match:
+- If it looks like an update but no match found: place in "updates" with lookup coordinates
+- If genuinely uncertain whether new or update: place in "ambiguous"
 
-Do not call search_strikes for events that are clearly new (first mention, novel location).
+When clearly a new event (first mention, novel location): place in "new".
+
+Do not call search_strikes for events that are clearly new.
+The "updates" array is only for cases where you believe it's an update but the tool
+found nothing — it will fall back to proximity matching on the server side.
 ```
 
 ---
