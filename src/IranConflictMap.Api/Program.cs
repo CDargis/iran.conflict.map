@@ -319,7 +319,9 @@ app.MapGet("/api/economic/signals", async (IAmazonDynamoDB dynamo, string? date)
         return Results.Ok(stickyResult);
     }
 
-    return Results.Ok(new { date, hormuz_status = "no_alert", economic_notes = exactNotes, is_fallback = false });
+    object defaultResult = new { date, hormuz_status = "no_alert", economic_notes = exactNotes, is_fallback = false };
+    signalsCache[date] = (defaultResult, DateTime.UtcNow.AddMinutes(5));
+    return Results.Ok(defaultResult);
 });
 
 static object MapSignalItem(Dictionary<string, AttributeValue> item) => new
