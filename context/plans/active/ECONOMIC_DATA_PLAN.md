@@ -50,11 +50,11 @@ interface EconomicSignalRow {
   date: string;                         // PK — YYYY-MM-DD (report date)
   source_url: string;                   // SK — CTP-ISW report URL (idempotent: re-syncing same URL overwrites)
   hormuz_status: "no_alert" | "restricted" | "closed" | "unknown";
-  oil_export_volume_mbd: number | null; // Million barrels/day; null if not reported
-  economic_notes: string[];             // Sanctions, Treasury actions, infrastructure, etc.
-  synced_at: string;                    // ISO 8601 — last sync timestamp for this row
+  economic_notes: string[];             // Sanctions, Treasury/OFAC actions, infrastructure damage, shipping notices, etc.
 }
 ```
+
+> `oil_export_volume_mbd` was dropped — CTP-ISW reports rarely state a specific export volume figure, so the field would almost always be null.
 
 - One row per (date, source_url). PutItem without condition — re-syncing the same URL overwrites the row (idempotent). Resolved in 9B.
 - To query a date: `Query(PK = "2026-03-22")`.
