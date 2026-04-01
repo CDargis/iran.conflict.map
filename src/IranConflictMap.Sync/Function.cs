@@ -54,7 +54,13 @@ public class Function
         lat / lng (Number) — decimal degrees
         type (String) — one of: strike, drone, naval, missile
         target_type (String) — one of: military, maritime, nuclear, command, civilian
-        actor (String) — free text, the attacking party (e.g. US, Israel, Iran, Saudi Arabia, Houthi, etc.)
+        actor (String) — the attacking party. Use the canonical name from this list whenever possible:
+          "US Central Command", "Israel Defense Forces", "US-Israel Combined Force",
+          "Islamic Revolutionary Guard Corps", "Islamic Republic of Iran Army",
+          "Iran", "Lebanese Hezbollah", "Iranian-backed Iraqi Militias", "Houthi Movement", "Unknown".
+          Use "Iran" when it is clearly Iranian military action but IRGC vs. conventional army cannot be determined.
+          Use "Iranian-backed Iraqi Militias" for all Iraqi proxy groups regardless of specific faction name.
+          Only use a value outside this list if the actor is genuinely not covered by any of the above.
         severity (String) — one of: low, medium, high, critical
         description (String) — 1–3 sentence factual summary (new events only; never include in changes)
         casualties (Map) — { confirmed: N, estimated: N }

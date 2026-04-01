@@ -32,7 +32,8 @@ var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(S
     ["enrich-review"]      = ("Backfill nearest_record on legacy ambiguous review queue items [--confirm]", EnrichReview),
     ["backfill-economic"]  = ("Backfill Brent price history from EIA API [--start yyyy-MM-dd] [--end yyyy-MM-dd] [--eia-key <key>] [--confirm]", BackfillEconomic),
     ["backfill-signals"]   = ("Backfill economic signals from historical CTP-ISW reports [--start yyyy-MM-dd] [--end yyyy-MM-dd] [--anthropic-key <key>] [--confirm]", BackfillSignals),
-    ["stamp-signal-entity"] = ("Backfill entity='signal' on existing economic signals rows missing the attribute [--confirm]", StampSignalEntity)
+    ["stamp-signal-entity"] = ("Backfill entity='signal' on existing economic signals rows missing the attribute [--confirm]", StampSignalEntity),
+    ["normalize-actors"]    = ("Normalize actor field on all strikes to the canonical actor list [--confirm]", NormalizeActors)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -2053,6 +2054,142 @@ async Task StampSignalEntity(string[] opts)
             }
         });
         Console.WriteLine($"  stamped {row["date"].S}");
+        updated++;
+    }
+
+    Console.WriteLine($"\nDone. {updated} row(s) updated.");
+}
+
+// ── normalize-actors ─────────────────────────────────────────────────────────
+async Task NormalizeActors(string[] opts)
+{
+    bool confirm = opts.Contains("--confirm");
+    const string tableName = "strikes";
+
+    // Canonical actor list — maps every known variant to its standard name
+    Dictionary<string, string> actorMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // US
+        ["US"]                         = "US Central Command",
+        ["United States"]              = "US Central Command",
+        ["US/CENTCOM"]                 = "US Central Command",
+
+        // Israel
+        ["IDF"]                        = "Israel Defense Forces",
+        ["Israel"]                     = "Israel Defense Forces",
+
+        // Combined
+        ["US, Israel"]                 = "US-Israel Combined Force",
+        ["US-Israel"]                  = "US-Israel Combined Force",
+        ["US-Israel combined force"]   = "US-Israel Combined Force",
+        ["US/Israel"]                  = "US-Israel Combined Force",
+        ["US/Israel (combined force)"] = "US-Israel Combined Force",
+        ["US/Israeli combined force"]  = "US-Israel Combined Force",
+
+        // IRGC
+        ["Iran/IRGC"]                  = "Islamic Revolutionary Guard Corps",
+        ["Islamic Revolutionary Guard Corps / Iranian-backed militias"] = "Islamic Revolutionary Guard Corps",
+
+        // Iran (conventional / unspecified)
+        ["Iran"]                       = "Iran",
+
+        // Lebanese Hezbollah
+        ["Hezbollah"]                  = "Lebanese Hezbollah",
+
+        // Iraqi militias — all variants roll up to canonical
+        ["Iran-backed Iraqi militia"]                     = "Iranian-backed Iraqi Militias",
+        ["Iran-backed Iraqi militias"]                    = "Iranian-backed Iraqi Militias",
+        ["Iran / Iranian-backed Iraqi Militias"]          = "Iranian-backed Iraqi Militias",
+        ["Iranian-backed Iraqi militia"]                  = "Iranian-backed Iraqi Militias",
+        ["Iranian-backed Iraqi militias"]                 = "Iranian-backed Iraqi Militias",
+        ["Iranian-backed Iraqi Militias (unidentified)"]  = "Iranian-backed Iraqi Militias",
+        ["Iranian-backed Iraqi Militias (Kataib Sarkhat al Quds / Harakat Hezbollah al Nujaba)"] = "Iranian-backed Iraqi Militias",
+        ["Iranian-backed Iraqi Militias (Rijal al Baas al Shadid front group)"]                  = "Iranian-backed Iraqi Militias",
+        ["Islamic Resistance in Iraq"]                    = "Iranian-backed Iraqi Militias",
+        ["Islamic Resistance of Iraq"]                    = "Iranian-backed Iraqi Militias",
+        ["Kataib Hezbollah"]                              = "Iranian-backed Iraqi Militias",
+        ["Harakat Hezbollah al Nujaba / Kataib Hezbollah"] = "Iranian-backed Iraqi Militias",
+        ["Kataib Jund al Karar"]                          = "Iranian-backed Iraqi Militias",
+        ["Kataib Sarkhat al Quds (Harakat Hezbollah al Nujaba front)"]       = "Iranian-backed Iraqi Militias",
+        ["Kataib Sarkhat al Quds (Iranian-backed Iraqi militia)"]            = "Iranian-backed Iraqi Militias",
+        ["Kataib Sarqhat al Quds (Harakat Hezbollah al Nujaba front group)"] = "Iranian-backed Iraqi Militias",
+        ["Saraya Awliya al Dam"]                                             = "Iranian-backed Iraqi Militias",
+        ["Saraya Awliya al Dam (Iran-backed Iraqi militia)"]                 = "Iranian-backed Iraqi Militias",
+        ["Saraya Awliya al Dam (Kataib Sayyid al Shuhada front group)"]      = "Iranian-backed Iraqi Militias",
+        ["Jaysh al Ghadab (Iran-backed Iraqi militia front group)"]          = "Iranian-backed Iraqi Militias",
+        ["Jaysh al Ghadab (Iranian-backed Iraqi militia)"]                   = "Iranian-backed Iraqi Militias",
+
+        // Houthis
+        ["Houthi"]                     = "Houthi Movement",
+    };
+
+    IAmazonDynamoDB dynamo = BuildDynamoClient();
+
+    // Scan all strikes using the entity-date GSI
+    List<(Dictionary<string, AttributeValue> key, string oldActor, string newActor)> toUpdate = new();
+    Dictionary<string, AttributeValue>? lastKey = null;
+
+    do
+    {
+        QueryResponse resp = await dynamo.QueryAsync(new QueryRequest
+        {
+            TableName                 = tableName,
+            IndexName                 = "entity-date-index",
+            KeyConditionExpression    = "entity = :e",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":e"] = new AttributeValue { S = "strike" }
+            },
+            ProjectionExpression      = "id, actor",
+            ExclusiveStartKey         = lastKey
+        });
+
+        foreach (Dictionary<string, AttributeValue> item in resp.Items)
+        {
+            if (!item.ContainsKey("actor") || !item.ContainsKey("id")) continue;
+            string current = item["actor"].S;
+            if (actorMap.TryGetValue(current, out string? canonical) && canonical != current)
+            {
+                toUpdate.Add((
+                    new Dictionary<string, AttributeValue> { ["id"] = new AttributeValue { S = item["id"].S } },
+                    current,
+                    canonical
+                ));
+            }
+        }
+
+        lastKey = resp.LastEvaluatedKey?.Count > 0 ? resp.LastEvaluatedKey : null;
+    } while (lastKey != null);
+
+    if (toUpdate.Count == 0)
+    {
+        Console.WriteLine("No actor values need normalization.");
+        return;
+    }
+
+    Console.WriteLine($"Found {toUpdate.Count} strike(s) to normalize:\n");
+    foreach ((Dictionary<string, AttributeValue> _, string old, string next) in toUpdate)
+        Console.WriteLine($"  \"{old}\" → \"{next}\"");
+
+    if (!confirm)
+    {
+        Console.WriteLine($"\nDry run — pass --confirm to update {toUpdate.Count} row(s).");
+        return;
+    }
+
+    int updated = 0;
+    foreach ((Dictionary<string, AttributeValue> key, string _, string newActor) in toUpdate)
+    {
+        await dynamo.UpdateItemAsync(new UpdateItemRequest
+        {
+            TableName        = tableName,
+            Key              = key,
+            UpdateExpression = "SET actor = :a",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":a"] = new AttributeValue { S = newActor }
+            }
+        });
         updated++;
     }
 

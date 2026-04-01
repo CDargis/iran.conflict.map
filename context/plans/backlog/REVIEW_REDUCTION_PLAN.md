@@ -141,6 +141,16 @@ review and write directly. Only ambiguous items go to review.
 Option B would dramatically reduce the queue but requires trusting Claude's lookup result.
 Decide when implementation is underway and the tool's accuracy can be assessed.
 
+### Actor name matching
+
+When Claude returns an actor in a tool lookup result or update payload, it needs to match
+existing records. This was initially a concern (fuzzy matching on actor strings), but was
+resolved by standardizing the actor field to a canonical list:
+
+- Extraction prompt now instructs Claude to use canonical actor names
+- A `normalize-actors` CLI command backfilled all historical records
+- Going forward, actor values will be consistent — no fuzzy matching needed
+
 ### Latency
 
 Tool calls add one round trip to the Claude API per extraction. Current sync is already
