@@ -187,6 +187,8 @@ already attached — faster to verify. Watch for a few days to assess Claude's m
 **Processor Lambda changes:**
 - `tool_updates`: write directly to DynamoDB, skip review queue
 - Remove `updates` handling and proximity matching logic (Haversine, 10km, ±1 day GSI query)
+- Update sync record log summary to reflect the new outcome breakdown, e.g.:
+  `+ 15 events  3 modified  1 ambiguous → review`
 
 **Sync Lambda changes:**
 - Remove `updates` from system prompt entirely
