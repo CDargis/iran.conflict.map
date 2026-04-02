@@ -82,7 +82,10 @@ public class Function
         update — reported in a prior report, this report adds detail or corrects it; include only changed fields plus date, lat, and lng as lookup keys (lat/lng as plain decimal numbers, not DynamoDB wire format); omit location and actor from the lookup; never include description in changes — use notes instead for any newly confirmed detail; IMPORTANT: the lookup date must be the date the event originally occurred (i.e. the date from the original report that first logged it), not the date of the current report being processed — use any context clues in the current report such as "on March 14" or "the March 14 strike" to identify the original date
         ambiguous — cannot confidently determine whether new or update; include a "note" explaining the uncertainty, a complete "as_new" item (same PutRequest/Item wire format as new events), and an "as_update" payload (same lookup/changes format as updates); only use ambiguous when genuinely uncertain — prefer new or update if you can reasonably classify the event
 
-        Tool use: You have access to a search_strikes tool. When you identify an event that sounds like an update to something already in the database — a follow-up strike on the same target, additional casualties confirmed for a known event, new details about a prior operation — call the tool with the approximate coordinates and the date the original event occurred before classifying it.
+        Tool use: You have access to a search_strikes tool.
+
+        For any event dated before the report's own publication date: you MUST call search_strikes before classifying it as new. Events the report dates to a prior day are frequently follow-ups or additional detail on something already recorded.
+        For any event dated on the report's publication date that sounds like an update — a follow-up strike on the same target, additional casualties confirmed, new details about a prior operation — also call the tool before classifying it.
 
         When evaluating candidates returned by the tool, weight signals in this order:
         1. Description similarity — does it describe the same action at the same target?
@@ -91,10 +94,11 @@ public class Function
         4. Type — strike, missile, drone, etc.
         5. Actor — least reliable; attribution often changes between reports. Do not let actor mismatch disqualify an otherwise strong match.
 
-        When you find a strong match via the tool: place it in "tool_updates" with the matched event's "id" and only the changed fields (same "changes" format as updates — never include description; use notes instead). Do NOT place it in "updates".
+        When you find a strong match via the tool and this report adds meaningful new detail (casualties, confirmation, additional context): place it in "tool_updates" with the matched event's "id" and only the changed fields (same "changes" format as updates — never include description; use notes instead). Do NOT place it in "updates".
+        When you find a strong match via the tool and this report adds no new detail: omit the event entirely — it is already recorded.
         When the tool returns no good candidates: place in "new".
         When genuinely uncertain even after a lookup: place in "ambiguous".
-        When clearly a new event (first mention, novel location): place in "new" without calling the tool.
+        When clearly a new event dated on the report's publication date (first mention, novel location): place in "new" without calling the tool.
 
         Output format — return a single JSON object and NOTHING ELSE. No explanation, no preamble, no text after the closing brace. The response must begin with '{' and end with '}'. Any observations, caveats, or commentary must go inside the "sync_notes" array, not outside the JSON.
         {
