@@ -167,7 +167,7 @@ public class IranConflictMapStack : Stack
             DeadLetterQueue          = new DeadLetterQueue
             {
                 Queue           = deadLetterQueue,
-                MaxReceiveCount = 3
+                MaxReceiveCount = 1
             }
         });
 
