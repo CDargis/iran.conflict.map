@@ -215,7 +215,7 @@ public class IranConflictMapStack : Stack
                 ["DEAD_LETTER_QUEUE_URL"] = deadLetterQueue.QueueUrl,
                 ["REVIEW_QUEUE_URL"]      = reviewQueue.QueueUrl
             },
-            Timeout      = Duration.Minutes(5),
+            Timeout      = Duration.Minutes(6),
             MemorySize   = 512,
             LogRetention = RetentionDays.TWO_WEEKS
         });
