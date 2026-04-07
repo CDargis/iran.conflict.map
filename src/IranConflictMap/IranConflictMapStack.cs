@@ -144,7 +144,7 @@ public class IranConflictMapStack : Stack
             QueueName                 = "iran-conflict-map-report.fifo",
             Fifo                      = true,
             ContentBasedDeduplication = true,
-            VisibilityTimeout         = Duration.Minutes(6),  // > sync lambda timeout
+            VisibilityTimeout         = Duration.Minutes(11),  // > sync lambda timeout
             RetentionPeriod           = Duration.Days(7)
         });
 
@@ -418,8 +418,8 @@ public class IranConflictMapStack : Stack
                 ["EMAIL_BUCKET"]        = emailBucket.BucketName,
                 ["SIGNALS_TABLE_NAME"]  = signalsTable.TableName
             },
-            Timeout      = Duration.Minutes(5),
-            MemorySize   = 512,
+            Timeout      = Duration.Minutes(10),
+            MemorySize   = 256,
             LogRetention = RetentionDays.TWO_WEEKS
         });
 
