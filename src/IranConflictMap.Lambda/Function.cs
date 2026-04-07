@@ -51,44 +51,30 @@ public class Function
             {
                 var newCount = 0;
                 var updateApplied = 0;
-                var updateDeadLettered = 0;
                 var reviewCount = 0;
 
                 if (payload.New is { Count: > 0 })
                     newCount = await ProcessNewEvents(payload.New, payload.SourceUrl, payload.SyncedAt, context);
 
                 if (payload.ToolUpdates is { Count: > 0 })
-                {
-                    int toolApplied = await ProcessToolUpdates(payload.ToolUpdates, payload.SourceUrl, payload.SyncedAt, context);
-                    updateApplied += toolApplied;
-                }
-
-                if (payload.Updates is { Count: > 0 })
-                {
-                    int updApplied, updDeadLettered;
-                    (updApplied, updDeadLettered) = await ProcessUpdates(payload.Updates, payload.SourceUrl, payload.SyncedAt, context);
-                    updateApplied += updApplied;
-                    updateDeadLettered += updDeadLettered;
-                }
+                    updateApplied += await ProcessToolUpdates(payload.ToolUpdates, payload.SourceUrl, payload.SyncedAt, context);
 
                 if (payload.Ambiguous is { Count: > 0 })
                     reviewCount += await ProcessAmbiguous(payload.Ambiguous, payload.SourceUrl, payload.SyncedAt, context);
 
-                var status = updateDeadLettered > 0 ? "partial" : "success";
                 var errors = new List<string>();
-                if (updateDeadLettered > 0) errors.Add($"{updateDeadLettered} updates dead-lettered");
                 if (reviewCount > 0) errors.Add($"{reviewCount} pending review");
 
                 if (!payload.IsReviewApproval)
-                    await UpdateSyncRecord(syncReportUrl, syncRecordId, status, newCount, updateApplied, updateDeadLettered, reviewCount,
+                    await UpdateSyncRecord(syncReportUrl, syncRecordId, "success", newCount, updateApplied, reviewCount,
                         errors.Count > 0 ? string.Join("; ", errors) : null, context);
-                context.Logger.LogLine($"[processor] done — new={newCount} updates={updateApplied} dead-lettered={updateDeadLettered} review={reviewCount}");
+                context.Logger.LogLine($"[processor] done — new={newCount} updates={updateApplied} review={reviewCount}");
             }
             catch (Exception ex)
             {
                 context.Logger.LogLine($"[processor] error: {ex}");
                 if (!payload.IsReviewApproval)
-                    await UpdateSyncRecord(syncReportUrl, syncRecordId, "error", 0, 0, 0, 0, ex.Message, context);
+                    await UpdateSyncRecord(syncReportUrl, syncRecordId, "error", 0, 0, 0, ex.Message, context);
                 throw;
             }
         }
@@ -145,139 +131,6 @@ public class Function
 
         context.Logger.LogLine($"[processor] wrote {items.Count} new events");
         return items.Count;
-    }
-
-    // ── Updates ─────────────────────────────────────────────────────────────────
-
-    private async Task<(int applied, int deadLettered)> ProcessUpdates(List<UpdateEvent> updates, string? sourceUrl, string? syncedAt, ILambdaContext context)
-    {
-        var applied = 0;
-        var deadLettered = 0;
-
-        foreach (var update in updates)
-        {
-            var lookup = update.Lookup;
-            string? existingId = null;
-
-            // If lookup has an explicit id, use it directly
-            if (lookup.TryGetValue("id", out var idVal) && idVal is JsonElement idEl)
-            {
-                existingId = idEl.ValueKind == JsonValueKind.String
-                    ? idEl.GetString()
-                    : idEl.GetRawText();
-            }
-
-            if (existingId != null)
-            {
-                var getResp = await _dynamo.GetItemAsync(new GetItemRequest
-                {
-                    TableName = StrikesTable,
-                    Key = new Dictionary<string, AttributeValue>
-                    {
-                        ["id"] = new AttributeValue { S = existingId }
-                    }
-                });
-
-                if (getResp.Item == null || getResp.Item.Count == 0)
-                {
-                    context.Logger.LogLine($"[processor] update: id={existingId} not found, dead-lettering");
-                    await SendToDeadLetter($"Update lookup failed: id={existingId} not found in DB.", JsonSerializer.Serialize(update));
-                    deadLettered++;
-                    continue;
-                }
-
-                context.Logger.LogLine($"[processor] update: matched id={existingId}, applying directly");
-                await ApplyUpdate(existingId, getResp.Item, update.Changes, sourceUrl, syncedAt, context);
-                applied++;
-            }
-            else
-            {
-                // Query by date, then proximity-match by lat/lng
-                var date = GetLookupString(lookup, "date");
-                var lat  = GetLookupDouble(lookup, "lat");
-                var lng  = GetLookupDouble(lookup, "lng");
-
-                if (date == null || lat == null || lng == null)
-                {
-                    context.Logger.LogLine($"[processor] update missing date/lat/lng lookup fields, dead-lettering");
-                    await SendToDeadLetter("Update lookup failed: missing date, lat, or lng fields.", JsonSerializer.Serialize(update));
-                    deadLettered++;
-                    continue;
-                }
-
-                // Query ±1 day to handle off-by-one date errors in Claude's lookup
-                DateTime parsedDate   = DateTime.Parse(date);
-                string[] datesToQuery = new[]
-                {
-                    parsedDate.AddDays(-1).ToString("yyyy-MM-dd"),
-                    date,
-                    parsedDate.AddDays(1).ToString("yyyy-MM-dd")
-                };
-
-                List<Dictionary<string, AttributeValue>> allCandidates = new();
-                foreach (string queryDate in datesToQuery)
-                {
-                    var queryResp = await _dynamo.QueryAsync(new QueryRequest
-                    {
-                        TableName                 = StrikesTable,
-                        IndexName                 = StrikesGsi,
-                        KeyConditionExpression    = "entity = :entity AND #d = :date",
-                        ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date" },
-                        ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-                        {
-                            [":entity"] = new AttributeValue { S = "strike" },
-                            [":date"]   = new AttributeValue { S = queryDate }
-                        }
-                    });
-                    allCandidates.AddRange(queryResp.Items);
-                }
-
-                // Rank all candidates by distance; track nearest regardless of threshold
-                const double ThresholdKm = 10.0;
-                var ranked = allCandidates
-                    .Where(i => i.ContainsKey("lat") && i.ContainsKey("lng"))
-                    .Select(i => (item: i, dist: HaversineKm(lat.Value, lng.Value,
-                        double.Parse(i["lat"].N), double.Parse(i["lng"].N))))
-                    .OrderBy(x => x.dist)
-                    .ToList();
-
-                string nearestDesc = ranked.Count > 0
-                    ? $"Nearest: id={ranked[0].item["id"].S} dist={ranked[0].dist:F1}km date={ranked[0].item.GetValueOrDefault("date")?.S} title={(ranked[0].item.TryGetValue("title", out AttributeValue? tv) ? tv.S : "?")}"
-                    : "No candidates found in ±1 day window.";
-
-                var closest = ranked.Where(x => x.dist <= ThresholdKm).ToList();
-
-                if (closest.Count == 0)
-                {
-                    context.Logger.LogLine($"[processor] update: no proximity match for {date} ({lat},{lng}) in ±1 day — {nearestDesc}, dead-lettering");
-                    await SendToDeadLetter($"Update lookup failed: no event within {ThresholdKm}km of ({lat},{lng}) on {date} ±1 day. {nearestDesc}", JsonSerializer.Serialize(update));
-                    deadLettered++;
-                    continue;
-                }
-
-                // Multiple close matches — apply to nearest
-                if (closest.Count > 1 && closest[1].dist < 1.0)
-                {
-                    context.Logger.LogLine($"[processor] update: multiple proximity matches within 1km for {date} ({lat},{lng}), applying to nearest — {nearestDesc}");
-                    existingId = closest[0].item["id"].S;
-                    await ApplyUpdate(existingId, closest[0].item, update.Changes, sourceUrl, syncedAt, context);
-                    applied++;
-                    continue;
-                }
-
-                var existing = closest[0].item;
-                existingId = existing["id"].S;
-                string matchedDate = existing.TryGetValue("date", out AttributeValue? matchDateVal) ? matchDateVal.S ?? date : date;
-                string matchNote = matchedDate != date
-                    ? $"Proximity match: id={existingId}, dist={closest[0].dist:F2}km. Note: lookup date was {date} but matched event is dated {matchedDate}."
-                    : $"Proximity match: id={existingId}, dist={closest[0].dist:F2}km.";
-                context.Logger.LogLine($"[processor] update: {matchNote}, applying directly");
-                await ApplyUpdate(existingId, existing, update.Changes, sourceUrl, syncedAt, context);
-                applied++;
-            }
-        }
-
-        return (applied, deadLettered);
     }
 
     // ── Tool Updates ────────────────────────────────────────────────────────────
@@ -484,17 +337,16 @@ public class Function
     // ── DynamoDB Helpers ────────────────────────────────────────────────────────
 
     private async Task UpdateSyncRecord(string reportUrl, string runId, string status, int newCount, int updateCount,
-        int deadLetterCount, int reviewCount, string? errorMessage, ILambdaContext context)
+        int reviewCount, string? errorMessage, ILambdaContext context)
     {
         // Always set entity so this acts as an upsert (handles review-approval envelopes
         // that arrive without a prior "processing" record written by the Sync Lambda).
-        var updateExpr = "SET #s = :status, new_event_count = :new, update_count = :upd, dead_letter_count = :dlq, review_count = :rev, entity = :entity";
+        var updateExpr = "SET #s = :status, new_event_count = :new, update_count = :upd, review_count = :rev, entity = :entity";
         var attrValues = new Dictionary<string, AttributeValue>
         {
             [":status"] = new() { S = status },
             [":new"]    = new() { N = newCount.ToString() },
             [":upd"]    = new() { N = updateCount.ToString() },
-            [":dlq"]    = new() { N = deadLetterCount.ToString() },
             [":rev"]    = new() { N = reviewCount.ToString() },
             [":entity"] = new() { S = "sync" }
         };
@@ -640,24 +492,6 @@ public class Function
         return null;
     }
 
-    private static double? GetLookupDouble(Dictionary<string, JsonElement> lookup, string key)
-    {
-        if (!lookup.TryGetValue(key, out var val)) return null;
-        if (val.ValueKind == JsonValueKind.Number) return val.GetDouble();
-        if (val.TryGetProperty("N", out var n) && double.TryParse(n.GetString(), out var d)) return d;
-        return null;
-    }
-
-    private static string? GetLookupString(Dictionary<string, JsonElement> lookup, string key)
-    {
-        if (lookup.TryGetValue(key, out var val))
-        {
-            if (val.ValueKind == JsonValueKind.String) return val.GetString();
-            if (val.TryGetProperty("S", out var s)) return s.GetString();
-        }
-        return null;
-    }
-
     // Returns a flat string/number map of an existing DynamoDB item for review message readability.
     private static Dictionary<string, object?> SimplifyItem(Dictionary<string, AttributeValue> item)
     {
@@ -691,9 +525,6 @@ public class SyncEnvelope
     [System.Text.Json.Serialization.JsonPropertyName("tool_updates")]
     public List<ToolUpdateEvent>? ToolUpdates { get; set; }
 
-    [System.Text.Json.Serialization.JsonPropertyName("updates")]
-    public List<UpdateEvent>? Updates { get; set; }
-
     [System.Text.Json.Serialization.JsonPropertyName("ambiguous")]
     public List<JsonElement>? Ambiguous { get; set; }
 
@@ -709,15 +540,6 @@ public class NewEvent
 public class PutRequestWrapper
 {
     public Dictionary<string, JsonElement> Item { get; set; } = new();
-}
-
-public class UpdateEvent
-{
-    [System.Text.Json.Serialization.JsonPropertyName("lookup")]
-    public Dictionary<string, JsonElement> Lookup { get; set; } = new();
-
-    [System.Text.Json.Serialization.JsonPropertyName("changes")]
-    public Dictionary<string, JsonElement> Changes { get; set; } = new();
 }
 
 public class ToolUpdateEvent

@@ -79,10 +79,9 @@ public class Function
         Citation mapping rule: The report contains inline footnote markers (e.g. [i], [ii], [xv]) within each topline paragraph, and a corresponding footnote block at the bottom resolving each marker to a URL. For each event, collect only the footnote markers within that event's paragraph, resolve them to their URLs, and include those in citations. Omit the field entirely if no footnotes are mappable.
         New vs update rule: Classify each extracted event as:
         new — not previously reported; do not include id, it is assigned automatically
-        update — reported in a prior report, this report adds detail or corrects it; include only changed fields plus date, lat, and lng as lookup keys (lat/lng as plain decimal numbers, not DynamoDB wire format); omit location and actor from the lookup; never include description in changes — use notes instead for any newly confirmed detail; IMPORTANT: the lookup date must be the date the event originally occurred (i.e. the date from the original report that first logged it), not the date of the current report being processed — use any context clues in the current report such as "on March 14" or "the March 14 strike" to identify the original date
-        ambiguous — cannot confidently determine whether new or update; include a "note" explaining the uncertainty, a complete "as_new" item (same PutRequest/Item wire format as new events), and an "as_update" payload (same lookup/changes format as updates); only use ambiguous when genuinely uncertain — prefer new or update if you can reasonably classify the event
+        ambiguous — you called search_strikes and cannot confidently determine whether this is new or an update to an existing record; include a "note" explaining the uncertainty, a complete "as_new" item (same PutRequest/Item wire format as new events), and an "as_update" payload with the best candidate's "id" and only the changed fields in "changes" (DynamoDB wire format — never include description; use notes instead)
 
-        Tool use: You have access to a search_strikes tool.
+        Tool use: You have access to a search_strikes tool. You MUST use it before classifying any event as an update.
 
         For any event dated before the report's own publication date: you MUST call search_strikes before classifying it as new. Events the report dates to a prior day are frequently follow-ups or additional detail on something already recorded.
         For any event dated on the report's publication date that sounds like an update — a follow-up strike on the same target, additional casualties confirmed, new details about a prior operation — also call the tool before classifying it.
@@ -94,7 +93,7 @@ public class Function
         4. Type — strike, missile, drone, etc.
         5. Actor — least reliable; attribution often changes between reports. Do not let actor mismatch disqualify an otherwise strong match.
 
-        When you find a strong match via the tool and this report adds meaningful new detail (casualties, confirmation, additional context): place it in "tool_updates" with the matched event's "id" and only the changed fields (same "changes" format as updates — never include description; use notes instead). Do NOT place it in "updates".
+        When you find a strong match via the tool and this report adds meaningful new detail (casualties, confirmation, additional context): place it in "tool_updates" with the matched event's "id" and only the changed fields (DynamoDB wire format — never include description; use notes instead).
         When you find a strong match via the tool and this report adds no new detail: omit the event entirely — it is already recorded.
         When the tool returns no good candidates: place in "new".
         When genuinely uncertain even after a lookup: place in "ambiguous".
@@ -104,8 +103,7 @@ public class Function
         {
           "new": [ { "PutRequest": { "Item": { ... DynamoDB wire format ... } } }, ... ],
           "tool_updates": [ { "id": "...", "changes": { ... DynamoDB wire format — changed fields only, never include description ... } }, ... ],
-          "updates": [ { "lookup": { "date": "...", "lat": 0.0, "lng": 0.0 }, "changes": { ... DynamoDB wire format ... } }, ... ],
-          "ambiguous": [ { "note": "...", "as_new": { "PutRequest": { "Item": { ... DynamoDB wire format ... } } }, "as_update": { "lookup": { "date": "...", "lat": 0.0, "lng": 0.0 }, "changes": { ... DynamoDB wire format ... } } }, ... ],
+          "ambiguous": [ { "note": "...", "as_new": { "PutRequest": { "Item": { ... DynamoDB wire format ... } } }, "as_update": { "id": "...", "changes": { ... DynamoDB wire format — changed fields only, never include description ... } } }, ... ],
           "sync_notes": [ "...", ... ]
         }
         Only include "disputed" when genuinely contested. Only include "citations" when footnotes are mappable. Only include fields in "changes" that are actually changing. Include "sync_notes" only when there is something worth noting (e.g. ambiguous sourcing, unusual report, low-confidence classifications, data gaps). Omit the field entirely if there are no notes.
@@ -268,7 +266,6 @@ public class Function
                 synced_at    = runId,
                 @new         = newWithIds,
                 tool_updates = claudeDoc.TryGetProperty("tool_updates", out var tu) ? tu : (JsonElement?)null,
-                updates      = claudeDoc.TryGetProperty("updates",      out var u)  ? u  : (JsonElement?)null,
                 ambiguous    = claudeDoc.TryGetProperty("ambiguous",    out var a)  ? a  : (JsonElement?)null,
                 sync_notes   = syncNotes
             });
@@ -531,10 +528,9 @@ public class Function
             JsonDocument parsed        = JsonDocument.Parse(jsonText);
             bool hasNew          = parsed.RootElement.TryGetProperty("new",          out JsonElement nv) && nv.ValueKind == JsonValueKind.Array;
             bool hasToolUpdates  = parsed.RootElement.TryGetProperty("tool_updates", out JsonElement tv) && tv.ValueKind == JsonValueKind.Array;
-            bool hasUpdates      = parsed.RootElement.TryGetProperty("updates",      out JsonElement uv) && uv.ValueKind == JsonValueKind.Array;
             bool hasAmbig        = parsed.RootElement.TryGetProperty("ambiguous",    out JsonElement av) && av.ValueKind == JsonValueKind.Array;
 
-            if (!hasNew && !hasToolUpdates && !hasUpdates && !hasAmbig)
+            if (!hasNew && !hasToolUpdates && !hasAmbig)
             {
                 ctx.Logger.LogLine($"[sync] Claude response missing all expected arrays — json: {jsonText[..Math.Min(jsonText.Length, 1000)]}");
                 return null;
@@ -543,7 +539,6 @@ public class Function
             ctx.Logger.LogLine(
                 $"[sync] Claude response valid: new={( hasNew ? nv.GetArrayLength() : 0 )} " +
                 $"tool_updates={( hasToolUpdates ? tv.GetArrayLength() : 0 )} " +
-                $"updates={( hasUpdates ? uv.GetArrayLength() : 0 )} " +
                 $"ambiguous={( hasAmbig ? av.GetArrayLength() : 0 )}");
             return jsonText;
         }
