@@ -58,13 +58,17 @@ public class Function
                     newCount = await ProcessNewEvents(payload.New, payload.SourceUrl, payload.SyncedAt, context);
 
                 if (payload.ToolUpdates is { Count: > 0 })
-                    reviewCount += await ProcessToolUpdates(payload.ToolUpdates, payload.SourceUrl, payload.SyncedAt, context);
+                {
+                    int toolApplied = await ProcessToolUpdates(payload.ToolUpdates, payload.SourceUrl, payload.SyncedAt, context);
+                    updateApplied += toolApplied;
+                }
 
                 if (payload.Updates is { Count: > 0 })
                 {
-                    int updateReviewed;
-                    (updateApplied, updateDeadLettered, updateReviewed) = await ProcessUpdates(payload.Updates, payload.SourceUrl, payload.SyncedAt, payload.IsReviewApproval, context);
-                    reviewCount += updateReviewed;
+                    int updApplied, updDeadLettered;
+                    (updApplied, updDeadLettered) = await ProcessUpdates(payload.Updates, payload.SourceUrl, payload.SyncedAt, context);
+                    updateApplied += updApplied;
+                    updateDeadLettered += updDeadLettered;
                 }
 
                 if (payload.Ambiguous is { Count: > 0 })
@@ -145,11 +149,10 @@ public class Function
 
     // ── Updates ─────────────────────────────────────────────────────────────────
 
-    private async Task<(int applied, int deadLettered, int reviewed)> ProcessUpdates(List<UpdateEvent> updates, string? sourceUrl, string? syncedAt, bool isReviewApproval, ILambdaContext context)
+    private async Task<(int applied, int deadLettered)> ProcessUpdates(List<UpdateEvent> updates, string? sourceUrl, string? syncedAt, ILambdaContext context)
     {
         var applied = 0;
         var deadLettered = 0;
-        var reviewed = 0;
 
         foreach (var update in updates)
         {
@@ -166,7 +169,6 @@ public class Function
 
             if (existingId != null)
             {
-                // Direct lookup by id
                 var getResp = await _dynamo.GetItemAsync(new GetItemRequest
                 {
                     TableName = StrikesTable,
@@ -178,23 +180,15 @@ public class Function
 
                 if (getResp.Item == null || getResp.Item.Count == 0)
                 {
-                    context.Logger.LogLine($"[processor] update: id={existingId} not found, sending to review");
-                    await SendFailedUpdateToReviewQueue($"Update lookup failed: id={existingId} not found in DB.", update, sourceUrl, syncedAt);
-                    reviewed++;
+                    context.Logger.LogLine($"[processor] update: id={existingId} not found, dead-lettering");
+                    await SendToDeadLetter($"Update lookup failed: id={existingId} not found in DB.", JsonSerializer.Serialize(update));
+                    deadLettered++;
                     continue;
                 }
 
-                if (isReviewApproval)
-                {
-                    await ApplyUpdate(existingId, getResp.Item, update.Changes, sourceUrl, syncedAt, context);
-                    applied++;
-                }
-                else
-                {
-                    context.Logger.LogLine($"[processor] update: matched id={existingId}, sending to review");
-                    await SendMatchedUpdateToReviewQueue($"Matched by id={existingId}.", existingId, getResp.Item, update, sourceUrl, syncedAt);
-                    reviewed++;
-                }
+                context.Logger.LogLine($"[processor] update: matched id={existingId}, applying directly");
+                await ApplyUpdate(existingId, getResp.Item, update.Changes, sourceUrl, syncedAt, context);
+                applied++;
             }
             else
             {
@@ -205,9 +199,9 @@ public class Function
 
                 if (date == null || lat == null || lng == null)
                 {
-                    context.Logger.LogLine($"[processor] update missing date/lat/lng lookup fields, sending to review");
-                    await SendFailedUpdateToReviewQueue("Update lookup failed: missing date, lat, or lng fields.", update, sourceUrl, syncedAt);
-                    reviewed++;
+                    context.Logger.LogLine($"[processor] update missing date/lat/lng lookup fields, dead-lettering");
+                    await SendToDeadLetter("Update lookup failed: missing date, lat, or lng fields.", JsonSerializer.Serialize(update));
+                    deadLettered++;
                     continue;
                 }
 
@@ -255,70 +249,42 @@ public class Function
 
                 if (closest.Count == 0)
                 {
-                    if (isReviewApproval && ranked.Count > 0)
-                    {
-                        // Human approved — apply to nearest regardless of threshold
-                        context.Logger.LogLine($"[processor] update: review approval, applying to nearest despite threshold — {nearestDesc}");
-                        existingId = ranked[0].item["id"].S;
-                        await ApplyUpdate(existingId, ranked[0].item, update.Changes, sourceUrl, syncedAt, context);
-                        applied++;
-                        continue;
-                    }
-                    context.Logger.LogLine($"[processor] update: no proximity match for {date} ({lat},{lng}) in ±1 day — {nearestDesc}, sending to review");
-                    await SendFailedUpdateToReviewQueue($"Update lookup failed: no event within {ThresholdKm}km of ({lat},{lng}) on {date} ±1 day. {nearestDesc}",
-                        update, sourceUrl, syncedAt, ranked.Count > 0 ? ranked[0].item : null);
-                    reviewed++;
+                    context.Logger.LogLine($"[processor] update: no proximity match for {date} ({lat},{lng}) in ±1 day — {nearestDesc}, dead-lettering");
+                    await SendToDeadLetter($"Update lookup failed: no event within {ThresholdKm}km of ({lat},{lng}) on {date} ±1 day. {nearestDesc}", JsonSerializer.Serialize(update));
+                    deadLettered++;
                     continue;
                 }
 
+                // Multiple close matches — apply to nearest
                 if (closest.Count > 1 && closest[1].dist < 1.0)
                 {
-                    if (isReviewApproval)
-                    {
-                        // Human approved — apply to closest despite ambiguity
-                        context.Logger.LogLine($"[processor] update: review approval, applying to closest despite ambiguity — {nearestDesc}");
-                        existingId = closest[0].item["id"].S;
-                        await ApplyUpdate(existingId, closest[0].item, update.Changes, sourceUrl, syncedAt, context);
-                        applied++;
-                        continue;
-                    }
-                    context.Logger.LogLine($"[processor] update: multiple proximity matches within 1km for {date} ({lat},{lng}), sending to review");
-                    await SendFailedUpdateToReviewQueue($"Update lookup ambiguous: {closest.Count} events within 1km of ({lat},{lng}) on {date} ±1 day. {nearestDesc}",
-                        update, sourceUrl, syncedAt, closest[0].item, proximityAmbiguous: true);
-                    reviewed++;
+                    context.Logger.LogLine($"[processor] update: multiple proximity matches within 1km for {date} ({lat},{lng}), applying to nearest — {nearestDesc}");
+                    existingId = closest[0].item["id"].S;
+                    await ApplyUpdate(existingId, closest[0].item, update.Changes, sourceUrl, syncedAt, context);
+                    applied++;
                     continue;
                 }
 
                 var existing = closest[0].item;
                 existingId = existing["id"].S;
                 string matchedDate = existing.TryGetValue("date", out AttributeValue? matchDateVal) ? matchDateVal.S ?? date : date;
-
-                if (isReviewApproval)
-                {
-                    context.Logger.LogLine($"[processor] update: proximity match id={existingId} dist={closest[0].dist:F2}km date={matchedDate}");
-                    await ApplyUpdate(existingId, existing, update.Changes, sourceUrl, syncedAt, context);
-                    applied++;
-                }
-                else
-                {
-                    string matchNote = matchedDate != date
-                        ? $"Proximity match: id={existingId}, dist={closest[0].dist:F2}km. Note: lookup date was {date} but matched event is dated {matchedDate}."
-                        : $"Proximity match: id={existingId}, dist={closest[0].dist:F2}km.";
-                    context.Logger.LogLine($"[processor] update: {matchNote}, sending to review");
-                    await SendMatchedUpdateToReviewQueue(matchNote, existingId, existing, update, sourceUrl, syncedAt);
-                    reviewed++;
-                }
+                string matchNote = matchedDate != date
+                    ? $"Proximity match: id={existingId}, dist={closest[0].dist:F2}km. Note: lookup date was {date} but matched event is dated {matchedDate}."
+                    : $"Proximity match: id={existingId}, dist={closest[0].dist:F2}km.";
+                context.Logger.LogLine($"[processor] update: {matchNote}, applying directly");
+                await ApplyUpdate(existingId, existing, update.Changes, sourceUrl, syncedAt, context);
+                applied++;
             }
         }
 
-        return (applied, deadLettered, reviewed);
+        return (applied, deadLettered);
     }
 
     // ── Tool Updates ────────────────────────────────────────────────────────────
 
     private async Task<int> ProcessToolUpdates(List<ToolUpdateEvent> toolUpdates, string? sourceUrl, string? syncedAt, ILambdaContext context)
     {
-        int reviewed = 0;
+        int applied = 0;
 
         foreach (ToolUpdateEvent update in toolUpdates)
         {
@@ -333,27 +299,17 @@ public class Function
 
             if (getResp.Item == null || getResp.Item.Count == 0)
             {
-                context.Logger.LogLine($"[processor] tool_update: id={update.Id} not found in DB, sending to review");
-                // Build a minimal failed-update review item with the id in the lookup
-                UpdateEvent asUpdate = new()
-                {
-                    Lookup  = new Dictionary<string, JsonElement>
-                    {
-                        ["id"] = JsonSerializer.SerializeToElement(update.Id)
-                    },
-                    Changes = update.Changes
-                };
-                await SendFailedUpdateToReviewQueue($"Tool update: id={update.Id} not found in DB.", asUpdate, sourceUrl, syncedAt);
-                reviewed++;
+                context.Logger.LogLine($"[processor] tool_update: id={update.Id} not found in DB, dead-lettering");
+                await SendToDeadLetter($"Tool update: id={update.Id} not found in DB.", JsonSerializer.Serialize(update));
                 continue;
             }
 
-            context.Logger.LogLine($"[processor] tool_update: matched id={update.Id}, sending to review");
-            await SendToolUpdateToReviewQueue(update.Id, getResp.Item, update.Changes, sourceUrl, syncedAt);
-            reviewed++;
+            context.Logger.LogLine($"[processor] tool_update: matched id={update.Id}, applying directly");
+            await ApplyUpdate(update.Id, getResp.Item, update.Changes, sourceUrl, syncedAt, context);
+            applied++;
         }
 
-        return reviewed;
+        return applied;
     }
 
     private async Task ApplyUpdate(string id, Dictionary<string, AttributeValue> existing,
@@ -576,61 +532,6 @@ public class Function
 
         var item = new { as_new = asNew, as_update = asUpdate, nearest_record = simplifiedNearest };
         var body = JsonSerializer.Serialize(new { source_url = sourceUrl, sync_id = syncId, item });
-
-        await _sqs.SendMessageAsync(new SendMessageRequest
-        {
-            QueueUrl       = ReviewQueueUrl,
-            MessageBody    = body,
-            MessageGroupId = "review"
-        });
-    }
-
-    private async Task SendMatchedUpdateToReviewQueue(string note, string existingId, Dictionary<string, AttributeValue> existingItem, UpdateEvent update, string? sourceUrl, string? syncId)
-    {
-        if (string.IsNullOrEmpty(ReviewQueueUrl)) return;
-
-        var item = new { note, existing_id = existingId, existing_record = SimplifyItem(existingItem), as_update = update, as_new = (object?)null };
-        var body = JsonSerializer.Serialize(new { source_url = sourceUrl, sync_id = syncId, item });
-
-        await _sqs.SendMessageAsync(new SendMessageRequest
-        {
-            QueueUrl       = ReviewQueueUrl,
-            MessageBody    = body,
-            MessageGroupId = "review"
-        });
-    }
-
-    private async Task SendFailedUpdateToReviewQueue(string note, UpdateEvent update, string? sourceUrl, string? syncId,
-        Dictionary<string, AttributeValue>? nearestRecord = null, bool proximityAmbiguous = false)
-    {
-        if (string.IsNullOrEmpty(ReviewQueueUrl)) return;
-
-        object? simplifiedNearest = nearestRecord != null ? SimplifyItem(nearestRecord) : null;
-        var item = new { note, as_update = update, as_new = (object?)null, nearest_record = simplifiedNearest, proximity_ambiguous = proximityAmbiguous };
-        var body = JsonSerializer.Serialize(new { source_url = sourceUrl, sync_id = syncId, item });
-
-        await _sqs.SendMessageAsync(new SendMessageRequest
-        {
-            QueueUrl       = ReviewQueueUrl,
-            MessageBody    = body,
-            MessageGroupId = "review"
-        });
-    }
-
-    private async Task SendToolUpdateToReviewQueue(string existingId, Dictionary<string, AttributeValue> existingItem,
-        Dictionary<string, JsonElement> changes, string? sourceUrl, string? syncId)
-    {
-        if (string.IsNullOrEmpty(ReviewQueueUrl)) return;
-
-        var item = new
-        {
-            note            = $"Tool-confirmed match: id={existingId}.",
-            existing_id     = existingId,
-            existing_record = SimplifyItem(existingItem),
-            as_update       = new { lookup = new { id = existingId }, changes },
-            as_new          = (object?)null
-        };
-        string body = JsonSerializer.Serialize(new { source_url = sourceUrl, sync_id = syncId, item });
 
         await _sqs.SendMessageAsync(new SendMessageRequest
         {
