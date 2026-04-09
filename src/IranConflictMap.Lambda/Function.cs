@@ -351,6 +351,13 @@ public class Function
             [":entity"] = new() { S = "sync" }
         };
 
+        if (DateTime.TryParse(runId, null, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime startTime))
+        {
+            long durationMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
+            updateExpr += ", duration_ms = :dur";
+            attrValues[":dur"] = new() { N = durationMs.ToString() };
+        }
+
         if (errorMessage != null)
         {
             updateExpr += ", error_message = :err";

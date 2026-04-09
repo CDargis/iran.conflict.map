@@ -1422,6 +1422,7 @@ function fmtSyncTs(iso){
   return `${MONTH_ABBR[d.getMonth()]} ${String(d.getDate()).padStart(2,'0')} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 function urlSlug(url){try{return new URL(url).pathname.split('/').filter(Boolean).pop()||url;}catch{return url;}}
+function fmtDuration(ms){if(ms==null)return'';const s=Math.round(ms/1000);if(s<60)return`${s}s`;const m=Math.floor(s/60),r=s%60;return`${m}m ${r}s`;}
 function syncLogHTML(groups){
   if(!groups||!groups.length) return '<div class="data-note" style="color:var(--dim)">No syncs yet.</div>';
   return groups.map(g=>{
@@ -1447,11 +1448,12 @@ function syncLogHTML(groups){
       resultText=parts.join(' / ');
     }
     const reviewBadge=totalRev>0?`<span class="sync-review">↷ ${totalRev} review</span>`:'';
+    const durStr=latest?.duration_ms!=null?`<span style="opacity:.45;font-size:9px"> ${fmtDuration(latest.duration_ms)}</span>`:'';
     const slug=urlSlug(g.url);
     return `<div class="sync-entry">
       <div class="sync-entry-row">
         <span class="sync-ts">${ts}</span>
-        <span class="sync-result ${resultClass}">${resultText}</span>
+        <span class="sync-result ${resultClass}">${resultText}</span>${durStr}
         ${reviewBadge}
       </div>
       <div style="font-size:9px;color:var(--dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${g.url}">${slug}</div>

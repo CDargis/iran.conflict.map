@@ -577,6 +577,14 @@
     return `${MONTHS[d.getMonth()]} ${String(d.getDate()).padStart(2,'0')} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
   }
 
+  function fmtDuration(ms) {
+    if (ms == null) return '';
+    const s = Math.round(ms / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60), r = s % 60;
+    return `${m}m ${r}s`;
+  }
+
   function urlSlug(url) {
     try { return new URL(url).pathname.replace(/^\/analysis\//, '').replace(/\/$/, '') || url; }
     catch { return url; }
@@ -613,6 +621,7 @@
       const runsHTML = g.runs.map(run => {
         const { cls: rc, label: rl } = runResult(run);
         const strat = run.url_strategy ? ` <span style="opacity:.5">via ${run.url_strategy.replace(/_/g,' ')}</span>` : '';
+        const dur = run.duration_ms != null ? ` <span style="opacity:.5">${fmtDuration(run.duration_ms)}</span>` : '';
         const err = run.error_message ? `<div class="sync-error">${escHtml(run.error_message)}</div>` : '';
         const rb = run.review_count > 0 ? `<span class="sync-review">↷ ${run.review_count}</span>` : '';
         const notes = run.sync_notes?.length
@@ -620,7 +629,7 @@
           : '';
         return `<div class="sync-run">
           <span class="sync-ts">${fmtTs(run.run_id)}</span>
-          <span class="sync-result ${rc}">${rl}</span>${strat}${rb}
+          <span class="sync-result ${rc}">${rl}</span>${strat}${dur}${rb}
         </div>${err}${notes}`;
       }).join('');
 
