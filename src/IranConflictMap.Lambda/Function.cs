@@ -354,7 +354,7 @@ public class Function
         if (DateTime.TryParse(runId, null, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime startTime))
         {
             long durationMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
-            updateExpr += ", duration_ms = :dur";
+            updateExpr += ", total_duration_ms = :dur";
             attrValues[":dur"] = new() { N = durationMs.ToString() };
         }
 

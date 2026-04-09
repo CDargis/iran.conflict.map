@@ -714,6 +714,9 @@ public class Function
             ["update_count"]      = new() { N = updateCount.ToString() },
             ["dead_letter_count"] = new() { N = ambigCount.ToString() }
         };
+
+        if (DateTime.TryParse(runId, null, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime startTime))
+            item["sync_duration_ms"] = new() { N = ((long)(DateTime.UtcNow - startTime).TotalMilliseconds).ToString() };
         if (!string.IsNullOrEmpty(errorMessage))
             item["error_message"] = new() { S = errorMessage.Length > 1000 ? errorMessage[..1000] : errorMessage };
         if (!string.IsNullOrEmpty(urlStrategy))

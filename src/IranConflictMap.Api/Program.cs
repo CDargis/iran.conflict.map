@@ -169,7 +169,8 @@ app.MapGet("/api/syncs", async (IAmazonDynamoDB dynamo) =>
         update_count      = item.ContainsKey("update_count")     ? int.Parse(item["update_count"].N)     : 0,
         dead_letter_count = item.ContainsKey("dead_letter_count")? int.Parse(item["dead_letter_count"].N): 0,
         review_count      = item.ContainsKey("review_count")     ? int.Parse(item["review_count"].N)     : 0,
-        duration_ms       = item.ContainsKey("duration_ms")      ? long.Parse(item["duration_ms"].N)     : (long?)null,
+        sync_duration_ms  = item.ContainsKey("sync_duration_ms")  ? long.Parse(item["sync_duration_ms"].N)  : (long?)null,
+        total_duration_ms = item.ContainsKey("total_duration_ms") ? long.Parse(item["total_duration_ms"].N) : (long?)null,
         url_strategy      = item.ContainsKey("url_strategy")     ? item["url_strategy"].S                : "",
         error_message     = item.ContainsKey("error_message")    ? item["error_message"].S               : "",
         sync_notes        = item.ContainsKey("sync_notes") && item["sync_notes"].L != null

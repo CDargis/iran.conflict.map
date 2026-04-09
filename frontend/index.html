@@ -1448,7 +1448,10 @@ function syncLogHTML(groups){
       resultText=parts.join(' / ');
     }
     const reviewBadge=totalRev>0?`<span class="sync-review">↷ ${totalRev} review</span>`:'';
-    const durStr=latest?.duration_ms!=null?`<span style="opacity:.45;font-size:9px"> ${fmtDuration(latest.duration_ms)}</span>`:'';
+    const durParts=[];
+    if(latest?.sync_duration_ms!=null) durParts.push(`${fmtDuration(latest.sync_duration_ms)} sync`);
+    if(latest?.total_duration_ms!=null) durParts.push(`${fmtDuration(latest.total_duration_ms)} total`);
+    const durStr=durParts.length?`<span style="opacity:.45;font-size:9px"> ${durParts.join(' · ')}</span>`:'';
     const slug=urlSlug(g.url);
     return `<div class="sync-entry">
       <div class="sync-entry-row">
