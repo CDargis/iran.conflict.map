@@ -112,13 +112,14 @@ app.MapGet("/api/strikes/dates", async (IAmazonDynamoDB dynamo) =>
     if (strikeDatesCache is not null && DateTime.UtcNow < strikeDatesCacheExpiry)
         return Results.Ok(strikeDatesCache);
 
-    string tableName = Environment.GetEnvironmentVariable("STRIKES_TABLE") ?? "strikes";
-    string indexName = Environment.GetEnvironmentVariable("STRIKES_GSI")   ?? "entity-date-index";
+    string strikesTable = Environment.GetEnvironmentVariable("STRIKES_TABLE") ?? "strikes";
+    string strikesIndex = Environment.GetEnvironmentVariable("STRIKES_GSI")   ?? "entity-date-index";
+    string syncsTable   = Environment.GetEnvironmentVariable("SYNCS_TABLE")   ?? "syncs";
 
-    QueryResponse response = await dynamo.QueryAsync(new QueryRequest
+    Task<QueryResponse> strikesTask = dynamo.QueryAsync(new QueryRequest
     {
-        TableName                 = tableName,
-        IndexName                 = indexName,
+        TableName                 = strikesTable,
+        IndexName                 = strikesIndex,
         KeyConditionExpression    = "entity = :e AND #d >= :from",
         ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date" },
         ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -129,8 +130,32 @@ app.MapGet("/api/strikes/dates", async (IAmazonDynamoDB dynamo) =>
         ProjectionExpression = "#d",
     });
 
-    List<string> dates = response.Items
-        .Select(item => item["date"].S)
+    // Include dates from successful syncs so days with no events still appear in the date picker
+    Task<QueryResponse> syncsTask = dynamo.QueryAsync(new QueryRequest
+    {
+        TableName                 = syncsTable,
+        IndexName                 = "entity-run-index",
+        KeyConditionExpression    = "entity = :e AND run_id >= :from",
+        FilterExpression          = "#s = :success",
+        ExpressionAttributeNames  = new Dictionary<string, string> { ["#s"] = "status" },
+        ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+        {
+            [":e"]       = new AttributeValue { S = "sync" },
+            [":from"]    = new AttributeValue { S = "2026-02-27" },
+            [":success"] = new AttributeValue { S = "success" }
+        },
+        ProjectionExpression = "run_id",
+    });
+
+    await Task.WhenAll(strikesTask, syncsTask);
+
+    IEnumerable<string> strikeDates = strikesTask.Result.Items.Select(item => item["date"].S);
+    IEnumerable<string> syncDates   = syncsTask.Result.Items
+        .Where(item => item.ContainsKey("run_id") && item["run_id"].S.Length >= 10)
+        .Select(item => item["run_id"].S[..10]);
+
+    List<string> dates = strikeDates
+        .Concat(syncDates)
         .Distinct()
         .OrderBy(d => d)
         .ToList();
