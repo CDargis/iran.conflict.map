@@ -144,15 +144,23 @@ app.MapGet("/api/strikes/dates", async (IAmazonDynamoDB dynamo) =>
             [":from"]    = new AttributeValue { S = "2026-02-27" },
             [":success"] = new AttributeValue { S = "success" }
         },
-        ProjectionExpression = "run_id",
+        ProjectionExpression = "run_id, report_date",
     });
 
     await Task.WhenAll(strikesTask, syncsTask);
 
     IEnumerable<string> strikeDates = strikesTask.Result.Items.Select(item => item["date"].S);
     IEnumerable<string> syncDates   = syncsTask.Result.Items
-        .Where(item => item.ContainsKey("run_id") && item["run_id"].S.Length >= 10)
-        .Select(item => item["run_id"].S[..10]);
+        .Select(item =>
+        {
+            if (item.ContainsKey("report_date") && !string.IsNullOrEmpty(item["report_date"].S))
+                return item["report_date"].S;
+            if (item.ContainsKey("run_id") && item["run_id"].S.Length >= 10)
+                return item["run_id"].S[..10];
+            return null;
+        })
+        .Where(d => d != null)
+        .Select(d => d!);
 
     List<string> dates = strikeDates
         .Concat(syncDates)

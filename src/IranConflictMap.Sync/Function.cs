@@ -724,7 +724,37 @@ public class Function
         if (syncNotes is { Count: > 0 })
             item["sync_notes"] = new() { L = syncNotes.Select(n => new AttributeValue { S = n }).ToList() };
 
+        string? reportDate = ParseReportDateFromUrl(reportUrl);
+        if (!string.IsNullOrEmpty(reportDate))
+            item["report_date"] = new() { S = reportDate };
+
         await _dynamo.PutItemAsync(new PutItemRequest { TableName = SyncsTable, Item = item });
+    }
+
+    // Extracts YYYY-MM-DD from a CTP-ISW report URL.
+    // URL slugs always end with {month}-{day}-{year}, e.g. iran-update-april-13-2026.
+    internal static string? ParseReportDateFromUrl(string? url)
+    {
+        if (string.IsNullOrEmpty(url)) return null;
+
+        System.Text.RegularExpressions.Match m =
+            System.Text.RegularExpressions.Regex.Match(url, @"([a-z]+)-(\d{1,2})-(\d{4})$",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!m.Success) return null;
+
+        var months = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["january"] = "01", ["february"] = "02", ["march"]     = "03",
+            ["april"]   = "04", ["may"]       = "05", ["june"]      = "06",
+            ["july"]    = "07", ["august"]    = "08", ["september"] = "09",
+            ["october"] = "10", ["november"]  = "11", ["december"]  = "12"
+        };
+
+        if (!months.TryGetValue(m.Groups[1].Value, out string? month)) return null;
+
+        string day  = m.Groups[2].Value.PadLeft(2, '0');
+        string year = m.Groups[3].Value;
+        return $"{year}-{month}-{day}";
     }
 
     // ── SSM ───────────────────────────────────────────────────────────────────

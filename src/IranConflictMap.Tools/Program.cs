@@ -33,7 +33,8 @@ var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(S
     ["backfill-economic"]  = ("Backfill Brent price history from EIA API [--start yyyy-MM-dd] [--end yyyy-MM-dd] [--eia-key <key>] [--confirm]", BackfillEconomic),
     ["backfill-signals"]   = ("Backfill economic signals from historical CTP-ISW reports [--start yyyy-MM-dd] [--end yyyy-MM-dd] [--anthropic-key <key>] [--confirm]", BackfillSignals),
     ["stamp-signal-entity"] = ("Backfill entity='signal' on existing economic signals rows missing the attribute [--confirm]", StampSignalEntity),
-    ["normalize-actors"]    = ("Normalize actor field on all strikes to the canonical actor list [--confirm]", NormalizeActors)
+    ["normalize-actors"]      = ("Normalize actor field on all strikes to the canonical actor list [--confirm]", NormalizeActors),
+    ["backfill-report-date"]  = ("Backfill report_date on syncs-v2 records by parsing the report URL [--confirm]", BackfillReportDate)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -2194,6 +2195,120 @@ async Task NormalizeActors(string[] opts)
     }
 
     Console.WriteLine($"\nDone. {updated} row(s) updated.");
+}
+
+// ── backfill-report-date ──────────────────────────────────────────────────────
+
+async Task BackfillReportDate(string[] opts)
+{
+    bool confirm = opts.Contains("--confirm");
+    const string tableName = "syncs-v2";
+
+    IAmazonDynamoDB dynamo = BuildDynamoClient();
+
+    Console.WriteLine($"Table : {tableName}");
+    Console.WriteLine($"Mode  : {(confirm ? "LIVE — will write report_date" : "DRY RUN — pass --confirm to apply")}");
+    Console.WriteLine();
+
+    // Scan all records
+    var items    = new List<Dictionary<string, AttributeValue>>();
+    Dictionary<string, AttributeValue>? lastKey = null;
+    do
+    {
+        var req = new ScanRequest
+        {
+            TableName                 = tableName,
+            ProjectionExpression      = "report_url, run_id, report_date",
+            ExclusiveStartKey         = lastKey
+        };
+        ScanResponse resp = await dynamo.ScanAsync(req);
+        items.AddRange(resp.Items);
+        lastKey = resp.LastEvaluatedKey.Count > 0 ? resp.LastEvaluatedKey : null;
+    }
+    while (lastKey != null);
+
+    Console.WriteLine($"Found {items.Count} sync record(s).");
+    Console.WriteLine();
+
+    int alreadySet = 0, willUpdate = 0, cannotParse = 0;
+
+    foreach (Dictionary<string, AttributeValue> item in items)
+    {
+        string reportUrl = item.TryGetValue("report_url", out AttributeValue? urlAttr) ? urlAttr.S ?? "" : "";
+        string runId     = item.TryGetValue("run_id",     out AttributeValue? ridAttr) ? ridAttr.S ?? "" : "";
+
+        string? parsed = ParseReportDate(reportUrl);
+
+        string existing = item.TryGetValue("report_date", out AttributeValue? rdAttr) ? rdAttr.S ?? "" : "";
+
+        if (parsed == null)
+        {
+            cannotParse++;
+            Console.WriteLine($"  [skip/no-parse] run={runId[..Math.Min(runId.Length, 24)]}  url={reportUrl}");
+            continue;
+        }
+
+        if (existing == parsed)
+        {
+            alreadySet++;
+            Console.WriteLine($"  [ok]     run={runId[..Math.Min(runId.Length, 24)]}  report_date={parsed}");
+            continue;
+        }
+
+        string marker = existing == "" ? "[add]    " : "[update] ";
+        Console.WriteLine($"  {marker} run={runId[..Math.Min(runId.Length, 24)]}  report_date={parsed}{(existing != "" ? $"  (was {existing})" : "")}");
+        willUpdate++;
+
+        if (confirm)
+        {
+            await dynamo.UpdateItemAsync(new UpdateItemRequest
+            {
+                TableName        = tableName,
+                Key              = new Dictionary<string, AttributeValue>
+                {
+                    ["report_url"] = new() { S = reportUrl },
+                    ["run_id"]     = new() { S = runId }
+                },
+                UpdateExpression          = "SET report_date = :d",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":d"] = new() { S = parsed }
+                }
+            });
+        }
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"Already correct : {alreadySet}");
+    Console.WriteLine($"Updated         : {willUpdate}{(confirm ? "" : " (dry run)")}");
+    Console.WriteLine($"Could not parse : {cannotParse}");
+
+    if (!confirm && willUpdate > 0)
+        Console.WriteLine("\nRe-run with --confirm to apply.");
+}
+
+static string? ParseReportDate(string? url)
+{
+    if (string.IsNullOrEmpty(url)) return null;
+
+    System.Text.RegularExpressions.Match m =
+        System.Text.RegularExpressions.Regex.Match(url, @"([a-z]+)-(\d{1,2})-(\d{4})$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    if (!m.Success) return null;
+
+    var months = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["january"] = "01", ["february"] = "02", ["march"]     = "03",
+        ["april"]   = "04", ["may"]       = "05", ["june"]      = "06",
+        ["july"]    = "07", ["august"]    = "08", ["september"] = "09",
+        ["october"] = "10", ["november"]  = "11", ["december"]  = "12"
+    };
+
+    if (!months.TryGetValue(m.Groups[1].Value, out string? month)) return null;
+
+    string day  = m.Groups[2].Value.PadLeft(2, '0');
+    string year = m.Groups[3].Value;
+    return $"{year}-{month}-{day}";
 }
 
 // ── AWS Client Builders ───────────────────────────────────────────────────────
