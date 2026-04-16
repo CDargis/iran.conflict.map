@@ -2292,7 +2292,7 @@ static string? ParseReportDate(string? url)
     if (string.IsNullOrEmpty(url)) return null;
 
     System.Text.RegularExpressions.Match m =
-        System.Text.RegularExpressions.Regex.Match(url, @"([a-z]+)-(\d{1,2})-(\d{4})$",
+        System.Text.RegularExpressions.Regex.Match(url, @"([a-z]+)-(\d{1,2})-(\d{4})",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     if (!m.Success) return null;
 
