@@ -34,7 +34,8 @@ var commands = new Dictionary<string, (string desc, Func<string[], Task> run)>(S
     ["backfill-signals"]   = ("Backfill economic signals from historical CTP-ISW reports [--start yyyy-MM-dd] [--end yyyy-MM-dd] [--anthropic-key <key>] [--confirm]", BackfillSignals),
     ["stamp-signal-entity"] = ("Backfill entity='signal' on existing economic signals rows missing the attribute [--confirm]", StampSignalEntity),
     ["normalize-actors"]      = ("Normalize actor field on all strikes to the canonical actor list [--confirm]", NormalizeActors),
-    ["backfill-report-date"]  = ("Backfill report_date on syncs-v2 records by parsing the report URL [--confirm]", BackfillReportDate)
+    ["backfill-report-date"]  = ("Backfill report_date on syncs-v2 records by parsing the report URL [--confirm]", BackfillReportDate),
+    ["backfill-brent"]        = ("Overwrite bad Brent price rows in DynamoDB using Oil Price API historical data [--api-key <key>] [--start yyyy-MM-dd] [--end yyyy-MM-dd] [--confirm]", BackfillBrent)
 };
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -2309,6 +2310,144 @@ static string? ParseReportDate(string? url)
     string day  = m.Groups[2].Value.PadLeft(2, '0');
     string year = m.Groups[3].Value;
     return $"{year}-{month}-{day}";
+}
+
+// ── backfill-brent ────────────────────────────────────────────────────────────
+
+async Task BackfillBrent(string[] opts)
+{
+    string startStr = GetFlag(ref opts, "--start") ?? "2026-04-17";
+    string endStr   = GetFlag(ref opts, "--end")   ?? DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd");
+    bool confirm    = opts.Contains("--confirm");
+
+    if (!DateTime.TryParse(startStr, out DateTime startDate) || !DateTime.TryParse(endStr, out DateTime endDate))
+    {
+        Console.WriteLine("ERROR: --start and --end must be valid dates (yyyy-MM-dd)");
+        return;
+    }
+
+    if (startDate > endDate)
+    {
+        Console.WriteLine("ERROR: --start must be before or equal to --end");
+        return;
+    }
+
+    const string tableName = "iran-conflict-map-brent-prices";
+
+    string? apiKey = GetFlag(ref opts, "--api-key");
+    if (string.IsNullOrEmpty(apiKey))
+    {
+        Console.WriteLine("ERROR: --api-key is required");
+        Console.WriteLine("Usage: backfill-brent --api-key <key> [--start yyyy-MM-dd] [--end yyyy-MM-dd] [--confirm]");
+        return;
+    }
+
+    // Oil Price API — past_month returns daily Brent prices for the last 30 days
+    Console.WriteLine($"Fetching Brent prices from Oil Price API: {startStr} → {endStr}");
+
+    string url = "https://api.oilpriceapi.com/v1/prices/past_month?by_code=BRENT_CRUDE_USD&by_type=spot_price&interval=1d";
+
+    using HttpClient http = new();
+    http.DefaultRequestHeaders.Add("Authorization", $"Token {apiKey}");
+    http.DefaultRequestHeaders.Add("Accept", "application/json");
+
+    HttpResponseMessage response = await http.GetAsync(url);
+    response.EnsureSuccessStatusCode();
+    string json = await response.Content.ReadAsStringAsync();
+
+    using JsonDocument doc = JsonDocument.Parse(json);
+    JsonElement prices = doc.RootElement.GetProperty("data").GetProperty("prices");
+
+    // Build a lookup: date string → price
+    Dictionary<string, decimal> priceByDate = new();
+    foreach (JsonElement entry in prices.EnumerateArray())
+    {
+        string createdAt = entry.GetProperty("created_at").GetString()!;
+        string date      = createdAt[..10];   // yyyy-MM-dd prefix
+        decimal price    = entry.GetProperty("price").GetDecimal();
+        // Keep the latest entry per date if duplicates exist
+        priceByDate[date] = price;
+    }
+
+    Console.WriteLine($"Oil Price API returned {priceByDate.Count} day(s)");
+
+    // Collect dates in range
+    List<string> dates = new();
+    for (DateTime d = startDate; d <= endDate; d = d.AddDays(1))
+        dates.Add(d.ToString("yyyy-MM-dd"));
+
+    // Preview what we'll do
+    Console.WriteLine();
+    foreach (string date in dates)
+    {
+        if (priceByDate.TryGetValue(date, out decimal price))
+            Console.WriteLine($"  {date}  → ${price:F2}  (delete existing rows + insert)");
+        else
+            Console.WriteLine($"  {date}  → no trading data (skip)");
+    }
+    Console.WriteLine();
+
+    if (!confirm)
+    {
+        Console.WriteLine($"Dry run. Pass --confirm to execute.");
+        return;
+    }
+
+    IAmazonDynamoDB dynamo = BuildDynamoClient();
+    int written = 0, skipped = 0;
+
+    foreach (string date in dates)
+    {
+        if (!priceByDate.TryGetValue(date, out decimal price))
+        {
+            skipped++;
+            continue;
+        }
+
+        // Query all existing rows for this date and delete them
+        QueryResponse existing = await dynamo.QueryAsync(new QueryRequest
+        {
+            TableName                 = tableName,
+            KeyConditionExpression    = "#d = :date",
+            ProjectionExpression      = "#d, #ts",
+            ExpressionAttributeNames  = new Dictionary<string, string> { ["#d"] = "date", ["#ts"] = "timestamp" },
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue> { [":date"] = new AttributeValue { S = date } },
+        });
+
+        if (existing.Items.Count > 0)
+        {
+            List<Dictionary<string, AttributeValue>> keys = existing.Items
+                .Select(item => new Dictionary<string, AttributeValue>
+                {
+                    ["date"]      = item["date"],
+                    ["timestamp"] = item["timestamp"],
+                })
+                .ToList();
+
+            await BatchDelete(dynamo, tableName, keys);
+            Console.WriteLine($"  deleted {existing.Items.Count} stale row(s) for {date}");
+        }
+
+        // Insert one row with a sentinel midnight timestamp
+        string timestamp = $"{date}T00:00:00Z";
+        await dynamo.PutItemAsync(new PutItemRequest
+        {
+            TableName = tableName,
+            Item      = new Dictionary<string, AttributeValue>
+            {
+                ["date"]        = new AttributeValue { S = date },
+                ["timestamp"]   = new AttributeValue { S = timestamp },
+                ["brent_price"] = new AttributeValue { N = price.ToString("F2") },
+                ["currency"]    = new AttributeValue { S = "USD" },
+            }
+        });
+
+        Console.WriteLine($"  wrote   {date}  ${price:F2}");
+        written++;
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"Done. {written} written, {skipped} skipped (no trading data).");
 }
 
 // ── AWS Client Builders ───────────────────────────────────────────────────────

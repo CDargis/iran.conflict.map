@@ -532,7 +532,7 @@ public class IranConflictMapStack : Stack
         var brentSchedule = new Rule(this, "BrentSchedule", new RuleProps
         {
             RuleName = "iran-conflict-map-brent-schedule",
-            Schedule = Schedule.Rate(Duration.Hours(8)),
+            Schedule = Schedule.Cron(new CronOptions { Minute = "0", Hour = "0,5,10,15,20" }),
         });
         brentSchedule.AddTarget(new Amazon.CDK.AWS.Events.Targets.LambdaFunction(brentLambda));
 

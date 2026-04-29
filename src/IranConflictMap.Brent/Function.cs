@@ -13,11 +13,11 @@ namespace IranConflictMap.Brent;
 
 public class Function
 {
-    private readonly IAmazonDynamoDB          _dynamo;
-    private readonly IAmazonSimpleSystemsManagement _ssm;
-    private readonly HttpClient               _http;
-    private readonly string                   _brentTableName;
-    private readonly string                   _brentApiKeyParam;
+    private readonly IAmazonDynamoDB                     _dynamo;
+    private readonly IAmazonSimpleSystemsManagement      _ssm;
+    private readonly HttpClient                          _http;
+    private readonly string                              _brentTableName;
+    private readonly string                              _brentApiKeyParam;
 
     // API key is fetched once per cold start and cached for the Lambda lifetime.
     private string? _apiKey;
@@ -43,12 +43,10 @@ public class Function
         }
 
         decimal price;
-        string  createdAt;
-        List<BrentPrediction> predictions;
 
         try
         {
-            (price, createdAt, predictions) = await FetchBrentPriceAsync(context);
+            price = await FetchBrentPriceAsync(context);
         }
         catch (Exception ex)
         {
@@ -59,37 +57,19 @@ public class Function
         string fetchedAt = DateTime.UtcNow.ToString("o");
         string date      = DateTime.UtcNow.ToString("yyyy-MM-dd");
 
-        Dictionary<string, AttributeValue> item = new()
-        {
-            ["date"]        = new AttributeValue { S = date },
-            ["timestamp"]   = new AttributeValue { S = fetchedAt },
-            ["brent_price"] = new AttributeValue { N = price.ToString("F2") },
-            ["currency"]    = new AttributeValue { S = "USD" },
-        };
-
-        if (predictions.Count > 0)
-        {
-            item["predictions"] = new AttributeValue
-            {
-                L = predictions.Select(p => new AttributeValue
-                {
-                    M = new Dictionary<string, AttributeValue>
-                    {
-                        ["period"] = new AttributeValue { S = p.Period },
-                        ["value"]  = new AttributeValue { N = p.Value  },
-                        ["unit"]   = new AttributeValue { S = p.Unit   },
-                    }
-                }).ToList()
-            };
-        }
-
         await _dynamo.PutItemAsync(new PutItemRequest
         {
             TableName = _brentTableName,
-            Item      = item,
+            Item      = new Dictionary<string, AttributeValue>
+            {
+                ["date"]        = new AttributeValue { S = date },
+                ["timestamp"]   = new AttributeValue { S = fetchedAt },
+                ["brent_price"] = new AttributeValue { N = price.ToString("F2") },
+                ["currency"]    = new AttributeValue { S = "USD" },
+            }
         });
 
-        context.Logger.LogInformation($"Wrote Brent price ${price:F2} for {date} (fetched_at: {createdAt})");
+        context.Logger.LogInformation($"Wrote Brent price ${price:F2} for {date}");
     }
 
     private async Task<string?> FetchApiKeyAsync(ILambdaContext context)
@@ -110,54 +90,35 @@ public class Function
         }
     }
 
-    private async Task<(decimal price, string createdAt, List<BrentPrediction> predictions)> FetchBrentPriceAsync(ILambdaContext context)
+    private async Task<decimal> FetchBrentPriceAsync(ILambdaContext context)
     {
-        using HttpRequestMessage request = new(HttpMethod.Get, "https://www.crudepriceapi.com/api/prices/latest");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+        using HttpRequestMessage request = new(HttpMethod.Get, "https://api.oilpriceapi.com/v1/prices/latest");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Token", _apiKey);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         using HttpResponseMessage response = await _http.SendAsync(request);
         response.EnsureSuccessStatusCode();
 
         string json = await response.Content.ReadAsStringAsync();
-        context.Logger.LogInformation($"Crude Price API response: {json}");
+        context.Logger.LogInformation($"Oil Price API response: {json}");
 
-        CrudePriceResponse parsed = JsonSerializer.Deserialize<CrudePriceResponse>(
+        OilPriceResponse parsed = JsonSerializer.Deserialize<OilPriceResponse>(
             json,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
-        ) ?? throw new InvalidOperationException("Null response from Crude Price API");
+        ) ?? throw new InvalidOperationException("Null response from Oil Price API");
 
         if (parsed.Status != "success" || parsed.Data is null)
-            throw new InvalidOperationException($"Crude Price API returned status '{parsed.Status}'");
+            throw new InvalidOperationException($"Oil Price API returned status '{parsed.Status}'");
 
-        decimal price = decimal.Parse(parsed.Data.Price);
-
-        List<BrentPrediction> predictions = parsed.Data.NextTwoMonthsPredictions?
-            .Select(p => new BrentPrediction(p.Period, p.Value, p.Unit))
-            .ToList() ?? new List<BrentPrediction>();
-
-        return (price, parsed.Data.CreatedAt, predictions);
+        return parsed.Data.Price;
     }
 }
 
-// ── Response models (matches crudepriceapi.com shape) ─────────────────────────
-record CrudePriceResponse(
+record OilPriceResponse(
     [property: JsonPropertyName("status")] string Status,
-    [property: JsonPropertyName("data")]   CrudePriceData? Data
+    [property: JsonPropertyName("data")]   OilPriceData? Data
 );
 
-record CrudePriceData(
-    [property: JsonPropertyName("price")]                      string Price,
-    [property: JsonPropertyName("currency")]                   string Currency,
-    [property: JsonPropertyName("created_at")]                 string CreatedAt,
-    [property: JsonPropertyName("next_two_months_predictions")] List<CrudePricePredictionRaw>? NextTwoMonthsPredictions
+record OilPriceData(
+    [property: JsonPropertyName("price")] decimal Price
 );
-
-record CrudePricePredictionRaw(
-    [property: JsonPropertyName("period")] string Period,
-    [property: JsonPropertyName("value")]  string Value,
-    [property: JsonPropertyName("unit")]   string Unit
-);
-
-// Internal clean model (all strings to match DynamoDB N type storage)
-record BrentPrediction(string Period, string Value, string Unit);
