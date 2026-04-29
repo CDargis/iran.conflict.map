@@ -16,6 +16,7 @@
 | Sync | `IranConflictMap.Sync` | SQS (report queue) | Fetch report page, call Claude, stamp GUIDs, enqueue |
 | Processor | `IranConflictMap.Lambda` | SQS (processor queue) | Write events to DynamoDB, route ambiguous to review |
 | API | `IranConflictMap.Api` | API Gateway HTTP API | Serve /api/* endpoints |
+| Brent | `IranConflictMap.Brent` | EventBridge cron (0,5,10,15,20 UTC) | Fetch Brent crude spot price, write to DynamoDB |
 
 ### Infrastructure (CDK)
 - `src/IranConflictMap/IranConflictMapStack.cs` — all AWS resources defined here
@@ -105,8 +106,17 @@
 - Route 53 A record → CloudFront ALIAS
 - ACM certificate (us-east-1) — auto-validated via DNS
 - SES receipt rule set → S3
-- EventBridge rules: S3 ObjectCreated → Extract; 3h schedule → Extract
-- SSM Parameters: `anthropic_api_key`, `last_synced`, `sync_key`
+- EventBridge rules: S3 ObjectCreated → Extract; 3h schedule → Extract; cron(0,5,10,15,20) → Brent
+- SSM Parameters: `anthropic_api_key`, `last_synced`, `sync_key`, `brent_api_key`
+
+---
+
+## External APIs
+
+| Service | Purpose | Auth | Tier |
+|---|---|---|---|
+| Anthropic Claude Sonnet 4.6 | Strike event extraction from report text | API key (SSM) | Paid |
+| [oilpriceapi.com](https://docs.oilpriceapi.com/api-reference/) | Brent crude spot price (`/v1/prices/latest`, `/v1/prices/past_month`) | Token (SSM) | Free (200 req/month) |
 
 ---
 

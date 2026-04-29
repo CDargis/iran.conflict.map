@@ -161,6 +161,19 @@ returning unbounded data. Per-date fetch is cheap (single PK query) and scales w
 
 ---
 
+## Brent price source: oilpriceapi.com (not crudepriceapi.com)
+
+**Decision**: Use oilpriceapi.com for Brent crude spot price data.
+
+**Why**: Original provider (crudepriceapi.com) served stale data ($89.18) for ~12 days
+starting 2026-04-17 while stamping a fresh `created_at` on every response, making the
+staleness undetectable from the API response alone. Provider did not respond to support
+contact. Evaluated Twelve Data (Brent not on free tier), Yahoo Finance BZ=F (price
+incorrect vs. real market), and EIA (1-2 day lag, unacceptable). oilpriceapi.com free
+tier provides 200 req/month; at 5 req/day (~155/month) we stay well within limit.
+
+---
+
 ## Deploy date injected at CDK synth time
 
 **Decision**: CDK injects the current date into the frontend HTML as a static string during
