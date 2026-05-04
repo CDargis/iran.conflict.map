@@ -732,15 +732,10 @@ public class Function
     }
 
     // Extracts YYYY-MM-DD from a CTP-ISW report URL.
-    // URL slugs always end with {month}-{day}-{year}, e.g. iran-update-april-13-2026.
+    // Handles slugs with year (iran-update-april-13-2026) and without (iran-update-evening-special-report-may-3).
     internal static string? ParseReportDateFromUrl(string? url)
     {
         if (string.IsNullOrEmpty(url)) return null;
-
-        System.Text.RegularExpressions.Match m =
-            System.Text.RegularExpressions.Regex.Match(url, @"([a-z]+)-(\d{1,2})-(\d{4})",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        if (!m.Success) return null;
 
         var months = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -750,11 +745,30 @@ public class Function
             ["october"] = "10", ["november"]  = "11", ["december"]  = "12"
         };
 
-        if (!months.TryGetValue(m.Groups[1].Value, out string? month)) return null;
+        // Try month-day-year first (standard slug)
+        System.Text.RegularExpressions.Match m =
+            System.Text.RegularExpressions.Regex.Match(url, @"([a-z]+)-(\d{1,2})-(\d{4})",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (m.Success && months.TryGetValue(m.Groups[1].Value, out string? month))
+        {
+            string day  = m.Groups[2].Value.PadLeft(2, '0');
+            string year = m.Groups[3].Value;
+            return $"{year}-{month}-{day}";
+        }
 
-        string day  = m.Groups[2].Value.PadLeft(2, '0');
-        string year = m.Groups[3].Value;
-        return $"{year}-{month}-{day}";
+        // Fall back to month-day at end of URL path (no year in slug — infer current UTC year)
+        string path = new Uri(url).AbsolutePath.TrimEnd('/');
+        System.Text.RegularExpressions.Match m2 =
+            System.Text.RegularExpressions.Regex.Match(path, @"([a-z]+)-(\d{1,2})$",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (m2.Success && months.TryGetValue(m2.Groups[1].Value, out string? month2))
+        {
+            string day2  = m2.Groups[2].Value.PadLeft(2, '0');
+            string year2 = DateTime.UtcNow.Year.ToString();
+            return $"{year2}-{month2}-{day2}";
+        }
+
+        return null;
     }
 
     // ── SSM ───────────────────────────────────────────────────────────────────
