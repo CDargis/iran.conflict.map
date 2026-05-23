@@ -180,3 +180,26 @@ tier provides 200 req/month; at 5 req/day (~155/month) we stay well within limit
 BucketDeployment.
 
 **Why**: Provides a visible "last deployed" indicator in the UI without a runtime API call.
+
+---
+
+## Project shutdown (2026-05-23)
+
+**Decision**: Full AWS teardown. Conflict activity slowed to the point where the project
+no longer justified running costs.
+
+**DynamoDB backups taken before destroy**:
+- `strikes` → backup name: `strikes-shutdown-2026-05-23`
+- `syncs-v2` → backup name: `syncs-v2-shutdown-2026-05-23`
+- Backup ARNs recorded in `C:\secrets\conflict.map.txt`
+
+**SSM parameter values** saved to `C:\secrets\conflict.map.txt` before stack destroy.
+
+**To restart**:
+1. Restore DynamoDB tables from backups (ARNs in secrets file)
+2. Re-provision SSM parameters from secrets file
+3. Upgrade all Lambda projects from .NET 8 → .NET 10 (next LTS)
+4. `cdk deploy --all`
+5. Re-subscribe `criticalthreats@aei.org` to SES receipt rule
+6. Investigate 2026-05-21 sync failure before going live — check DLQ and `syncs-v2`
+   for that date's run to determine root cause
